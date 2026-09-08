@@ -1,0 +1,7 @@
+extends: alma-7b-r.yaml
+name: alma-7b-r-bnb-int8
+baseline: alma-7b-r
+quantization:
+  method: bitsandbytes
+  load_in_8bit: true
+notes: LLM.int8() weight-activation quantization with outlier handling in fp16.

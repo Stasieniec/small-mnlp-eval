@@ -1,0 +1,11 @@
+# Smallest useful end-to-end suite. Runs on 6 GB of VRAM in about a minute.
+name: smoke-de-en
+data:
+  dataset: haoranxu/WMT22-Test
+  directions: [de-en]
+  limit: 32
+decode:
+  num_beams: 4
+  max_new_tokens: 128
+  max_source_length: 256
+  batch_size: 8

@@ -1,0 +1,7 @@
+# Multilingual reference MT system covering all six evaluation directions.
+name: nllb-600m
+loader: nllb
+prompt: passthrough
+model_name_or_path: facebook/nllb-200-distilled-600M
+dtype: float16
+notes: Sanity reference and a size-matched point of comparison for students.

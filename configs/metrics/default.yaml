@@ -1,0 +1,8 @@
+# Default metric set. Everything here is ungated and runs on a single GPU
+# with 6 GB of VRAM, so it works locally as well as on the cluster.
+groups: [surface, neural]
+comet_models:
+  - Unbabel/wmt22-comet-da
+comet_batch_size: 32
+bootstrap_samples: 1000
+compute_ter: false

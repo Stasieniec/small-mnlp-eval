@@ -1,0 +1,25 @@
+# COMET scoring environment.
+#
+# Separate from the generation environment because unbabel-comet pins
+# numpy<2.0.0, torchmetrics<0.11.0 (a 2022 release), jsonargparse==3.13.1 and
+# protobuf<5.0.0. Those cannot coexist with a current transformers and torch
+# stack, and letting pip resolve them into one environment silently downgrades
+# numpy underneath the generation code.
+#
+# Create with:
+#   uv venv --python 3.11 .venv-comet
+#   uv pip install --python .venv-comet/bin/python -r envs/comet-requirements.txt
+#
+# Then score with:
+#   .venv-comet/bin/mnlp-eval score --run <run dir> --groups neural
+#
+# COMETKiwi and XCOMET are gated on the Hub. Accept their licences and export
+# HF_TOKEN before prefetching them.
+unbabel-comet>=2.2.7,<3
+# torchmetrics<0.11 (which unbabel-comet pins) imports pkg_resources at module
+# load time. setuptools 81 removed it, so without this pin the environment
+# installs cleanly and then fails with ModuleNotFoundError on 'import comet'.
+setuptools<81
+# The framework itself, whose core dependencies are deliberately tiny so it can
+# be installed alongside these pins.
+-e .[surface]

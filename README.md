@@ -1,0 +1,192 @@
+# small-mnlp-eval
+
+Quality and efficiency evaluation for compressed machine translation LLMs.
+
+This is the shared evaluation harness for a model-compression project on the
+[ALMA](https://github.com/fe1ixxu/ALMA) translation models. Compression work
+(quantization, pruning, knowledge distillation) happens elsewhere; this
+repository decides whether a compressed model is any good, and reports the cost
+it saved to get there.
+
+The design goal is that a compressed checkpoint becomes a fully evaluated
+system by adding one YAML file, and that any two systems in the same table are
+guaranteed to have been measured the same way.
+
+## What it measures
+
+**Translation quality**, following ALMA's own evaluation protocol so numbers
+stay comparable with the published baselines:
+
+- sacreBLEU BLEU and chrF++, with full signatures recorded
+- COMET-22 (`Unbabel/wmt22-comet-da`), the primary metric
+- COMETKiwi, reference-free
+- XCOMET-XL and MetricX-24-Hybrid, the WMT24 metrics task winners
+- paired bootstrap significance against a named baseline run
+
+**Behavioural failure modes**, which averaged quality scores hide:
+
+- empty output rate
+- off-target language rate, the classic collapse mode of compressed
+  multilingual models
+- source-copy rate
+- hypothesis to reference length ratio
+- truncation rate and degenerate-repetition rate
+
+**Efficiency**, using the metric set from the course reference survey
+(Zhu et al., "A Survey on Model Compression for Large Language Models"):
+
+- parameter count, checkpoint size on disk, and resident VRAM, reported as
+  three separate compression ratios because they diverge
+- peak memory, time to first token, per-sentence latency, decode throughput
+- speedup ratio against the baseline
+- analytic FLOPs and model FLOPs utilisation
+
+## Why there are three environments
+
+`unbabel-comet` pins `numpy<2` and `torchmetrics<0.11`. MetricX pins
+`transformers==4.30.2`. Neither can share a process with a current generation
+stack. So the pipeline is four stages joined by files on disk, not by function
+calls:
+
+```
+generate  (GPU, gen env)      ->  runs/<run_id>/hyps/*.jsonl
+bench     (GPU, gen env)      ->  runs/<run_id>/bench.json
+score     (GPU, metric env)   ->  runs/<run_id>/scores.<group>.json
+report    (CPU, any env)      ->  reports/
+```
+
+This is a constraint rather than a preference, but it pays for itself: an old
+run can be re-scored with a new metric without regenerating anything, and
+scoring runs as its own Slurm job. See [docs/environments.md](docs/environments.md).
+
+## Quickstart
+
+```bash
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -e ".[gen,surface,dev]"
+
+# End to end on a small local slice. Runs on 6 GB of VRAM in about a minute
+# and asserts the results are sane, so a broken pipeline cannot pass as a bad
+# model.
+./scripts/smoke_local.sh
+```
+
+Then, for a real evaluation:
+
+```bash
+# Generate, measure efficiency, and score surface metrics in one command.
+.venv/bin/mnlp-eval run --model configs/models/alma-7b-r.yaml \
+                        --suite configs/suites/wmt22-6dir-beam5.yaml
+
+# Neural metrics live in their own environment. See docs/environments.md.
+.venv-comet/bin/mnlp-eval score --groups neural
+
+.venv/bin/mnlp-eval report --baseline alma-7b-r --formats md,csv,tex
+```
+
+`mnlp-eval info` prints what the current environment can do. On Snellius, see
+[slurm/README.md](slurm/README.md).
+
+## What a result looks like
+
+Casting the reference MT system to fp16, measured on this repository:
+
+| System | BLEU | COMET-22 | Resident | Bits/param | Compression (disk) | Compression (VRAM) | tok/s b1 | tok/s b8 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| opus-mt-de-en | 31.89 | 0.8237 | 284.60 MiB | 32.08 | 1.00x | 1.00x | 311.6 | 1721.5 |
+| opus-mt-de-en-fp16 | 31.94 | 0.8243 | 142.04 MiB | 16.01 | 1.00x | 2.00x | 288.3 | 2031.7 |
+
+Three things in that table are the reason the framework is built the way it is:
+
+- The disk ratio reads 1.00x while the VRAM ratio reads 2.00x, because the cast
+  happens at load time and the checkpoint is untouched. Reporting a single
+  compression ratio would have been misleading either way.
+- fp16 is **slower** at batch size 1 and **faster** at batch size 8. Batch
+  size 1 is memory-bandwidth bound and batch 8 is compute bound, so a single
+  batch size would have supported either conclusion.
+- The quality difference is not significant: the paired bootstrap gives
+  p = 0.169 for BLEU and p = 0.186 for COMET-22, so the framework reports it as
+  indistinguishable rather than as an improvement.
+
+## Adding your model
+
+Most models need no code. Write a YAML file in `configs/models/`:
+
+```yaml
+name: alma-7b-r-bnb-nf4
+loader: hf_causal
+prompt: alma
+model_name_or_path: haoranxu/ALMA-7B-R
+dtype: bfloat16
+quantization:
+  method: bitsandbytes
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_compute_dtype: bfloat16
+```
+
+A model that needs custom modelling code, as most pruning does, supplies one
+function instead:
+
+```yaml
+name: alma-7b-wanda-50
+loader: custom
+prompt: alma
+entrypoint: recipes.wanda:load     # load(**kwargs) -> (model, tokenizer)
+kwargs:
+  sparsity: 0.5
+  checkpoint: /scratch-shared/$USER/wanda-50
+```
+
+Full details in [docs/plugging-in-a-model.md](docs/plugging-in-a-model.md).
+
+## The comparability contract
+
+A compression comparison is worthless if the systems were not measured
+identically, so the framework enforces this rather than documenting it:
+
+- a run's identity is a hash of the model, data, and decode specifications, so
+  changing any of them produces a different run rather than overwriting one
+- the prompt template is fingerprinted and the fingerprint is stored
+- `do_sample` is false unless explicitly enabled, and sampling parameters are
+  rejected when it is off
+- `report` refuses to place two runs in the same table when their decode
+  specifications differ
+
+See [docs/protocol.md](docs/protocol.md) for the full protocol, including the
+efficiency measurement procedure.
+
+## Layout
+
+```
+src/mnlp_eval/         the package: config, data, models, metrics, bench, report
+configs/models/        one file per system, including compression variants
+configs/suites/        test set plus decode settings
+configs/metrics/       which metrics, which checkpoints
+recipes/               loaders for models that need their own code
+envs/                  requirements for the COMET and MetricX environments
+slurm/                 Snellius job scripts and a submit_sweep driver
+scripts/               smoke test, ALMA reproduction, style guard
+docs/                  environments, plugin contract, evaluation protocol
+tests/                 no GPU, no network, no weights
+```
+
+## Verification
+
+- `./scripts/smoke_local.sh` runs all four stages on 6 GB and asserts the
+  results are plausible, including that fp32 reads 32 bits per parameter and
+  fp16 reads 16.
+- `mnlp-eval verify-testset` confirms the Hub test sets match ALMA's committed
+  `human_written_data` files segment by segment. All six default directions
+  match: de-en 1984, en-de 2037, ru-en 2016, en-ru 2037, is-en 1000, en-is 1000.
+- `./scripts/reproduce_alma_baseline.sh` reproduces ALMA-7B-R on all ten WMT22
+  directions and prints scores to compare against the published table. Until
+  that delta is known, every compression result here rests on an unverified
+  harness.
+- `pytest tests/` needs no GPU, network or model weights, and runs in seconds.
+
+## Repository conventions
+
+No emojis and no em-dashes, anywhere. `scripts/check_style.py` enforces this
+and CI runs it. Commit messages and pull requests must not credit AI agents as
+authors or co-authors. See [CONTRIBUTING.md](CONTRIBUTING.md).

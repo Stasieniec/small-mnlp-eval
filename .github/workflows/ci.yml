@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # Deliberately without the generation extra. The core package depends
+      # only on pyyaml and every heavy import is lazy, so the whole test suite
+      # runs without torch. Installing it would add minutes for no coverage.
+      - name: Install
+        run: |
+          uv venv --python 3.11
+          uv pip install -e ".[surface,dev]"
+
+      - name: Lint
+        run: |
+          uv run ruff check src tests scripts recipes
+          uv run ruff format --check src tests scripts recipes
+
+      - name: Types
+        run: uv run mypy
+
+      - name: Tests
+        run: uv run pytest tests/ -q -m "not gpu and not network and not slow"
+
+      - name: Style guard
+        run: uv run python scripts/check_style.py
