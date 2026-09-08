@@ -1,0 +1,12 @@
+# Half precision applied to the reference MT system.
+#
+# Ships as a worked example of the two things a compression variant needs: an
+# `extends` pointing at the uncompressed spec, so only the difference is
+# spelled out, and a `baseline` naming the system it should be compared and
+# ratioed against. It is also a genuine, if mild, compression result: 2x on
+# disk and in VRAM, and quality that should be statistically indistinguishable.
+extends: opus-mt-de-en.yaml
+name: opus-mt-de-en-fp16
+baseline: opus-mt-de-en
+dtype: float16
+notes: fp16 weight-only, no calibration. Expected to be quality neutral.

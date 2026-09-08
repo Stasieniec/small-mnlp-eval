@@ -1,0 +1,12 @@
+# The uncompressed baseline and the compression target.
+# ALMA-R has its LoRA merged in, so it loads as a plain causal LM and needs no
+# chat template. Its generation_config.json is inherited from Llama 2 and
+# enables sampling; the framework overrides that explicitly.
+name: alma-7b-r
+loader: hf_causal
+prompt: alma
+model_name_or_path: haoranxu/ALMA-7B-R
+dtype: bfloat16
+notes: >
+  Reference system. Every compression variant should declare
+  baseline: alma-7b-r so the report can compute ratios against it.

@@ -1,0 +1,15 @@
+# Headline suite. Matches ALMA's evaluation settings, so scores are comparable
+# with the published tables. Six directions spanning high resource (de),
+# mid resource (ru) and low resource (is), which is where compression should
+# hurt most. 10,074 segments per system, roughly 3 to 6 A100-hours for a 7B
+# model at beam 5.
+name: wmt22-6dir-beam5
+data:
+  dataset: haoranxu/WMT22-Test
+  directions: [de-en, en-de, ru-en, en-ru, is-en, en-is]
+decode:
+  num_beams: 5
+  max_new_tokens: 256
+  max_source_length: 256
+  batch_size: 4
+  seed: 42

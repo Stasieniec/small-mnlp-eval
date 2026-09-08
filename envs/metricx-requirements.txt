@@ -1,0 +1,18 @@
+# MetricX-24 scoring environment.
+#
+# Separate from both other environments because upstream pins
+# transformers==4.30.2 and datasets==2.13.1. Only the model class is imported
+# from upstream; batching lives in mnlp_eval.metrics.metricx, so the pinned
+# data stack stays out of the hot path.
+#
+# Create with:
+#   uv venv --python 3.11 .venv-metricx
+#   uv pip install --python .venv-metricx/bin/python -r envs/metricx-requirements.txt
+#
+# Then score with:
+#   .venv-metricx/bin/mnlp-eval score --run <run dir> --groups metricx
+#
+# MetricX-24-Hybrid-Large needs roughly 5 GB in bfloat16. The XL and XXL
+# variants need an A100-class GPU.
+metricx @ git+https://github.com/google-research/metricx.git
+-e .[surface]

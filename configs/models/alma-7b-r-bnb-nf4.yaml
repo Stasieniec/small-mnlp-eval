@@ -1,0 +1,14 @@
+# 4-bit weight-only quantization applied at load time.
+# Note that bitsandbytes quantizes on load, so the on-disk checkpoint is
+# unchanged and the disk-based compression ratio will read as 1.0 while the
+# VRAM ratio drops. The report shows all three ratios for exactly this reason.
+extends: alma-7b-r.yaml
+name: alma-7b-r-bnb-nf4
+baseline: alma-7b-r
+quantization:
+  method: bitsandbytes
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_use_double_quant: true
+  bnb_4bit_compute_dtype: bfloat16
+notes: Post-training weight-only 4-bit NF4, no calibration data.

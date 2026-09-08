@@ -1,0 +1,9 @@
+# Small prompted causal LM. Exercises the ALMA prompt and the output-parsing
+# path on hardware that cannot hold a 7B model. Translation quality is poor by
+# design; this config exists to test plumbing, not to be compared with ALMA.
+name: qwen2.5-0.5b-instruct
+loader: hf_causal
+prompt: alma
+model_name_or_path: Qwen/Qwen2.5-0.5B-Instruct
+dtype: float16
+notes: Local plumbing test for the prompted decoder-only path.

@@ -1,0 +1,39 @@
+# Environments. There are three of them, see docs/environments.md.
+.venv/
+.venv-comet/
+.venv-metricx/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Evaluation artifacts. Run directories hold hypotheses, scores and manifests
+# rather than weights, so they are small, but they are outputs and not source.
+runs/
+runs-*/
+reports/
+reports-*/
+outputs/
+slurm-logs/
+*.log
+slurm-*.out
+
+# Local caches
+.cache/
+hf_home/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+.DS_Store

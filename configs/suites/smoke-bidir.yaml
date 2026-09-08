@@ -1,0 +1,10 @@
+# Both directions, for models that translate out of English as well as into it.
+name: smoke-bidir
+data:
+  dataset: haoranxu/WMT22-Test
+  directions: [de-en, en-de]
+  limit: 16
+decode:
+  num_beams: 4
+  max_new_tokens: 128
+  batch_size: 8

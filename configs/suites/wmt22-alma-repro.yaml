@@ -1,0 +1,17 @@
+# Baseline reproduction suite: all ten WMT22 directions ALMA reports, with
+# length bucketing disabled and ALMA's own batch size, to keep padding as close
+# to their Trainer-based harness as possible. Used once, to measure the delta
+# between this framework and the published numbers. Exact bit-level agreement
+# is not expected; the recorded delta is the point.
+name: wmt22-alma-repro
+data:
+  dataset: haoranxu/WMT22-Test
+  directions: [de-en, cs-en, is-en, zh-en, ru-en, en-de, en-cs, en-is, en-zh, en-ru]
+decode:
+  num_beams: 5
+  max_new_tokens: 256
+  max_source_length: 256
+  batch_size: 4
+  seed: 42
+  sort_by_length: false
+  respect_alma_source_length_override: true

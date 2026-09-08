@@ -1,0 +1,10 @@
+# Reference MT system, 298 MB, runs on any GPU and on CPU.
+# Its purpose is to prove the metric pipeline is wired correctly: a real MT
+# model should score around 40 BLEU on WMT22 de-en. A prompted 0.5B model
+# cannot distinguish "pipeline correct" from "pipeline broken".
+name: opus-mt-de-en
+loader: hf_seq2seq
+prompt: passthrough
+model_name_or_path: Helsinki-NLP/opus-mt-de-en
+dtype: float32
+notes: Sanity reference only, not a compression target. Supports de-en only.

@@ -1,0 +1,14 @@
+# Sweep suite. Greedy decoding is roughly three times cheaper than beam 5,
+# which makes a broad compression sweep affordable. Scores are NOT comparable
+# with the beam-5 suite or with ALMA's published numbers, and the report stage
+# refuses to place runs from the two suites in one table.
+name: wmt22-6dir-greedy
+data:
+  dataset: haoranxu/WMT22-Test
+  directions: [de-en, en-de, ru-en, en-ru, is-en, en-is]
+decode:
+  num_beams: 1
+  max_new_tokens: 256
+  max_source_length: 256
+  batch_size: 16
+  seed: 42
