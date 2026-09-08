@@ -47,7 +47,11 @@ def score_surface(
         extra={
             "precisions": [round(value, 4) for value in bleu_result.precisions],
             "brevity_penalty": round(bleu_result.bp, 4),
-            "length_ratio": round(bleu_result.sys_len / bleu_result.ref_len, 4)
+            # Named for its unit. The behavioural block reports a
+            # corpus-level *character* ratio under the bare name
+            # "length_ratio", and the two differ by a few percent on any real
+            # corpus, so sharing one name invited quoting the wrong one.
+            "token_length_ratio": round(bleu_result.sys_len / bleu_result.ref_len, 4)
             if bleu_result.ref_len
             else None,
             "hypothesis_length": bleu_result.sys_len,

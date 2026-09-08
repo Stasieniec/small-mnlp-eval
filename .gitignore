@@ -32,6 +32,10 @@ slurm-*.out
 .cache/
 hf_home/
 
+# Third-party clones. MetricX is not pip installable, so scripts/
+# setup_metricx_env.sh clones it here and puts it on PYTHONPATH.
+third_party/
+
 # Editors
 .idea/
 .vscode/

@@ -32,14 +32,21 @@ stay comparable with the published baselines:
 - hypothesis to reference length ratio
 - truncation rate and degenerate-repetition rate
 
-**Efficiency**, using the metric set from the course reference survey
-(Zhu et al., "A Survey on Model Compression for Large Language Models"):
+**Efficiency.** The course reference survey (Zhu et al., "A Survey on Model
+Compression for Large Language Models") lists six metrics in its Section 2.1,
+and all six are reported: model size, FLOPs, mean FLOPS utilisation, inference
+time, speedup ratio, compression ratio. The following go beyond that list,
+because a compression report needs them:
 
-- parameter count, checkpoint size on disk, and resident VRAM, reported as
-  three separate compression ratios because they diverge
-- peak memory, time to first token, per-sentence latency, decode throughput
-- speedup ratio against the baseline
-- analytic FLOPs and model FLOPs utilisation
+- checkpoint size on disk and resident VRAM, so compression is reported as
+  three separate ratios (bytes, parameters, VRAM) because they diverge
+- peak memory from both the torch allocator and NVML
+- time to first token and per-sentence latency
+- decode throughput under a forced token budget, at two batch sizes
+
+FLOPs are an analytic estimate, not a traced operator count, and are not
+estimated at all for encoder-decoder models. Utilisation is computed against
+the device's dense bf16 peak and named `mfu_bf16_equivalent` to say so.
 
 ## Why there are three environments
 
@@ -49,15 +56,24 @@ stack. So the pipeline is four stages joined by files on disk, not by function
 calls:
 
 ```
-generate  (GPU, gen env)      ->  runs/<run_id>/hyps/*.jsonl
-bench     (GPU, gen env)      ->  runs/<run_id>/bench.json
-score     (GPU, metric env)   ->  runs/<run_id>/scores.<group>.json
+generate  (GPU, gen env)      ->  runs/<slug>/hyps/<direction>.{jsonl,txt}
+bench     (GPU, gen env)      ->  runs/<slug>/bench.json
+score     (GPU, metric env)   ->  runs/<slug>/scores.<group>.json
 report    (CPU, any env)      ->  reports/
 ```
+
+A run directory holds `manifest.json` (the run's identity, written once),
+`env.json`, `stages/<stage>.json` (one file per stage, and per direction where
+a stage is sharded across a Slurm array), `hyps/`, `bench.json` and
+`scores.*.json`. It is designed to be interpretable on its own, months later,
+without the configs that produced it.
 
 This is a constraint rather than a preference, but it pays for itself: an old
 run can be re-scored with a new metric without regenerating anything, and
 scoring runs as its own Slurm job. See [docs/environments.md](docs/environments.md).
+
+MetricX needs a clone rather than an install, because upstream ships no
+`pyproject.toml`. Run `scripts/setup_metricx_env.sh`.
 
 ## Quickstart
 
@@ -65,9 +81,9 @@ scoring runs as its own Slurm job. See [docs/environments.md](docs/environments.
 uv venv --python 3.11 .venv
 uv pip install --python .venv/bin/python -e ".[gen,surface,dev]"
 
-# End to end on a small local slice. Runs on 6 GB of VRAM in about a minute
-# and asserts the results are sane, so a broken pipeline cannot pass as a bad
-# model.
+# End to end on a small local slice. Takes a couple of minutes on 6 GB of
+# VRAM and asserts the results are sane, so a broken pipeline cannot pass as
+# a bad model.
 ./scripts/smoke_local.sh
 ```
 
@@ -85,28 +101,51 @@ Then, for a real evaluation:
 ```
 
 `mnlp-eval info` prints what the current environment can do. On Snellius, see
-[slurm/README.md](slurm/README.md).
+[slurm/README.md](slurm/README.md), which submits one generation array per
+model sharded by direction, then efficiency, then scoring, then the report.
 
 ## What a result looks like
 
-Casting the reference MT system to fp16, measured on this repository:
+Casting the reference MT system to fp16. Quality on 200 segments of WMT22
+de-en at beam 4; efficiency on 64 segments at a forced 64-token budget, 9
+timed repeats, one RTX 1000 Ada (6 GB). Conditions matter and are stated
+because this document elsewhere insists on exactly that.
 
-| System | BLEU | COMET-22 | Resident | Bits/param | Compression (disk) | Compression (VRAM) | tok/s b1 | tok/s b8 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| opus-mt-de-en | 31.89 | 0.8237 | 284.60 MiB | 32.08 | 1.00x | 1.00x | 311.6 | 1721.5 |
-| opus-mt-de-en-fp16 | 31.94 | 0.8243 | 142.04 MiB | 16.01 | 1.00x | 2.00x | 288.3 | 2031.7 |
+| System | BLEU | COMET-22 | Resident | Bits/param | Compression (disk) | Compression (VRAM) |
+| --- | --- | --- | --- | --- | --- | --- |
+| opus-mt-de-en | 31.89 | 0.8237 | 284.60 MiB | 32.08 | 1.00x | 1.00x |
+| opus-mt-de-en-fp16 | 31.94 | 0.8243 | 142.04 MiB | 16.01 | 1.00x | 2.00x |
 
-Three things in that table are the reason the framework is built the way it is:
+| System | tok/s b1 | stdev | tok/s b8 | stdev |
+| --- | --- | --- | --- | --- |
+| opus-mt-de-en | 237.6 | 9.7% | 1552.8 | 2.3% |
+| opus-mt-de-en-fp16 | 203.6 | 6.6% | 1373.6 | 10.0% |
+
+What this table is here to show:
 
 - The disk ratio reads 1.00x while the VRAM ratio reads 2.00x, because the cast
   happens at load time and the checkpoint is untouched. Reporting a single
-  compression ratio would have been misleading either way.
-- fp16 is **slower** at batch size 1 and **faster** at batch size 8. Batch
-  size 1 is memory-bandwidth bound and batch 8 is compute bound, so a single
-  batch size would have supported either conclusion.
-- The quality difference is not significant: the paired bootstrap gives
-  p = 0.169 for BLEU and p = 0.186 for COMET-22, so the framework reports it as
-  indistinguishable rather than as an improvement.
+  compression ratio would have been misleading either way. Bits per parameter
+  reading 32.08 and 16.01 is the cheapest available check that the size
+  accounting every ratio depends on is right.
+- Halving the weights bought no speed here. fp16 is slower at both batch
+  sizes, on a 74M-parameter encoder-decoder model on a laptop GPU. Compression
+  that shrinks a model is not compression that accelerates it, and the
+  framework reports the two separately for that reason.
+- The run-to-run spread is 2.3 to 10 percent of the median, which is the same
+  size as the differences above. That is why the two batch sizes and the
+  repeat count are reported next to the numbers, and why a throughput claim
+  from a shared cluster node needs an exclusive allocation before it means
+  anything.
+- The quality difference is not significant: the paired bootstrap over those
+  200 segments gives p = 0.169 for BLEU and p = 0.186 for COMET-22, so the
+  framework reports it as indistinguishable rather than as an improvement.
+
+An earlier version of this table quoted a batch-size crossover, fp16 slower at
+batch 1 and faster at batch 8, from three repeats. It did not reproduce at
+nine. The two batch sizes are still measured because the memory-bound and
+compute-bound regimes genuinely can disagree, but this measurement does not
+demonstrate it.
 
 ## Adding your model
 

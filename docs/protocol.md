@@ -66,17 +66,28 @@ data is a checked fact rather than an assumption.
 Exact agreement with ALMA's published scores is not expected: their harness
 pads through the Hugging Face `Trainer`, and padding differences perturb beam
 search slightly. `configs/suites/wmt22-alma-repro.yaml` disables length
-bucketing and uses their batch size to get as close as possible. The recorded
-delta is the framework's own correctness evidence and belongs in the report.
+bucketing to get as close as a single-process harness can. It does not match
+their batch size, and cannot: `evals/alma_7b.sh` passes
+`--per_device_eval_batch_size 2` under `accelerate launch` with a DeepSpeed
+config, so per-device 2 across several devices is a different padding pattern
+from a single process at any batch size. The recorded delta is the framework's
+own correctness evidence and belongs in the report.
 
 ## Hypothesis extraction
 
 Generation decodes only the newly generated tokens, by slicing off the prompt at
 its tokenized length. ALMA instead string-splits the full decoded sequence on
-the target-language cue inside three nested `try` blocks, returning an empty
-string when all of them fail. For a project about degradation that is the worst
-possible behaviour: a collapsed model scores a legitimate-looking zero and
-nobody notices.
+the target-language cue inside two sequential `try` blocks, the first of which
+tries three candidate lines, and returns an empty string when both fail. For a
+project about degradation that is the worst possible behaviour: a collapsed
+model scores a legitimate-looking zero and nobody notices.
+
+Generation also stops at the first of *any* of a model's terminator tokens,
+taken from the union of the tokenizer's and the generation config's. Reading
+only `tokenizer.eos_token_id` is wrong for a large family of models: Qwen2.5
+lists two terminators and its pad token is the second one, so a model that
+stopped normally looked like it never stopped and its padding was counted as
+generated text.
 
 Every hypothesis carries a status and a set of flags recording what had to be
 done to recover it:
@@ -92,8 +103,13 @@ The raw output is retained in `hyps/<direction>.jsonl` so a parsing question can
 be answered without regenerating a ten-thousand segment run.
 
 `mnlp_eval.postprocess.alma_legacy_clean` reimplements upstream's parser
-faithfully, so the framework can quantify how often it would have produced an
-empty string on the same outputs.
+closely enough to demonstrate the failure, and is unit tested, but no stage
+calls it: the framework does not currently quantify upstream's empty-string
+rate on its own outputs. Two known divergences, both making the copy
+*optimistic*: where the first three lines after the cue are all blank, upstream
+returns an empty string from its first block while the copy falls through to
+the second and can return something non-empty; and upstream uses a bare
+`except` where the copy catches `IndexError` only.
 
 ## Quality metrics
 
@@ -104,13 +120,20 @@ empty string on the same outputs.
 | TER | sacreBLEU | Optional, lower is better |
 | COMET-22 | `Unbabel/wmt22-comet-da` | Primary metric, ungated |
 | COMETKiwi | `Unbabel/wmt22-cometkiwi-da` | Reference-free, gated |
-| XCOMET-XL | `Unbabel/XCOMET-XL` | WMT24 joint winner, gated |
-| MetricX-24 | `google/metricx-24-hybrid-large-v2p6-bfloat16` | WMT24 joint winner, error score in [0, 25], lower is better |
+| XCOMET-XL | `Unbabel/XCOMET-XL` | XL member of a WMT24 winning family, gated |
+| MetricX-24 | `google/metricx-24-hybrid-large-v2p6-bfloat16` | large variant of a WMT24 winning family, error score in [0, 25], lower is better |
 
-For reference, the WMT24 Metrics Shared Task ranked metrics by weighted average
-correlation over six tasks: MetaMetrics-MT 0.725, MetricX-24-Hybrid 0.721,
-XCOMET 0.719, COMET-22 0.688, BLEURT-20 0.686. BLEU is far below all of them,
-which is why it is reported but not relied upon.
+The WMT24 Metrics Shared Task ranked metrics by weighted average correlation
+over six tasks: MetaMetrics-MT 0.725, MetricX-24-Hybrid 0.721, XCOMET 0.719,
+COMET-22 0.688, BLEURT-20 0.686, BLEU 0.589 (23rd of 26). BLEU is reported but
+not relied upon.
+
+Two caveats on the winners, since it is easy to overclaim here. The ranked
+XCOMET submission was an ensemble of XCOMET-XXL and XCOMET-XL, not XCOMET-XL
+alone; and MetricX-24-Hybrid is the mT5-XXL model, where the `large` variant
+configured here scores 0.705 against 0.716 by Google's own numbers. These are
+therefore the affordable members of two winning families, not the winning
+systems. MetaMetrics-MT outscored both and is not implemented.
 
 Per-segment neural scores are stored at scoring time. Without them, bootstrap
 significance would require reloading a multi-billion-parameter metric model and
@@ -129,9 +152,11 @@ from those that collapse on part of the input.
 
 | Metric | Why it matters |
 | --- | --- |
+| `on_target_rate` | Share of all segments confirmed to be in the target language |
 | `off_target_rate` | The signature failure of compressed multilingual models, and invisible in every quality metric |
+| `unverifiable_rate` | Share too empty or too short to identify. These three sum to one |
 | `source_language_rate` | Output in the source language means the model failed to translate at all, not that it translated badly |
-| `english_fallback_rate` | Falling back to English when the target is not English |
+| `english_fallback_rate` | Falling back to English. Reported only where the source is not English, since otherwise it is the same event as `source_language_rate` |
 | `empty_rate` | Empty output is a scoring artefact worth separating from genuine mistranslation |
 | `source_copy_rate` | Copying the source, detected case-insensitively and ignoring punctuation |
 | `repetition_rate` | Degenerate cycles, a classic low-bit collapse mode |
@@ -147,18 +172,31 @@ different things. A model that finishes the translation and then keeps
 generating commentary hits the token budget without truncating anything. A model
 that runs out of budget mid-sentence has produced a damaged translation. The
 first is an efficiency problem, the second a quality problem. Conflating them
-makes an instruction-tuned model look broken when it is merely verbose. In
-measured runs, `Qwen2.5-0.5B-Instruct` hits the budget on every segment while
-truncating almost none of them.
+makes an instruction-tuned model look broken when it is merely verbose.
+Measured on the first 16 segments of WMT22 de-en at beam 4 with
+`max_new_tokens=128`, `Qwen2.5-0.5B-Instruct` exhausts the budget on 11 of 16
+segments, truncates none of them, and discards 83 percent of its generated
+tokens as trailing commentary.
 
 **Language identification.** The detector is restricted to the languages
 plausible for the direction: the target, the source, and English. A restricted
-decision is far more reliable on a single sentence than an open choice among 142
-languages, and it answers the actionable question directly. The unrestricted
-rate is reported alongside it as `off_target_rate_open`. Hypotheses shorter than
-12 characters are excluded, because language identification on a two-word
-fragment is noise and counting that noise as off-target would manufacture a
-finding.
+decision is far more reliable on a single sentence than an open choice among
+every language the classifier knows, and it answers the actionable question
+directly. The unrestricted rate is reported alongside it as
+`off_target_rate_open`. Hypotheses shorter than 12 characters are excluded from
+classification, because language identification on a two-word fragment is
+noise.
+
+**Every language rate divides by the total segment count, not by the
+classifiable subset.** An earlier version divided by the subset, which made a
+model that emitted nothing on 95 percent of segments report an off-target rate
+of zero: the most flattering possible value for the most broken possible
+system, printed next to rates that used the full denominator.
+`on_target_rate`, `off_target_rate` and `unverifiable_rate` now sum to one by
+construction, which is what makes that failure impossible to reintroduce
+unnoticed. The subset figure is retained under the explicit name
+`off_target_rate_among_scorable`, for comparison with the literature, and is
+never the headline.
 
 ## Efficiency
 
@@ -211,8 +249,22 @@ than reporting it as a finding.
 
 Surface metrics use sacreBLEU's `PairedTest`, which recomputes BLEU and chrF++
 from sufficient statistics on each resample. That is correct in a way that
-averaging per-sentence BLEU is not. Neural metrics resample the stored
-per-segment scores. Both use the same centred p-value with add-one smoothing, so
-a p-value of exactly zero is never reported from a finite number of samples, and
-both are paired: the same resampled indices apply to both systems, which removes
-test-set difficulty as a source of variance.
+averaging per-sentence BLEU is not, and it is what the MT literature reports.
+Neural metrics resample the stored per-segment scores.
+
+**The two are not the same estimator.** sacreBLEU centres the absolute score
+difference on its own bootstrap mean and counts one-sided; the segment-level
+path is a two-sided centred bootstrap, `P(|d_b - d| >= |d|)`. Both are paired
+and both are add-one smoothed, so neither reports a p-value of exactly zero
+from a finite number of samples, but their rejection rates under the null
+differ and a p-value from one is not directly comparable with a p-value from
+the other. An earlier version of this document claimed they were the same
+statistic. They are not.
+
+Both are genuinely paired: the same resampled indices apply to both systems,
+which removes test-set difficulty as a source of variance.
+
+The table applies one asterisk threshold per cell and no multiplicity
+correction across directions, systems and metrics. With ten directions and
+several systems that is many tests, so treat a lone asterisk as weak
+evidence.
