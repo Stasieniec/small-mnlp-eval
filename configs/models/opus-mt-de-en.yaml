@@ -1,7 +1,9 @@
 # Reference MT system, 298 MB, runs on any GPU and on CPU.
 # Its purpose is to prove the metric pipeline is wired correctly: a real MT
-# model should score around 40 BLEU on WMT22 de-en. A prompted 0.5B model
-# cannot distinguish "pipeline correct" from "pipeline broken".
+# model lands in the low thirties on WMT22 de-en, where a broken pipeline, a
+# mangled prompt or a misaligned reference file shows up in single digits. A
+# prompted 0.5B model cannot distinguish "pipeline correct" from "pipeline
+# broken".
 name: opus-mt-de-en
 loader: hf_seq2seq
 prompt: passthrough

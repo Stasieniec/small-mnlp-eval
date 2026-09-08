@@ -1,9 +1,11 @@
 """Command line interface.
 
-One entry point, six stages: ``prefetch``, ``generate``, ``bench``, ``score``,
-``report``, and ``run`` which chains the middle ones. Plus ``info`` to see what
-the current environment can do and ``verify-testset`` to check test-set
-provenance against ALMA's own files.
+Four pipeline stages, ``generate``, ``bench``, ``score`` and ``report``, plus
+``run`` which chains the first three and ``prefetch`` which populates the cache
+before any of them. Then ``info`` to see what the current environment can do,
+``verify-testset`` to check test-set provenance against ALMA's own files, and
+``suite-directions`` and ``run-dir`` so a batch script can resolve what it
+needs without parsing configs itself.
 
 Configuration comes from YAML files. ``--set`` applies dotted-path overrides on
 top, which change the run identity as they should: an override is a different

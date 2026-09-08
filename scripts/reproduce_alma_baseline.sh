@@ -11,7 +11,7 @@
 # padding. wmt22-alma-repro disables length bucketing and matches their batch
 # size to get as close as the two harnesses can come.
 #
-# Cost: ten directions, 17,468 segments, beam 5, bf16 7B. Budget 6 to 12 hours
+# Cost: ten directions, 17,471 segments, beam 5, bf16 7B. Budget 6 to 12 hours
 # on one A100. On Snellius prefer:
 #   bash slurm/submit_sweep.sh configs/suites/wmt22-alma-repro.yaml \
 #        configs/models/alma-7b-r.yaml

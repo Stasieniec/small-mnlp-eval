@@ -103,8 +103,30 @@ def load(checkpoint: str, sparsity: float):
         "extra": {"sparsity": sparsity, "method": "wanda"},
     }
 
-    # 3. A Translator, if you need to control prompting or generation.
+    # 3. A Translator, if you need to control prompting or generation. Import
+    #    CausalTranslator or Seq2SeqTranslator and subclass it; the entrypoint
+    #    is not handed the ModelSpec, so construct one. Returning a Translator
+    #    also means load_seconds reads 0.0, since the framework can no longer
+    #    time the load itself.
 ```
+
+Whatever you return, the tokenizer must behave like a Hugging Face one. The
+generation loop reads `pad_token_id`, `eos_token_id`, `eos_token` and
+`padding_side`, and calls the object itself, `pad()` and `decode()`. A bare
+callable is not enough.
+
+Two details that are easy to miss:
+
+- **The `checkpoint` kwarg name is load-bearing.** When `model_name_or_path` is
+  unset, `checkpoint` is what the framework inspects to find the weights on
+  disk. Name it something else and checkpoint size, bits per parameter and the
+  disk compression ratio all read as a dash.
+- **A `custom` loader cannot apply `dtype`, `quantization`, `adapter`,
+  `device_map`, `attn_implementation` or `trust_remote_code`,** because your
+  entrypoint does the loading. Setting them is an error rather than silently
+  ignored: for a compression project, an ignored `quantization:` block means
+  evaluating an unquantized model under a quantized model's name. Pass what
+  you need through `kwargs` and apply it yourself.
 
 See `recipes/example_pruned.py` for a working template.
 
@@ -116,6 +138,33 @@ audit trail, BLEU and chrF++ with signatures, COMET, MetricX, behavioural
 failure metrics, efficiency measurement, compression ratios, bootstrap
 significance against the baseline, and a place in the report tables.
 
+## What lands in the run directory
+
+```
+runs/<model>__<suite>__<hash>/
+  manifest.json          identity, written once and never rewritten
+  env.json               versions, device, driver, clocks, installed packages
+  stages/generate.json   or generate.<direction>.json when sharded
+  stages/bench.json
+  stages/score.json
+  hyps/<direction>.jsonl one record per segment, described below
+  hyps/<direction>.txt   one hypothesis per line, ALMA's output format
+  bench.json
+  scores.surface.json    and scores.neural.json, scores.metricx.json
+```
+
+Each JSON Lines record carries `source`, `reference`, `hypothesis`,
+`raw_output`, `parse_status`, `parse_flags`, `n_source_tokens`,
+`n_padded_source_tokens`, `n_generated_tokens`, `n_wasted_tokens`,
+`hit_token_budget`, `truncated` and `source_truncated`. `raw_output` is kept on
+purpose: when a compressed model collapses, the recovered hypothesis alone does
+not explain what happened, and regenerating ten thousand segments to find out
+is expensive.
+
+Note that `kwargs` means two different things. For a `custom` loader it reaches
+your entrypoint; for `hf_causal` and `hf_seq2seq` it is splatted into
+`from_pretrained`.
+
 ## Checking before you commit a GPU allocation
 
 ```bash
@@ -125,11 +174,19 @@ from mnlp_eval.config import ModelSpec, load_yaml_config
 print(ModelSpec.from_dict(load_yaml_config('configs/models/yours.yaml')))
 "
 
-# Four segments, on whatever GPU is to hand.
+# Four segments, on whatever GPU is to hand. --no-bench matters: --limit caps
+# the quality run only, and the efficiency stage has its own subset size, so
+# without it this spends several minutes benchmarking.
 .venv/bin/mnlp-eval run --model configs/models/yours.yaml \
                         --suite configs/suites/smoke-de-en.yaml \
-                        --limit 4 --groups surface
+                        --limit 4 --no-bench --groups surface
+
+# Where the run will land, without running anything.
+.venv/bin/mnlp-eval run-dir --model configs/models/yours.yaml \
+                            --suite configs/suites/smoke-de-en.yaml
 ```
 
 Unknown keys are rejected rather than ignored, so a typo fails immediately
-instead of falling back to a default an hour into a Slurm job.
+instead of falling back to a default an hour into a Slurm job. That applies to
+`--set` overrides too: an override whose first path segment the command does
+not read is an error, not a silent no-op.

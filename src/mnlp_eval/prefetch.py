@@ -1,8 +1,16 @@
 """Download everything a run needs, ahead of time.
 
-Snellius compute nodes have no internet access. Anything a batch job touches
-has to be in ``HF_HOME`` before the job starts, or the job fails several
-minutes in with a network error and burns an allocation.
+Anything a batch job touches should be in ``HF_HOME`` before the job starts.
+The primary reason is reproducibility: a run that downloads mid-job is a run
+whose timings are not comparable, and whose weights may differ from the last
+one if a Hub repository moved. The batch scripts also set
+``HF_HUB_OFFLINE=1`` by default, which turns a missing asset into a fast, clear
+failure instead of a slow download.
+
+Whether Snellius compute nodes can reach the network at all is a separate
+question, and not one this project has verified. SURF documents blocking
+inbound access, not outbound, and SURF's own AI guide downloads from the Hub
+inside a batch job. See slurm/README.md.
 
 This runs on a login node. Because the three environments hold different metric
 libraries, each one prefetches what it can and reports the rest, in the same

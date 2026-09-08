@@ -13,10 +13,22 @@ pipeline. Accepted returns:
 * a ``(model, tokenizer)`` tuple, the common case
 * a mapping with ``model`` and ``tokenizer`` keys, optionally ``kind`` and
   ``extra``
+
+Whatever is returned, the tokenizer must behave like a Hugging Face one. The
+generation loop reads ``pad_token_id``, ``eos_token_id``, ``eos_token`` and
+``padding_side``, and calls the object itself, ``pad()`` and ``decode()``. A
+bare callable is not enough, and the resulting AttributeError says nothing
+about this contract, so it is stated here.
+
+The ``checkpoint`` kwarg name is load-bearing when ``model_name_or_path`` is
+unset: it is what the framework inspects to find the checkpoint on disk, and
+naming it something else leaves checkpoint size, bits per parameter and the
+disk compression ratio empty.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import importlib
 import sys
 import time
@@ -67,11 +79,44 @@ def _infer_kind(model: Any) -> str:
     return "causal"
 
 
+#: Fields the framework applies for the built-in loaders but cannot apply for
+#: a custom one, because the entrypoint owns loading. Setting them is almost
+#: always a mistake, and for a compression project a silently ignored
+#: `quantization:` block means evaluating an unquantized model under a
+#: quantized model's name.
+_UNAPPLIED_FIELDS = (
+    "dtype",
+    "quantization",
+    "adapter",
+    "device_map",
+    "attn_implementation",
+    "trust_remote_code",
+)
+
+
+def _reject_unapplied_fields(spec: ModelSpec) -> None:
+    defaults = {
+        field.name: field.default
+        for field in dataclasses.fields(spec)
+        if field.name in _UNAPPLIED_FIELDS
+    }
+    offenders = [name for name, default in defaults.items() if getattr(spec, name) != default]
+    if not offenders:
+        return
+    msg = (
+        f"model {spec.name}: loader 'custom' cannot apply {', '.join(offenders)}, because "
+        "the entrypoint does the loading. Pass what the loader needs through 'kwargs' and "
+        "apply it there, or use a built-in loader."
+    )
+    raise ValueError(msg)
+
+
 def load_custom(spec: ModelSpec, prompt: PromptTemplate | None = None) -> Translator:
     """Build a translator by calling a user-supplied entrypoint."""
     if not spec.entrypoint:
         msg = f"model {spec.name}: loader 'custom' requires 'entrypoint'"
         raise ValueError(msg)
+    _reject_unapplied_fields(spec)
 
     prompt = prompt or get_prompt(spec.prompt)
     loader = _import_entrypoint(spec.entrypoint)

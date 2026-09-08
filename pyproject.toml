@@ -30,6 +30,10 @@ surface = [
   "sacrebleu>=2.4",
   "py3langid>=0.2.2",
 ]
+# Japanese and Korean targets need MeCab. No shipped suite evaluates either, so
+# these are separate rather than part of `surface`.
+ja = ["sacrebleu[ja]>=2.4"]
+ko = ["sacrebleu[ko]>=2.4"]
 # Generation stack. This is the environment teammates develop against.
 gen = [
   "torch>=2.1",

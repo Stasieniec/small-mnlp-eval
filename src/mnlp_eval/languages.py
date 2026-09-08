@@ -141,6 +141,15 @@ NLLB_CODE: Final[dict[str, str]] = {
 
 # sacreBLEU applies a language-specific tokenizer for these target languages.
 # Every other target uses the default ``13a``, which mimics mteval-v13a.
+#
+# ALMA's evals/eval_generation.sh overrides only zh and ja. Korean is included
+# here because 13a is as wrong for Korean as it is for Japanese, and no ALMA
+# suite evaluates Korean, so the deviation cannot affect a reproduction. It is
+# a deliberate departure from upstream rather than an oversight.
+#
+# The ja and ko tokenizers need MeCab, which the ``surface`` extra does not
+# install: sacreBLEU raises a clear error naming ``sacrebleu[ja]`` or
+# ``sacrebleu[ko]``. Add those extras before evaluating either language.
 _TOKENIZER_BY_TARGET: Final[dict[str, str]] = {
     "zh": "zh",
     "ja": "ja-mecab",

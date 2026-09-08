@@ -63,11 +63,33 @@ the way it is. Keep it current.
 ## Tests
 
 Every new module needs tests that run without a GPU, network or model weights.
-`tests/stubs.py` holds a stub translator that makes the whole pipeline testable.
-Mark anything that genuinely needs hardware or the Hub with `@pytest.mark.gpu`,
-`@pytest.mark.network` or `@pytest.mark.slow`; CI excludes those.
+`tests/stubs.py` holds a stub translator that makes the whole pipeline
+testable. Mark anything that genuinely needs hardware or the Hub with
+`@pytest.mark.gpu`, `@pytest.mark.network` or `@pytest.mark.slow`; CI excludes
+those. `@pytest.mark.torch` means torch but no GPU and no download, and a
+second CI job installs a CPU wheel and runs it.
 
-Prefer a test that would have caught a real bug. Several tests here exist
-because they did: signature objects that were not JSON serialisable, a
-language-identification branch that reported a different key set, and a
-truncation counter that conflated two unrelated failure modes.
+Prefer a test that would have caught a real bug. Most of the tests here exist
+because they did. A review of the first version found around eighty defects,
+and the ones worth knowing about as a contributor are:
+
+- `tests/test_translate_loop.py` exists because the generation loop had no
+  coverage at all, the stub translator having overridden `translate` wholesale.
+  A mutation swapping `results[index]` for `results[position]` pairs every
+  hypothesis with the wrong source and reference, and it passed all 196 tests
+  of the first version. It now fails eight.
+- The language rates sum-to-one test exists because dividing them by the
+  classifiable subset made a model that emitted nothing on 95 percent of
+  segments report an off-target rate of zero.
+- The multi-terminator tests exist because reading only
+  `tokenizer.eos_token_id` made Qwen-family models look like they never
+  stopped, so their padding counted as generated text.
+
+When you add a metric, ask what its most flattering possible failure looks
+like and write the test that catches it. When you add a stage, ask what two
+concurrent Slurm array tasks do to it.
+
+If you are touching something load-bearing, run the mutation check by hand:
+copy the repository to a scratch directory, break one line deliberately, and
+run the suite against the copy with `PYTHONPATH` pointing at its `src`. If
+nothing fails, the test you need does not exist yet.
