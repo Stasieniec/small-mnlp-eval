@@ -54,19 +54,85 @@ def test_hand_edited_manifest_is_detected(run_config: RunConfig) -> None:
         RunConfig.from_manifest(manifest, run_config.output_root)
 
 
-def test_stage_recording_accumulates(run_config: RunConfig) -> None:
+def test_stage_records_live_outside_the_manifest(run_config: RunConfig) -> None:
+    # The manifest is the run's identity and is written once. Merging stage
+    # reports into it meant an unlocked read-modify-write, and concurrent
+    # Slurm array tasks lost records in every measured trial.
+    paths = RunPaths.for_config(run_config)
+    manifest = paths.init_manifest(run_config)
+    assert "stages" not in manifest
+
+    assert not paths.stage_completed("bench")
+    paths.record_stage("bench", {"status": "completed", "n": 4})
+    paths.record_stage("score", {"status": "pending"})
+
+    assert paths.stage_completed("bench")
+    assert not paths.stage_completed("score")
+    assert paths.stages()["bench"]["n"] == 4
+    assert "recorded_at" in paths.stages()["bench"]
+    # The manifest is untouched by stage recording.
+    assert paths.read_manifest() == manifest
+
+
+def test_sharded_stage_records_do_not_share_a_file(run_config: RunConfig) -> None:
     paths = RunPaths.for_config(run_config)
     paths.init_manifest(run_config)
+    paths.record_stage("generate", {"status": "completed"}, key="de-en")
+    paths.record_stage("generate", {"status": "pending"}, key="en-de")
+
+    assert paths.stage_path("generate", "de-en") != paths.stage_path("generate", "en-de")
+    assert set(paths.stage_records("generate")) == {"de-en", "en-de"}
+    assert paths.stage_completed("generate", key="de-en")
+    assert not paths.stage_completed("generate", key="en-de")
+    assert paths.generated_directions() == {"de-en"}
+
+
+def test_generate_is_incomplete_until_every_suite_direction_reports(
+    model_spec: ModelSpec, local_testset: Path, tmp_path: Path
+) -> None:
+    # Checking only that the records present are completed would call a
+    # half-finished shard set done, which is how a partially generated run got
+    # scored and reported as whole.
+    from mnlp_eval.config import SuiteSpec
+
+    suite = SuiteSpec.from_dict(
+        {
+            "name": "two-way",
+            "data": {
+                "dataset": f"local:jsonl:{local_testset}",
+                "directions": ["de-en", "en-de"],
+            },
+        }
+    )
+    config = RunConfig(model_spec, suite, output_root=tmp_path / "runs")
+    paths = RunPaths.for_config(config)
+    paths.init_manifest(config)
+    assert paths.suite_directions() == ["de-en", "en-de"]
+
+    paths.record_stage("generate", {"status": "completed"}, key="de-en")
     assert not paths.stage_completed("generate")
-    paths.record_stage("generate", {"status": "completed", "n": 4})
-    paths.record_stage("score", {"status": "pending"})
-    paths.record_stage("generate", {"extra": True})
-    manifest = paths.read_manifest()
+
+    paths.record_stage("generate", {"status": "completed"}, key="en-de")
     assert paths.stage_completed("generate")
-    assert not paths.stage_completed("score")
-    assert manifest["stages"]["generate"]["n"] == 4
-    assert manifest["stages"]["generate"]["extra"] is True
-    assert "recorded_at" in manifest["stages"]["generate"]
+
+
+def test_concurrent_stage_writers_do_not_lose_records(run_config: RunConfig) -> None:
+    # The regression this design exists to prevent. With a single mutable
+    # manifest this lost at least one record in 60 of 60 trials.
+    import concurrent.futures
+
+    paths = RunPaths.for_config(run_config)
+    paths.init_manifest(run_config)
+    stages = [f"generate:{index}" for index in range(12)]
+
+    def write(name: str) -> None:
+        stage, _, key = name.partition(":")
+        paths.record_stage(stage, {"status": "completed"}, key=key)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+        list(pool.map(write, stages))
+
+    assert len(paths.stage_records("generate")) == 12
 
 
 def test_missing_manifest_gives_an_actionable_error(tmp_path: Path) -> None:

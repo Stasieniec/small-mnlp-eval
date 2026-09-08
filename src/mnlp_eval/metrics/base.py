@@ -76,8 +76,9 @@ def group_availability() -> dict[str, tuple[bool, str]]:
     except ImportError:
         status["metricx"] = (
             False,
-            "metricx not installed. It pins transformers==4.30.2, so it needs its own "
-            "environment: see envs/metricx-requirements.txt",
+            "metricx24 not importable. Upstream ships no pyproject.toml or setup.py, so "
+            "it cannot be pip installed and must be cloned onto PYTHONPATH. Run "
+            "scripts/setup_metricx_env.sh, then score with the PYTHONPATH it prints.",
         )
 
     return status

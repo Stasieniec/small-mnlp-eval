@@ -97,13 +97,15 @@ def _fetch_dataset(dataset: str, direction: str, split: str) -> dict[str, Any]:
         return {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
 
 
-def _fetch_repo(reference: str, revision: str | None) -> dict[str, Any]:
+def _fetch_repo(
+    reference: str, revision: str | None, allow_patterns: list[str] | None = None
+) -> dict[str, Any]:
     if Path(reference).expanduser().is_dir():
         return {"ok": True, "note": "local directory"}
     try:
         from huggingface_hub import snapshot_download
 
-        path = snapshot_download(reference, revision=revision)
+        path = snapshot_download(reference, revision=revision, allow_patterns=allow_patterns)
         _log(f"  model {reference}: cached")
         return {"ok": True, "path": path}
     except Exception as exc:
@@ -148,10 +150,21 @@ def _fetch_metrics(metrics: MetricsSpec) -> dict[str, Any]:
                     }
 
     if "metricx" in metrics.groups:
-        for label, reference in (
-            ("metricx", metrics.metricx_model),
-            ("metricx-tokenizer", metrics.metricx_tokenizer),
-        ):
-            report[f"{label}:{reference}"] = _fetch_repo(reference, None)
+        report[f"metricx:{metrics.metricx_model}"] = _fetch_repo(metrics.metricx_model, None)
+        # Only the tokenizer files. google/mt5-xl is a 45 GB repository holding
+        # PyTorch, TensorFlow and Flax copies of weights this framework never
+        # loads: MetricX supplies its own model, and mt5-xl is referenced for
+        # its sentencepiece vocabulary alone.
+        report[f"metricx-tokenizer:{metrics.metricx_tokenizer}"] = _fetch_repo(
+            metrics.metricx_tokenizer,
+            None,
+            allow_patterns=[
+                "*.json",
+                "*.model",
+                "*.txt",
+                "spiece.model",
+                "tokenizer.json",
+            ],
+        )
 
     return report

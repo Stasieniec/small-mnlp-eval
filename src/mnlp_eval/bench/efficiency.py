@@ -125,9 +125,15 @@ def bench_run(
     spec: BenchSpec,
     *,
     translator: Translator | None = None,
+    paths: RunPaths | None = None,
 ) -> dict[str, Any]:
-    """Measure efficiency for one run and write ``bench.json``."""
-    paths = RunPaths.for_config(config)
+    """Measure efficiency for one run and write ``bench.json``.
+
+    ``paths`` overrides where the result is written, so ``bench --run <dir>``
+    acts on the directory it was given rather than on one recomputed from the
+    slug.
+    """
+    paths = paths or RunPaths.for_config(config)
     paths.init_manifest(config)
     seed_everything(config.suite.decode.seed)
 

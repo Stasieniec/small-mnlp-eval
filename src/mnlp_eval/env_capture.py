@@ -183,6 +183,24 @@ def capture_environment(*, include_pip_freeze: bool = True) -> dict[str, Any]:
         "hf_env": {key: os.environ[key] for key in _HF_KEYS if key in os.environ},
     }
     if include_pip_freeze:
-        frozen = _run([sys.executable, "-m", "pip", "freeze", "--disable-pip-version-check"])
-        record["pip_freeze"] = frozen.splitlines() if frozen else None
+        record["installed_distributions"] = _installed_distributions()
     return record
+
+
+def _installed_distributions() -> list[str]:
+    """Every installed distribution and its version.
+
+    Read from importlib.metadata rather than by shelling out to pip. All three
+    environments are created with ``uv venv``, which does not install pip, so
+    ``python -m pip freeze`` failed and this field was silently null in every
+    env.json on the cluster. For a framework whose purpose is knowing what a
+    number was measured on, that was the one field that would answer which
+    torch, CUDA and bitsandbytes produced a given latency.
+    """
+    entries: set[str] = set()
+    for distribution in metadata.distributions():
+        name = distribution.metadata["Name"]
+        if not name:
+            continue
+        entries.add(f"{name}=={distribution.version}")
+    return sorted(entries, key=str.lower)

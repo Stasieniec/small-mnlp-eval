@@ -47,8 +47,16 @@ def _fail(message: str) -> int:
 # --------------------------------------------------------------------------
 
 
-def _apply_overrides(payload: dict[str, Any], overrides: list[str]) -> dict[str, Any]:
-    """Apply ``a.b.c=value`` overrides, parsing values as YAML scalars."""
+def _apply_overrides(
+    payload: dict[str, Any], overrides: list[str], *, allowed_roots: set[str] | None = None
+) -> dict[str, Any]:
+    """Apply ``a.b.c=value`` overrides, parsing values as YAML scalars.
+
+    ``allowed_roots`` guards the first path segment. Without it, an override
+    the command does not consume was written into an unread key and dropped in
+    silence, so ``--set decode.num_beams=1`` (missing the ``suite.`` prefix)
+    left a beam-5 run wearing a legitimate-looking run id.
+    """
     for override in overrides:
         if "=" not in override:
             msg = f"malformed override {override!r}; expected the form key.path=value"
@@ -63,6 +71,13 @@ def _apply_overrides(payload: dict[str, Any], overrides: list[str]) -> dict[str,
         except yaml.YAMLError as exc:
             msg = f"cannot parse override value {raw!r}: {exc}"
             raise ConfigError(msg) from exc
+        if allowed_roots is not None and keys[0] not in allowed_roots:
+            expected = ", ".join(sorted(allowed_roots))
+            msg = (
+                f"override {override!r} targets {keys[0]!r}, which this command does not "
+                f"read. Valid roots here are: {expected}"
+            )
+            raise ConfigError(msg)
         cursor: dict[str, Any] = payload
         for key in keys[:-1]:
             existing = cursor.get(key)
@@ -78,7 +93,11 @@ def _build_run_config(args: argparse.Namespace) -> RunConfig:
     model_payload = load_yaml_config(args.model)
     suite_payload = load_yaml_config(args.suite)
     combined = {"model": model_payload, "suite": suite_payload}
-    _apply_overrides(combined, list(args.set or []))
+    roots = {"model", "suite"}
+    if getattr(args, "bench", "__absent__") != "__absent__" or hasattr(args, "no_bench"):
+        # `run` and `bench` also accept bench overrides in the same --set list.
+        roots.add("bench")
+    _apply_overrides(combined, list(args.set or []), allowed_roots=roots)
 
     if getattr(args, "limit", None) is not None:
         combined["suite"].setdefault("data", {})["limit"] = args.limit
@@ -108,7 +127,11 @@ def _build_bench_spec(args: argparse.Namespace, config: RunConfig | None = None)
     """Build a bench spec from its config file plus ``--set bench.*`` overrides."""
     payload = load_yaml_config(args.bench) if getattr(args, "bench", None) else {}
     combined: dict[str, Any] = {"bench": payload}
-    _apply_overrides(combined, list(getattr(args, "set", None) or []))
+    _apply_overrides(
+        combined,
+        list(getattr(args, "set", None) or []),
+        allowed_roots={"bench", "model", "suite"},
+    )
     payload = combined.get("bench") or {}
     if getattr(args, "bench_direction", None):
         payload["direction"] = args.bench_direction
@@ -181,11 +204,15 @@ def command_info(args: argparse.Namespace) -> int:
     print(f"runs       {len(runs)} under {args.runs_root}")
     for paths in runs:
         manifest = paths.read_manifest()
-        stages = manifest.get("stages", {})
+        del manifest
         done = ", ".join(
-            stage for stage, entry in sorted(stages.items()) if entry.get("status") == "completed"
+            stage for stage in ("generate", "bench", "score") if paths.stage_completed(stage)
         )
-        print(f"           {paths.root.name}  [{done or 'no completed stages'}]")
+        pending = sorted(set(paths.suite_directions()) - paths.generated_directions())
+        note = done or "no completed stages"
+        if pending:
+            note += f"; awaiting {', '.join(pending)}"
+        print(f"           {paths.root.name}  [{note}]")
     return 0
 
 
@@ -212,6 +239,7 @@ def command_generate(args: argparse.Namespace) -> int:
         config,
         overwrite=args.overwrite,
         deterministic_check=args.deterministic_check,
+        only_directions=args.only_direction,
     )
     print(config.directory)
     return 0
@@ -226,8 +254,14 @@ def command_bench(args: argparse.Namespace) -> int:
         # efficiency numbers that do not describe the run they sit next to.
         paths = RunPaths(Path(args.run))
         config = RunConfig.from_manifest(paths.read_manifest(), Path(args.run).parent)
-    else:
-        config = _build_run_config(args)
+        # Act on the directory given, not on a recomputed one. Pointing at a
+        # renamed or archived run previously created a fresh, hypothesis-free
+        # directory and wrote bench.json there instead.
+        bench_run(config, _build_bench_spec(args, config), paths=paths)
+        print(paths.bench)
+        return 0
+
+    config = _build_run_config(args)
     bench_run(config, _build_bench_spec(args, config))
     print(config.directory / "bench.json")
     return 0
@@ -243,9 +277,24 @@ def command_score(args: argparse.Namespace) -> int:
     targets = _resolve_run_paths(args)
     if not targets:
         return _fail(f"no runs found under {args.runs_root}")
+    failures = 0
     for paths in targets:
         print(f"scoring {paths.root.name}", file=sys.stderr)
-        score_run(paths, metrics, groups=groups, overwrite=args.overwrite)
+        try:
+            score_run(
+                paths,
+                metrics,
+                groups=groups,
+                overwrite=args.overwrite,
+                allow_partial=args.allow_partial,
+            )
+        except RuntimeError as exc:
+            # One unfinished run must not abort scoring for the others, which
+            # is the normal case while a sweep is still generating.
+            print(f"  skipped: {exc}", file=sys.stderr)
+            failures += 1
+    if failures and failures == len(targets):
+        return _fail(f"every run under {args.runs_root} was skipped")
     return 0
 
 
@@ -275,18 +324,57 @@ def command_run(args: argparse.Namespace) -> int:
     from mnlp_eval.score import score_run
 
     config = _build_run_config(args)
-    generate(config, overwrite=args.overwrite, deterministic_check=args.deterministic_check)
-    paths = RunPaths.for_config(config)
-    if not args.no_bench:
-        bench_run(config, _build_bench_spec(args, config))
-    # In `run`, --set targets the model, suite and bench specs, so metrics
-    # overrides are not read from it. Use `score --set` for those.
+    # Resolve every configuration before generating. A bad metrics path or an
+    # invalid bench spec used to surface after generation finished, which for
+    # the six-direction suite is three to six A100-hours before a
+    # missing-file error.
+    bench_spec = None if args.no_bench else _build_bench_spec(args, config)
     metrics = _load_metrics(args.metrics)
     groups = (
         [item.strip() for item in args.groups.split(",") if item.strip()] if args.groups else None
     )
-    score_run(paths, metrics, groups=groups, overwrite=args.overwrite)
+
+    generate(
+        config,
+        overwrite=args.overwrite,
+        deterministic_check=args.deterministic_check,
+        only_directions=args.only_direction,
+    )
+    paths = RunPaths.for_config(config)
+    if bench_spec is not None:
+        bench_run(config, bench_spec)
+    score_run(
+        paths,
+        metrics,
+        groups=groups,
+        overwrite=args.overwrite,
+        allow_partial=args.only_direction is not None,
+    )
     print(config.directory)
+    return 0
+
+
+def command_suite_directions(args: argparse.Namespace) -> int:
+    """Print a suite's directions, one per line.
+
+    Exists so a batch script can index into them by array task id without
+    passing a comma-separated list through ``sbatch --export``, where commas
+    are the delimiter between assignments and silently truncate the value.
+    """
+    suite = SuiteSpec.from_dict(load_yaml_config(args.suite))
+    for direction in suite.data.directions:
+        print(direction)
+    return 0
+
+
+def command_run_dir(args: argparse.Namespace) -> int:
+    """Print the run directory a model and suite resolve to.
+
+    Lets a batch script name one run exactly, rather than a scoring job acting
+    on every directory it can find, including other models' runs that are
+    still generating.
+    """
+    print(_build_run_config(args).directory)
     return 0
 
 
@@ -358,6 +446,17 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="re-translate N segments at batch size 1 and report the disagreement rate",
     )
+    gen.add_argument(
+        "--only-direction",
+        action="append",
+        metavar="PAIR",
+        help=(
+            "generate only this direction of the suite, leaving the rest to another "
+            "process. Repeatable. Used to shard one run across a Slurm array: unlike "
+            "--directions it does not change the suite, so every task contributes to "
+            "the same run instead of creating a one-direction run of its own"
+        ),
+    )
     gen.set_defaults(handler=command_generate)
 
     bench = subparsers.add_parser("bench", help="measure efficiency")
@@ -381,6 +480,15 @@ def build_parser() -> argparse.ArgumentParser:
     score.add_argument("--groups", help="comma-separated metric groups")
     score.add_argument("--metrics", help="metrics config path")
     score.add_argument("--overwrite", action="store_true", help="rescore existing groups")
+    score.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help=(
+            "score a run whose generation is incomplete. Off by default: averaging "
+            "over the directions that happen to be on disk produces a macro average "
+            "covering fewer directions than the table claims"
+        ),
+    )
     score.add_argument(
         "--set",
         action="append",
@@ -413,7 +521,20 @@ def build_parser() -> argparse.ArgumentParser:
     chain.add_argument("--no-bench", action="store_true", help="skip the efficiency stage")
     chain.add_argument("--groups", help="comma-separated metric groups")
     chain.add_argument("--metrics", help="metrics config path")
+    chain.add_argument("--only-direction", action="append", metavar="PAIR")
     chain.set_defaults(handler=command_run)
+
+    directions = subparsers.add_parser(
+        "suite-directions", help="print a suite's directions, one per line"
+    )
+    directions.add_argument("--suite", required=True, help="path to a suite YAML config")
+    directions.set_defaults(handler=command_suite_directions)
+
+    run_dir = subparsers.add_parser(
+        "run-dir", help="print the run directory a model and suite resolve to"
+    )
+    _add_model_suite_arguments(run_dir)
+    run_dir.set_defaults(handler=command_run_dir)
 
     verify = subparsers.add_parser(
         "verify-testset", help="check a Hub test set against ALMA's own files"

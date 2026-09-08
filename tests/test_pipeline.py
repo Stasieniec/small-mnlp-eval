@@ -43,10 +43,10 @@ def test_generate_writes_a_complete_run_directory(run_config: RunConfig) -> None
     assert report.directions[0].n_segments == 4
     assert paths.stage_completed("generate")
 
-    manifest = paths.read_manifest()
-    assert manifest["stages"]["generate"]["directions"]["de-en"]["n_segments"] == 4
-    assert manifest["stages"]["generate"]["model_info"]["kind"] == "stub"
-    assert manifest["stages"]["generate"]["directions"]["de-en"]["data"]["fingerprint"]
+    recorded = paths.stages()["generate"]
+    assert recorded["directions"]["de-en"]["n_segments"] == 4
+    assert recorded["model_info"]["kind"] == "stub"
+    assert recorded["directions"]["de-en"]["data"]["fingerprint"]
 
 
 def test_generate_text_and_jsonl_stay_aligned(run_config: RunConfig) -> None:
@@ -182,10 +182,57 @@ def test_macro_average_requires_every_direction(
     generate(config, translator=_stub(config))
     paths = RunPaths.for_config(config)
     paths.hyps_jsonl("en-de").unlink()
-    score_run(paths, SURFACE_ONLY)
+
+    # Scoring an incomplete run is refused by default, because averaging over
+    # the subset that happens to be on disk produced a macro average covering
+    # fewer directions than the table claimed.
+    with pytest.raises(RuntimeError, match="generation is incomplete"):
+        score_run(paths, SURFACE_ONLY)
+
+    score_run(paths, SURFACE_ONLY, allow_partial=True)
     payload = json.loads(paths.scores("surface").read_text(encoding="utf-8"))
     assert payload["aggregate"]["n_directions"] == 1
     assert set(payload["directions"]) == {"de-en"}
+
+
+def test_sharded_generation_shares_one_run(
+    model_spec: ModelSpec, local_testset: Path, tmp_path: Path
+) -> None:
+    # How a Slurm array must shard a suite. Passing --directions instead put
+    # each direction in its own run id, so the six-direction macro average the
+    # suite promises was unreachable through the documented submission path.
+    suite = SuiteSpec.from_dict(
+        {
+            "name": "two-way",
+            "data": {
+                "dataset": f"local:jsonl:{local_testset}",
+                "directions": ["de-en", "en-de"],
+            },
+            "decode": {"num_beams": 1, "batch_size": 2},
+        }
+    )
+    config = RunConfig(model_spec, suite, output_root=tmp_path / "runs")
+
+    first = generate(config, only_directions=["de-en"], translator=_stub(config))
+    assert [report.direction for report in first.directions] == ["de-en"]
+    paths = RunPaths.for_config(config)
+    assert not paths.stage_completed("generate")
+
+    generate(config, only_directions=["en-de"], translator=_stub(config))
+    # One run directory, both directions, and the stage is complete only once
+    # every shard has reported.
+    assert paths.stage_completed("generate")
+    assert paths.generated_directions() == {"de-en", "en-de"}
+    assert len(list((tmp_path / "runs").iterdir())) == 1
+
+    score_run(paths, SURFACE_ONLY)
+    payload = json.loads(paths.scores("surface").read_text(encoding="utf-8"))
+    assert payload["aggregate"]["n_directions"] == 2
+
+
+def test_sharding_rejects_a_direction_outside_the_suite(run_config: RunConfig) -> None:
+    with pytest.raises(ValueError, match="not in suite"):
+        generate(run_config, only_directions=["ru-en"], translator=_stub(run_config))
 
 
 # --------------------------------------------------------------------------
