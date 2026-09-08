@@ -74,6 +74,23 @@ def build_report(
         )
         _log(result.warnings[-1])
 
+    if baseline and not any(summary.model == baseline for summary in summaries):
+        available = ", ".join(sorted({summary.model for summary in summaries}))
+        result.warnings.append(
+            f"no run has model name {baseline!r}. Every compression ratio, speedup and "
+            f"p-value is computed against the baseline, so all of them are omitted. "
+            f"Available systems: {available}"
+        )
+        _log(result.warnings[-1])
+
+    incomplete = [summary.model for summary in summaries if not summary.generation_complete]
+    if incomplete:
+        result.warnings.append(
+            f"generation is incomplete for: {', '.join(sorted(set(incomplete)))}. Their "
+            "scores cover fewer directions than the suite claims."
+        )
+        _log(result.warnings[-1])
+
     out_dir.mkdir(parents=True, exist_ok=True)
     sections: list[str] = [
         "# Compression evaluation report",
@@ -161,6 +178,14 @@ def build_report(
     return result
 
 
+def _resolve_baseline(members: list[RunSummary], baseline: str | None) -> RunSummary | None:
+    """Find the reference run, by explicit name then by declaration."""
+    if baseline:
+        return next((item for item in members if item.model == baseline), None)
+    declared = {item.baseline_name for item in members if item.baseline_name}
+    return next((item for item in members if item.model in declared), None)
+
+
 def _slug(text: str) -> str:
     return "".join(character if character.isalnum() else "-" for character in text.lower()).strip(
         "-"
@@ -196,12 +221,12 @@ def _significance_table(
     """Paired bootstrap of every system against the baseline, per direction."""
     from mnlp_eval.metrics.significance import paired_bootstrap_surface
 
-    reference = None
-    if baseline:
-        reference = next((item for item in members if item.model == baseline), None)
-    if reference is None:
-        declared = {item.baseline_name for item in members if item.baseline_name}
-        reference = next((item for item in members if item.model in declared), None)
+    # Resolved the same way _find_baseline resolves it in tables.py. The two
+    # diverged: a typo'd --baseline made the ratio columns blank while the
+    # significance table quietly tested against the spec-declared baseline
+    # instead, so the reader compared ratios and p-values from different
+    # reference systems.
+    reference = _resolve_baseline(members, baseline)
     if reference is None:
         return None
 

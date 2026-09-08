@@ -294,3 +294,65 @@ def test_shipped_configs_all_parse() -> None:
         SuiteSpec.from_dict(load_yaml_config(path))
     for path in sorted((root / "metrics").glob("*.yaml")):
         MetricsSpec.from_dict(load_yaml_config(path))
+
+
+# --------------------------------------------------------------------------
+# Hardening found by review
+# --------------------------------------------------------------------------
+
+
+def test_duplicate_yaml_keys_are_rejected(tmp_path: Path) -> None:
+    # PyYAML silently takes the last value, which is the same class of mistake
+    # the unknown-key rejection exists to catch.
+    path = tmp_path / "dup.yaml"
+    path.write_text("name: s\ndecode:\n  num_beams: 5\n  num_beams: 1\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="duplicate key"):
+        load_yaml_config(path)
+
+
+def test_extends_must_be_relative(tmp_path: Path) -> None:
+    path = tmp_path / "child.yaml"
+    path.write_text("extends: /etc/hostname\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="must be relative"):
+        load_yaml_config(path)
+
+
+def test_direction_order_does_not_change_run_identity() -> None:
+    # Reordering a suite's direction list for readability must not orphan every
+    # existing run. Duplicates are still rejected, so sorting loses nothing.
+    model = ModelSpec.from_dict(BASE_MODEL)
+    forward = SuiteSpec.from_dict({"name": "s", "data": {"directions": ["de-en", "en-de"]}})
+    reversed_order = SuiteSpec.from_dict({"name": "s", "data": {"directions": ["en-de", "de-en"]}})
+    assert RunConfig(model, forward).run_id == RunConfig(model, reversed_order).run_id
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["a/b", "../escaped", "with space", ".hidden", "-leading", "x" * 65, ""],
+)
+def test_unsafe_names_are_rejected(name: str) -> None:
+    # Names become directory components. A slash produced a run invisible to
+    # discover_runs, and ".." wrote outside the runs root.
+    with pytest.raises(ConfigError):
+        ModelSpec.from_dict({**BASE_MODEL, "name": name})
+
+
+def test_bootstrap_seed_zero_is_rejected() -> None:
+    # sacreBLEU treats a zero seed as unseeded while the signature still claims
+    # seed 0, so surface p-values would silently stop being reproducible.
+    with pytest.raises(ConfigError, match="non-zero"):
+        MetricsSpec.from_dict({"bootstrap_seed": 0})
+
+
+def test_repetition_penalty_is_pinned_and_validated() -> None:
+    assert DecodeSpec().repetition_penalty == 1.0
+    assert DecodeSpec().no_repeat_ngram_size == 0
+    with pytest.raises(ConfigError, match="repetition_penalty"):
+        DecodeSpec.from_dict({"repetition_penalty": 0})
+
+
+def test_policy_decode_knobs_are_part_of_run_identity() -> None:
+    model = ModelSpec.from_dict(BASE_MODEL)
+    plain = RunConfig(model, _suite())
+    for change in ({"repetition_penalty": 1.1}, {"no_repeat_ngram_size": 3}):
+        assert RunConfig(model, _suite(**change)).run_id != plain.run_id

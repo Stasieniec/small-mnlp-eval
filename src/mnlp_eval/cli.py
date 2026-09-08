@@ -567,6 +567,31 @@ def main(argv: list[str] | None = None) -> int:
         return int(handler(args))
     except (ConfigError, FileNotFoundError, KeyError, ValueError) as exc:
         return _fail(str(exc).strip("'\""))
+    except ImportError as exc:
+        # A missing optional dependency. The bitsandbytes configs in this
+        # repository need the `quant` extra, which the documented install does
+        # not include, and this surfaced as a raw traceback naming package
+        # metadata rather than the extra.
+        return _fail(
+            f"{exc}. A dependency is missing: install the extra this model needs, for "
+            'example uv pip install -e ".[gen,quant,surface]". See docs/environments.md.'
+        )
+    except OSError as exc:
+        # Covers the offline case: transformers raises OSError when it cannot
+        # reach the Hub, and the 25-frame traceback named neither the cause nor
+        # the fix.
+        hint = ""
+        if "couldn't connect" in str(exc) or "offline" in str(exc).lower():
+            hint = (
+                " If HF_HUB_OFFLINE=1 is set, the asset is not in HF_HOME: run "
+                "slurm/prefetch.sh from a login node. Otherwise check network access."
+            )
+        return _fail(f"{type(exc).__name__}: {exc}{hint}")
+    except TypeError as exc:
+        # A config value of the wrong shape, for example `model.kwargs: 7`.
+        return _fail(f"{exc}. Check the types in your configuration files.")
+    except RuntimeError as exc:
+        return _fail(str(exc))
     except KeyboardInterrupt:
         print("interrupted", file=sys.stderr)
         return 130

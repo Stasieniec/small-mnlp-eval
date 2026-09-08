@@ -245,7 +245,10 @@ class DataSpec:
         if not raw:
             msg = "data spec: 'directions' is required"
             raise ConfigError(msg)
-        payload["directions"] = [str(d) for d in parse_directions(raw)]
+        # Sorted, so reordering a suite's direction list for readability does
+        # not change the run identity and orphan every existing run.
+        # parse_directions already rejects duplicates, so this loses nothing.
+        payload["directions"] = sorted(str(d) for d in parse_directions(raw))
         spec = cls(**payload)
         if spec.limit is not None and spec.limit <= 0:
             msg = f"data spec: limit must be positive, got {spec.limit}"
@@ -429,7 +432,6 @@ class BenchSpec:
     # Force min_new_tokens == max_new_tokens so latency does not reward a model
     # for stopping early. See mnlp_eval.bench.efficiency for the reasoning.
     force_fixed_length: bool = True
-    measure_power: bool = False
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> BenchSpec:
@@ -522,6 +524,32 @@ def _plain(value: Any) -> Any:
 # --------------------------------------------------------------------------
 
 
+class _StrictLoader(yaml.SafeLoader):
+    """SafeLoader that rejects duplicate mapping keys.
+
+    PyYAML silently takes the last value, so a file setting ``num_beams`` twice
+    quietly used the second. That is exactly the class of mistake the strict
+    unknown-key rejection exists to catch, so it should not slip through the
+    parser.
+    """
+
+
+def _no_duplicate_keys(
+    loader: yaml.SafeLoader, node: yaml.MappingNode, deep: bool = False
+) -> dict[Any, Any]:
+    mapping: dict[Any, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            msg = f"duplicate key {key!r} at line {key_node.start_mark.line + 1}"
+            raise ConfigError(msg)
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicate_keys)
+
+
 def load_yaml_config(path: str | Path, *, _seen: tuple[Path, ...] = ()) -> dict[str, Any]:
     """Load a YAML file, resolving an optional ``extends`` chain.
 
@@ -540,7 +568,7 @@ def load_yaml_config(path: str | Path, *, _seen: tuple[Path, ...] = ()) -> dict[
         raise ConfigError(msg)
 
     with resolved.open(encoding="utf-8") as handle:
-        loaded = yaml.safe_load(handle)
+        loaded = yaml.load(handle, Loader=_StrictLoader)
     if loaded is None:
         loaded = {}
     if not isinstance(loaded, dict):
@@ -550,6 +578,12 @@ def load_yaml_config(path: str | Path, *, _seen: tuple[Path, ...] = ()) -> dict[
     parent_ref = loaded.pop("extends", None)
     if parent_ref is None:
         return loaded
+    if Path(str(parent_ref)).is_absolute():
+        msg = (
+            f"{resolved}: 'extends' must be relative to this file, not the absolute path "
+            f"{parent_ref!r}. An absolute path makes a config unusable on another machine."
+        )
+        raise ConfigError(msg)
     parent = load_yaml_config(resolved.parent / str(parent_ref), _seen=(*_seen, resolved))
     return _deep_merge(parent, loaded)
 

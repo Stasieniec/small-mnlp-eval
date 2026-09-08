@@ -289,17 +289,16 @@ def _order(summaries: list[RunSummary], baseline: str | None) -> list[RunSummary
 
 
 def _find_baseline(summaries: list[RunSummary], baseline: str | None) -> RunSummary | None:
+    """Find the reference run, by explicit name then by declaration.
+
+    An explicit ``--baseline`` that matches nothing returns None rather than
+    falling back, so a typo shows up as blank ratio columns plus a warning from
+    the report rather than as ratios against a system nobody asked for.
+    """
     if baseline:
-        for summary in summaries:
-            if summary.model == baseline:
-                return summary
-        return None
-    # Fall back to whatever the specs declare as their baseline.
+        return next((item for item in summaries if item.model == baseline), None)
     declared = {summary.baseline_name for summary in summaries if summary.baseline_name}
-    for summary in summaries:
-        if summary.model in declared:
-            return summary
-    return None
+    return next((item for item in summaries if item.model in declared), None)
 
 
 #: Display names for the neural metric keys, and the order columns appear in.
