@@ -1,18 +1,29 @@
 # MetricX-24 scoring environment.
 #
 # Separate from both other environments because upstream pins
-# transformers==4.30.2 and datasets==2.13.1. Only the model class is imported
-# from upstream; batching lives in mnlp_eval.metrics.metricx, so the pinned
-# data stack stays out of the hot path.
+# transformers==4.30.2 and datasets==2.13.1.
 #
-# Create with:
-#   uv venv --python 3.11 .venv-metricx
-#   uv pip install --python .venv-metricx/bin/python -r envs/metricx-requirements.txt
+# IMPORTANT: google-research/metricx is not a Python package. Its repository
+# root holds only README, LICENSE, requirements.txt and the metricx23/
+# metricx24 directories, with no pyproject.toml and no setup.py, so
+# `pip install git+https://github.com/google-research/metricx.git` always
+# fails. The clone has to go on PYTHONPATH instead, which is what
+# scripts/setup_metricx_env.sh does. Use that rather than installing this file
+# by hand:
 #
-# Then score with:
-#   .venv-metricx/bin/mnlp-eval score --run <run dir> --groups metricx
+#   bash scripts/setup_metricx_env.sh
 #
-# MetricX-24-Hybrid-Large needs roughly 5 GB in bfloat16. The XL and XXL
-# variants need an A100-class GPU.
-metricx @ git+https://github.com/google-research/metricx.git
+# Only the model class is imported from upstream; batching lives in
+# mnlp_eval.metrics.metricx, so the pinned data stack stays out of the hot
+# path. These are upstream's own pins from its requirements.txt, minus the
+# mt-metrics-eval dependency, which is needed only for their WMT correlation
+# scripts and not for inference.
+transformers[torch]==4.30.2
+sentencepiece==0.1.99
+datasets==2.13.1
+# transformers 4.30 imports pkg_resources, removed in setuptools 81. The same
+# trap as the COMET environment.
+setuptools<81
+# The framework itself, whose core dependencies are deliberately tiny so it
+# can be installed alongside these pins.
 -e .[surface]

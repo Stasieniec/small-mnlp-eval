@@ -29,6 +29,12 @@ class RunSummary:
     manifest: dict[str, Any]
     scores: dict[str, dict[str, Any]] = field(default_factory=dict)
     bench: dict[str, Any] | None = None
+    #: Stage records, keyed by stage then by shard.
+    stage_records: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+    @property
+    def generation_complete(self) -> bool:
+        return self.paths.stage_completed("generate")
 
     @property
     def model(self) -> str:
@@ -52,14 +58,42 @@ class RunSummary:
         return list(self.manifest["suite"]["data"]["directions"])
 
     @property
+    def data_fingerprints(self) -> dict[str, str]:
+        """Per-direction digest of the exact segments scored.
+
+        Recorded by the generate stage. The data specification names a dataset
+        and a limit; the fingerprint is the content. Two runs can share a
+        specification and have been scored on different data, which is exactly
+        what happens when a local held-out file is edited between runs.
+        """
+        fingerprints: dict[str, str] = {}
+        for entry in self.stage_records.get("generate", {}).values():
+            for direction, payload in (entry.get("directions") or {}).items():
+                digest = (payload.get("data") or {}).get("fingerprint")
+                if digest:
+                    fingerprints[direction] = str(digest)
+        return dict(sorted(fingerprints.items()))
+
+    @property
     def comparability_key(self) -> str:
         """Identity of the measurement conditions, ignoring the model.
 
         Two runs sharing this key were measured the same way and may be
         compared. Two runs that do not share it may not.
+
+        Includes the data fingerprints, not just the data specification.
+        Without them, a baseline scored on a local file and a candidate scored
+        after that file was edited grouped into one table with no warning, and
+        a seven-BLEU "compression regression" was entirely a data change.
         """
         identity = self.manifest["identity"]
-        return canonical_json({"data": identity["data"], "decode": identity["decode"]})
+        return canonical_json(
+            {
+                "data": identity["data"],
+                "decode": identity["decode"],
+                "data_fingerprints": self.data_fingerprints,
+            }
+        )
 
     @property
     def comparability_label(self) -> str:
@@ -112,7 +146,13 @@ def collect_runs(root: Path) -> list[RunSummary]:
     summaries: list[RunSummary] = []
     for paths in discover_runs(root):
         manifest = paths.read_manifest()
-        summary = RunSummary(paths=paths, manifest=manifest)
+        summary = RunSummary(
+            paths=paths,
+            manifest=manifest,
+            stage_records={
+                stage: paths.stage_records(stage) for stage in ("generate", "bench", "score")
+            },
+        )
         for group in ("surface", "neural", "metricx"):
             path = paths.scores(group)
             if path.is_file():

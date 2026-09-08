@@ -36,10 +36,27 @@ def score_run(
     *,
     groups: Sequence[str] | None = None,
     overwrite: bool = False,
+    allow_partial: bool = False,
 ) -> dict[str, Any]:
     """Score a run and write ``scores.<group>.json`` for each served group."""
     manifest = paths.read_manifest()
     directions = [parse_direction(item) for item in manifest["suite"]["data"]["directions"]]
+
+    # Refuse to score a run that has not finished generating. Scoring the
+    # subset that happens to be on disk produced a macro average over fewer
+    # directions than the table claimed, recorded it as completed, and then
+    # skipped rescoring it as "already scored".
+    expected = {str(direction) for direction in directions}
+    present = {str(direction) for direction in directions if paths.hyps_jsonl(direction).is_file()}
+    if present != expected and not allow_partial:
+        missing = ", ".join(sorted(expected - present)) or "none"
+        msg = (
+            f"{paths.root.name}: generation is incomplete, missing {missing}. "
+            "Scoring now would average over fewer directions than the suite claims. "
+            "Finish generation, or pass allow_partial to score the subset deliberately."
+        )
+        raise RuntimeError(msg)
+
     requested = list(groups) if groups else list(metrics.groups)
     unknown = sorted(set(requested) - set(METRIC_GROUPS))
     if unknown:
@@ -47,7 +64,12 @@ def score_run(
         raise ValueError(msg)
 
     availability = group_availability()
-    outcome: dict[str, Any] = {"status": "completed", "groups": {}}
+    outcome: dict[str, Any] = {
+        "status": "completed",
+        "partial": present != expected,
+        "scored_directions": sorted(present),
+        "groups": {},
+    }
 
     for group in [name for name in METRIC_GROUPS if name in requested]:
         target = paths.scores(group)

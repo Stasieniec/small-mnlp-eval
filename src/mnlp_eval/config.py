@@ -19,6 +19,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any, TypeVar
@@ -54,6 +55,28 @@ _VALID_QUANT_METHODS = frozenset(
 
 class ConfigError(ValueError):
     """Raised when a configuration file is malformed or self-inconsistent."""
+
+
+#: Characters allowed in a name that becomes a directory component.
+_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$")
+
+
+def _validate_name(value: str, context: str) -> None:
+    """Reject a name that cannot safely be part of a path.
+
+    Names are concatenated into the run directory name. A name containing a
+    slash produced a nested directory that ``discover_runs`` could not see, so
+    the run generated and scored but was silently absent from every table; a
+    name containing ``..`` wrote outside the runs root, which on shared cluster
+    scratch means into someone else's tree.
+    """
+    if not _NAME_PATTERN.match(value):
+        msg = (
+            f"{context}: name {value!r} is not usable as a directory component. "
+            "Use letters, digits, dot, underscore, plus or hyphen, starting with a "
+            "letter or digit, at most 64 characters."
+        )
+        raise ConfigError(msg)
 
 
 def _reject_unknown(cls: type, data: dict[str, Any], context: str) -> None:
@@ -159,6 +182,7 @@ class ModelSpec:
         return spec
 
     def validate(self) -> None:
+        _validate_name(self.name, "model spec")
         if self.dtype not in _VALID_DTYPES:
             msg = (
                 f"model {self.name}: dtype {self.dtype!r} is not one of "
@@ -336,6 +360,7 @@ class SuiteSpec:
         if not payload.get("name"):
             msg = "suite: 'name' is required"
             raise ConfigError(msg)
+        _validate_name(str(payload["name"]), "suite")
         payload["data"] = DataSpec.from_dict(payload.get("data") or {})
         payload["decode"] = DecodeSpec.from_dict(payload.get("decode") or {})
         return cls(**payload)

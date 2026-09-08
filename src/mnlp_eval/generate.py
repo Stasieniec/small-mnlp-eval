@@ -100,6 +100,7 @@ def generate(
     *,
     overwrite: bool = False,
     deterministic_check: int = 0,
+    only_directions: Sequence[str] | None = None,
     translator: Translator | None = None,
 ) -> GenerateReport:
     """Translate every direction in the suite and write the run directory.
@@ -111,6 +112,11 @@ def generate(
             the first direction at batch size 1 without length bucketing, and
             report how often the result differs. Quantifies the effect of
             padding on beam search instead of assuming it away.
+        only_directions: Generate just these directions of the suite, leaving
+            the rest for another process. Used to shard one run across a Slurm
+            array. It deliberately does not change the data specification, and
+            so does not change the run identity: every task contributes to the
+            same run rather than creating a one-direction run of its own.
         translator: A prebuilt translator, used by tests to avoid loading a
             real model.
     """
@@ -135,10 +141,22 @@ def generate(
         f"{info.dtype} on {info.device}"
     )
 
+    wanted = set(only_directions) if only_directions else None
+    if wanted is not None:
+        unknown = sorted(wanted - set(config.suite.data.directions))
+        if unknown:
+            msg = (
+                f"direction(s) {', '.join(unknown)} are not in suite "
+                f"{config.suite.name!r}, which covers {', '.join(config.suite.data.directions)}"
+            )
+            raise ValueError(msg)
+
     reports: list[DirectionReport] = []
     skipped: list[str] = []
     try:
         for direction in config.suite.data.parsed_directions:
+            if wanted is not None and str(direction) not in wanted:
+                continue
             if not overwrite and paths.hyps_jsonl(direction).is_file():
                 _log(f"  {direction}: already present, skipping")
                 skipped.append(str(direction))
@@ -168,7 +186,19 @@ def generate(
     payload = report.to_dict()
     payload["model_info"] = dataclasses.asdict(info)
     payload["completed_at"] = utc_now()
-    paths.record_stage("generate", payload)
+    if wanted is None:
+        paths.record_stage("generate", payload)
+    else:
+        # One record per direction, so concurrent array tasks never write the
+        # same file and no record can be lost to a read-modify-write race.
+        for direction_name in sorted(wanted):
+            shard = dict(payload)
+            shard["directions"] = {
+                name: value
+                for name, value in payload["directions"].items()
+                if name == direction_name
+            }
+            paths.record_stage("generate", shard, key=direction_name)
     _log(f"  done in {report.seconds:.1f}s -> {paths.root}")
     return report
 
