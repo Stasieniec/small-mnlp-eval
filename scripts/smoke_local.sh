@@ -28,6 +28,11 @@ fi
 export HF_HUB_DISABLE_PROGRESS_BARS=1
 export TOKENIZERS_PARALLELISM=false
 
+# Start clean. Keying runs by model name collapses same-model different-run
+# directories, so a stale directory from an earlier suite could satisfy the
+# assertions while the current pipeline was broken.
+rm -rf "${RUNS_ROOT}" "${REPORT_DIR}"
+
 echo "=== environment ==="
 "${CLI}" --runs-root "${RUNS_ROOT}" info
 
@@ -69,7 +74,9 @@ echo "=== 3/3 prompted decoder-only path: Qwen2.5-0.5B-Instruct ==="
 
 echo
 echo "=== neural metrics, if the COMET environment exists ==="
+COMET_EXPECTED=0
 if [[ -x ./.venv-comet/bin/mnlp-eval ]]; then
+    COMET_EXPECTED=1
     # A smaller COMET batch keeps the 580M metric model inside 6 GB alongside
     # whatever else the card is holding.
     ./.venv-comet/bin/mnlp-eval --runs-root "${RUNS_ROOT}" score \
@@ -77,6 +84,7 @@ if [[ -x ./.venv-comet/bin/mnlp-eval ]]; then
 else
     echo "skipped: .venv-comet not found, see docs/environments.md"
 fi
+export COMET_EXPECTED
 
 echo
 echo "=== report ==="
@@ -87,8 +95,10 @@ echo
 echo "=== assertions ==="
 "${PYTHON}" - "${RUNS_ROOT}" <<'PYEOF'
 import json
+import os
 import sys
 from pathlib import Path
+
 
 runs_root = Path(sys.argv[1])
 failures: list[str] = []
@@ -135,10 +145,40 @@ else:
     check(31.0 < bits < 33.0, f"float32 reads 32 bits per parameter: {bits}")
 
 half = runs.get("opus-mt-de-en-fp16")
-if half is not None:
+if half is not None and reference is not None:
     bench = json.loads((half / "bench.json").read_text())
     bits = bench["static"]["bits_per_parameter_resident"]
     check(15.0 < bits < 17.0, f"float16 reads 16 bits per parameter: {bits}")
+    full = json.loads((reference / "bench.json").read_text())["static"]
+    ratio = full["resident_weight_bytes"] / bench["static"]["resident_weight_bytes"]
+    # Not exactly 2: buffers that stay fp32 and allocator granularity move it
+    # slightly, and the report quotes the ratio to two decimals anyway.
+    check(1.95 < ratio < 2.05, f"fp16 halves resident size: {ratio:.4f}x")
+    # The actual compression-fidelity claim the two-model design sets up.
+    half_bleu = json.loads((half / "scores.surface.json").read_text())["aggregate"]["bleu"]
+    reference_bleu = json.loads((reference / "scores.surface.json").read_text())[
+        "aggregate"
+    ]["bleu"]
+    check(
+        abs(half_bleu - reference_bleu) < 1.0,
+        f"fp16 quality matches fp32: {half_bleu} against {reference_bleu}",
+    )
+
+# The neural stage is not allowed to pass by doing nothing. score exits zero
+# when a metric group is unavailable, so a broken COMET environment would
+# otherwise slip through under set -e.
+if os.environ.get("COMET_EXPECTED") == "1":
+    for name, path in sorted(runs.items()):
+        scores = path / "scores.neural.json"
+        if not scores.is_file():
+            check(False, f"{name}: scores.neural.json is missing")
+            continue
+        payload = json.loads(scores.read_text())
+        value = payload["aggregate"].get("wmt22_comet_da")
+        check(
+            isinstance(value, float) and 0.0 < value < 1.0,
+            f"{name}: COMET-22 is a plausible score: {value}",
+        )
 
 prompted = runs.get("qwen2.5-0.5b-instruct")
 if prompted is not None:

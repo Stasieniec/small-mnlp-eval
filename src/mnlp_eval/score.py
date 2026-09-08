@@ -16,7 +16,7 @@ from mnlp_eval.artifacts import Segment, atomic_write_json, read_jsonl
 from mnlp_eval.config import MetricsSpec
 from mnlp_eval.env_capture import package_versions
 from mnlp_eval.languages import Direction, parse_direction
-from mnlp_eval.metrics.base import METRIC_GROUPS, MetricScore, group_availability
+from mnlp_eval.metrics.base import METRIC_GROUPS, group_availability
 from mnlp_eval.metrics.behaviour import score_behaviour
 from mnlp_eval.metrics.surface import score_surface
 from mnlp_eval.runspec import RunPaths, utc_now
@@ -103,7 +103,11 @@ def _score_group(
     group: str,
     directions: Sequence[Direction],
 ) -> dict[str, Any]:
-    per_direction: dict[str, Any] = {}
+    if group == "neural":
+        per_direction = _score_neural(paths, metrics, directions)
+        return _group_payload(paths, group, metrics, per_direction)
+
+    per_direction = {}
     for direction in directions:
         path = paths.hyps_jsonl(direction)
         if not path.is_file():
@@ -112,11 +116,43 @@ def _score_group(
         segments = list(read_jsonl(path))
         if group == "surface":
             per_direction[str(direction)] = _surface_for(segments, direction, metrics)
-        elif group == "neural":
-            per_direction[str(direction)] = _neural_for(segments, direction, metrics)
         else:
             per_direction[str(direction)] = _metricx_for(segments, direction, metrics)
 
+    return _group_payload(paths, group, metrics, per_direction)
+
+
+def _score_neural(
+    paths: RunPaths, metrics: MetricsSpec, directions: Sequence[Direction]
+) -> dict[str, Any]:
+    """Score every direction with one COMET checkpoint before loading the next.
+
+    The loop is model-outer, direction-inner, and the cache is cleared between
+    models. With the checkpoint loop inside the direction loop and no eviction,
+    all three checkpoints in the full metrics config (580M, 580M and 3.5B) stayed
+    resident on the GPU after the first direction.
+    """
+    from mnlp_eval.metrics.comet import clear_model_cache
+
+    per_direction: dict[str, Any] = {}
+    for model_name in metrics.comet_models:
+        for direction in directions:
+            path = paths.hyps_jsonl(direction)
+            if not path.is_file():
+                continue
+            segments = list(read_jsonl(path))
+            payload = _neural_for(segments, direction, metrics, model_name)
+            existing = per_direction.setdefault(
+                str(direction), {"n_segments": len(segments), "metrics": {}}
+            )
+            existing["metrics"].update(payload["metrics"])
+        clear_model_cache()
+    return per_direction
+
+
+def _group_payload(
+    paths: RunPaths, group: str, metrics: MetricsSpec, per_direction: dict[str, Any]
+) -> dict[str, Any]:
     return {
         "schema_version": SCORES_SCHEMA_VERSION,
         "group": group,
@@ -159,30 +195,23 @@ def _surface_for(
 
 
 def _neural_for(
-    segments: Sequence[Segment], direction: Direction, metrics: MetricsSpec
+    segments: Sequence[Segment],
+    direction: Direction,
+    metrics: MetricsSpec,
+    model_name: str,
 ) -> dict[str, Any]:
     from mnlp_eval.metrics.comet import score_comet
 
-    sources = [segment.source for segment in segments]
-    hypotheses = [segment.hypothesis for segment in segments]
-    references = [segment.reference for segment in segments]
-
-    scores: dict[str, MetricScore] = {}
-    for model_name in metrics.comet_models:
-        _log(f"    {direction}: {model_name}")
-        score = score_comet(
-            model_name,
-            sources,
-            hypotheses,
-            references,
-            batch_size=metrics.comet_batch_size,
-            gpus=metrics.comet_gpus,
-        )
-        scores[score.name] = score
-    return {
-        "n_segments": len(segments),
-        "metrics": {name: score.to_dict() for name, score in scores.items()},
-    }
+    _log(f"    {direction}: {model_name}")
+    score = score_comet(
+        model_name,
+        [segment.source for segment in segments],
+        [segment.hypothesis for segment in segments],
+        [segment.reference for segment in segments],
+        batch_size=metrics.comet_batch_size,
+        gpus=metrics.comet_gpus,
+    )
+    return {"n_segments": len(segments), "metrics": {score.name: score.to_dict()}}
 
 
 def _metricx_for(

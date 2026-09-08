@@ -10,7 +10,7 @@ invisible in every quality metric this project reports.
 Language identification uses a classifier restricted to the languages that are
 plausible for the direction, namely the target, the source, and English. A
 restricted decision is far more reliable on single sentences than an open
-choice among 142 languages, and it answers the question that actually matters:
+choice among all 142 languages it knows, and it answers what matters:
 did the model translate, echo the source, or fall back to English. The open
 rate over every language the classifier knows is reported alongside it.
 

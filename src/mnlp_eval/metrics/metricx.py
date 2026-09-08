@@ -52,7 +52,10 @@ def _load(model_name: str, tokenizer_name: str) -> tuple[Any, Any]:
     from metricx24 import models
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name, legacy=False)
-    model = models.MT5ForRegression.from_pretrained(model_name)
+    # torch_dtype="auto" as upstream's predict.py does. Omitting it upcast the
+    # bfloat16 checkpoint to fp32, which drifts scores away from the published
+    # values and doubles weight memory to roughly 4.9 GB for the large variant.
+    model = models.MT5ForRegression.from_pretrained(model_name, torch_dtype="auto")
     model.eval()
     if torch.cuda.is_available():
         model.to("cuda")
@@ -78,6 +81,10 @@ def score_metricx(
 ) -> MetricScore:
     """Score one direction with MetricX-24."""
     import torch
+
+    if references is not None and len(references) != len(sources):
+        msg = f"{len(sources)} sources but {len(references)} references"
+        raise ValueError(msg)
 
     model, tokenizer = _load(model_name, tokenizer_name)
     device = next(model.parameters()).device
