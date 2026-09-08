@@ -262,45 +262,68 @@ def _find_baseline(summaries: list[RunSummary], baseline: str | None) -> RunSumm
     return None
 
 
+#: Display names for the neural metric keys, and the order columns appear in.
+#: Every metric present gets its own column. An earlier version had a single
+#: column headed "COMET-22" that fell back to XCOMET-XL or COMETKiwi when
+#: those were the only neural metrics scored, putting different metrics on
+#: different scales under one heading with no note.
+_NEURAL_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    ("neural", "wmt22_comet_da", "COMET-22"),
+    ("neural", "wmt22_cometkiwi_da", "COMETKiwi (ref-free)"),
+    ("neural", "xcomet_xl", "XCOMET-XL"),
+    ("neural", "xcomet_xxl", "XCOMET-XXL"),
+    ("metricx", "metricx24", "MetricX-24 (lower better)"),
+)
+
+
+def _present_neural_columns(
+    summaries: list[RunSummary],
+) -> list[tuple[str, str, str]]:
+    return [
+        entry
+        for entry in _NEURAL_COLUMNS
+        if any(summary.metric(entry[0], entry[1]) is not None for summary in summaries)
+    ]
+
+
 def _quality_table(summaries: list[RunSummary]) -> Table:
     directions = summaries[0].directions if summaries else []
-    columns = ["System", *[f"BLEU {d}" for d in directions], "BLEU avg", "chrF++ avg", "COMET-22"]
-    metricx_present = any(
-        summary.metric("metricx", "metricx24") is not None for summary in summaries
-    )
-    if metricx_present:
-        columns.append("MetricX-24 (lower better)")
+    neural = _present_neural_columns(summaries)
+    columns = [
+        "System",
+        *[f"BLEU {d}" for d in directions],
+        "BLEU avg",
+        "chrF++ avg",
+        *[label for _, _, label in neural],
+    ]
 
     rows: list[list[str]] = []
     for summary in summaries:
-        comet = next(
-            (
-                summary.metric("neural", key)
-                for key in ("wmt22_comet_da", "xcomet_xl", "wmt22_cometkiwi_da")
-                if summary.metric("neural", key) is not None
-            ),
-            None,
-        )
         row = [
             summary.model,
             *[_fmt(summary.per_direction("surface", d, "bleu")) for d in directions],
             _fmt(summary.metric("surface", "bleu")),
             _fmt(summary.metric("surface", "chrf2pp")),
-            _fmt(summary.metric("neural", "wmt22_comet_da") or comet, 4),
         ]
-        if metricx_present:
-            row.append(_fmt(summary.metric("metricx", "metricx24"), 3))
+        row.extend(_fmt(summary.metric(group, key), 4) for group, key, _ in neural)
         rows.append(row)
 
-    return Table(
-        title="Translation quality",
-        columns=columns,
-        rows=rows,
-        notes=[
-            "Averages are unweighted macro means over directions.",
-            "sacreBLEU signatures are recorded per direction in scores.surface.json.",
-        ],
-    )
+    notes = [
+        "Averages are unweighted macro means over directions.",
+        "sacreBLEU signatures are recorded per direction in scores.surface.json.",
+    ]
+    if len(neural) > 1:
+        notes.append(
+            "Each neural metric has its own column. They are on different scales and "
+            "must not be compared with one another, only across systems within a column."
+        )
+    if any(_fmt(summary.metric(g, k), 4) == "-" for summary in summaries for g, k, _ in neural):
+        notes.append(
+            "A dash means that metric was not scored for that system, not that it "
+            "scored zero. Score every system with the same metrics config before "
+            "quoting a comparison."
+        )
+    return Table(title="Translation quality", columns=columns, rows=rows, notes=notes)
 
 
 def _behaviour_table(summaries: list[RunSummary]) -> Table:
@@ -308,7 +331,9 @@ def _behaviour_table(summaries: list[RunSummary]) -> Table:
         title="Behavioural failure modes",
         columns=[
             "System",
+            "On-target",
             "Off-target",
+            "Unverifiable",
             "Source language",
             "Empty",
             "Source copy",
@@ -320,7 +345,9 @@ def _behaviour_table(summaries: list[RunSummary]) -> Table:
         rows=[
             [
                 summary.model,
+                _fmt(summary.behaviour("on_target_rate"), percent=True),
                 _fmt(summary.behaviour("off_target_rate"), percent=True),
+                _fmt(summary.behaviour("unverifiable_rate"), percent=True),
                 _fmt(summary.behaviour("source_language_rate"), percent=True),
                 _fmt(summary.behaviour("empty_rate"), percent=True),
                 _fmt(summary.behaviour("source_copy_rate"), percent=True),
@@ -332,10 +359,17 @@ def _behaviour_table(summaries: list[RunSummary]) -> Table:
             for summary in summaries
         ],
         notes=[
-            "Off-target is the share of hypotheses not identified as the target language, "
-            "using a classifier restricted to the target, the source and English.",
-            "Source language is the subset of those identified as the source language, "
-            "which indicates a failure to translate rather than a mistranslation.",
+            "On-target, off-target and unverifiable are shares of all segments and sum "
+            "to 100%. Unverifiable means the hypothesis was empty or too short to "
+            "identify a language from, so a collapsed system shows up there rather "
+            "than scoring a flattering 0% off-target.",
+            "Language identification uses a classifier restricted to the target, the "
+            "source and English, which is far more reliable on single sentences than an "
+            "open choice among every language it knows.",
+            "Source language is the part of off-target identified as the source, which "
+            "means the model failed to translate rather than translating badly. For an "
+            "out-of-English direction it is the same event as an English fallback, so "
+            "only one of the two is reported.",
             "Tokens discarded is the share of generated tokens that followed the "
             "hypothesis and were thrown away. It costs inference time without "
             "affecting quality.",
@@ -437,12 +471,17 @@ def write_summary_csv(summaries: list[RunSummary], path: Path) -> int:
             "metricx24": summary.metric("metricx", "metricx24"),
         }
         for name in (
+            "on_target_rate",
             "off_target_rate",
+            "unverifiable_rate",
+            "off_target_rate_among_scorable",
             "source_language_rate",
+            "english_fallback_rate",
             "empty_rate",
             "source_copy_rate",
             "repetition_rate",
             "truncation_rate",
+            "budget_hit_rate",
             "length_ratio",
             "wasted_token_fraction",
         ):

@@ -263,6 +263,11 @@ def _measure_batch_size(
             durations.append(time.perf_counter() - started)
             generated_tokens = sum(output.n_generated_tokens for output in outputs)
             source_tokens = sum(output.n_source_tokens for output in outputs)
+            # Prefill computes over the padded batch width, not the unpadded
+            # token count, and the padded width is what the estimate needs.
+            prefill_positions = sum(
+                output.n_padded_source_tokens or output.n_source_tokens for output in outputs
+            )
         peak = _cuda_memory_snapshot()
     finally:
         translator.generate_kwargs = original_generate_kwargs  # type: ignore[method-assign]
@@ -270,13 +275,16 @@ def _measure_batch_size(
     median = statistics.median(durations)
     flops = estimate_generation_flops(
         info.non_embedding_parameters,
-        prefill_tokens=source_tokens,
+        prefill_positions=prefill_positions,
         generated_tokens=generated_tokens,
         num_beams=config.suite.decode.num_beams,
+        architecture="causal" if translator.kind.startswith("causal") else "seq2seq",
     )
     peak_device_flops, peak_note = device_peak_flops(_device_name())
     mfu = (
-        round(flops / (median * peak_device_flops), 5) if peak_device_flops and median > 0 else None
+        round(flops / (median * peak_device_flops), 5)
+        if flops and peak_device_flops and median > 0
+        else None
     )
 
     result = {
@@ -294,10 +302,14 @@ def _measure_batch_size(
         "latency_per_sentence_ms": round(median * 1000 / len(sources), 3) if sources else None,
         "peak_allocated_bytes": peak.get("max_allocated_bytes"),
         "peak_reserved_bytes": peak.get("max_reserved_bytes"),
+        "source_tokens": source_tokens,
+        "prefill_positions": prefill_positions,
         "estimated_forward_flops": flops,
         "mfu_bf16_equivalent": mfu,
     }
-    if mfu is None:
+    if flops is None:
+        result["flops_note"] = "not estimated for encoder-decoder models; see mnlp_eval.bench.flops"
+    elif mfu is None:
         result["mfu_note"] = peak_note
     _log(
         f"  batch={batch_size}: {result['seconds_median']}s median, "

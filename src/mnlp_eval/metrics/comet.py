@@ -15,25 +15,47 @@ from typing import Any
 
 from mnlp_eval.metrics.base import MetricScore
 
-__all__ = ["clear_model_cache", "is_reference_free", "score_comet"]
+__all__ = ["accepts_references", "clear_model_cache", "is_reference_free", "score_comet"]
 
 #: Loading a COMET checkpoint costs tens of seconds and several GB, so models
 #: are held across directions within one scoring process.
 _MODEL_CACHE: dict[str, Any] = {}
 
-#: Fallback for checkpoints that do not expose requires_references().
+#: Last-resort fallback for a checkpoint that exposes neither its input
+#: segments nor requires_references().
 _REFERENCE_FREE_MARKERS = ("kiwi", "-qe", "_qe")
+
+
+def accepts_references(model_name: str, model: Any = None) -> bool:
+    """Whether a checkpoint should be given the reference translation.
+
+    ``requires_references()`` is the wrong question, and asking it silently
+    downgraded XCOMET to quality estimation. In unbabel-comet 2.2.7,
+    ``UnifiedMetric.requires_references()`` returns true only when the model
+    was trained on ``["mt", "ref"]`` exactly, meaning it *cannot* work without
+    a reference. XCOMET is trained on ``["mt", "src", "ref"]``, so it
+    truthfully answers false, and dropping the reference on that basis made it
+    take its documented QE fallback branch: a plausible score on the same
+    scale, reported under the name of the reference-based metric.
+
+    The right question is whether the model accepts a reference at all, which
+    its input segments answer directly.
+    """
+    segments = getattr(getattr(model, "hparams", None), "input_segments", None)
+    if segments is not None:
+        return "ref" in segments
+    if model is not None and hasattr(model, "requires_references"):
+        try:
+            return bool(model.requires_references())
+        except Exception:
+            pass
+    lowered = model_name.lower()
+    return not any(marker in lowered for marker in _REFERENCE_FREE_MARKERS)
 
 
 def is_reference_free(model_name: str, model: Any = None) -> bool:
     """Whether a COMET checkpoint scores without a reference translation."""
-    if model is not None and hasattr(model, "requires_references"):
-        try:
-            return not bool(model.requires_references())
-        except Exception:
-            pass
-    lowered = model_name.lower()
-    return any(marker in lowered for marker in _REFERENCE_FREE_MARKERS)
+    return not accepts_references(model_name, model)
 
 
 def _load(model_name: str) -> Any:
@@ -86,15 +108,18 @@ def score_comet(
         raise ValueError(msg)
 
     model = _load(model_name)
-    reference_free = is_reference_free(model_name, model)
-    if not reference_free and references is None:
-        msg = f"{model_name} requires references but none were supplied"
+    use_references = accepts_references(model_name, model)
+    if use_references and references is None:
+        msg = f"{model_name} accepts references but none were supplied"
+        raise ValueError(msg)
+    if use_references and references is not None and len(references) != len(sources):
+        msg = f"{len(sources)} sources but {len(references)} references"
         raise ValueError(msg)
 
     data: list[dict[str, str]] = []
     for index, (source, hypothesis) in enumerate(zip(sources, hypotheses, strict=True)):
         row = {"src": source, "mt": hypothesis}
-        if not reference_free and references is not None:
+        if use_references and references is not None:
             row["ref"] = references[index]
         data.append(row)
 
@@ -105,7 +130,7 @@ def score_comet(
     return MetricScore(
         name=metric_key,
         score=round(float(output.system_score), 6),
-        signature=f"{model_name}|nrefs:{0 if reference_free else 1}|batch:{batch_size}",
+        signature=f"{model_name}|nrefs:{1 if use_references else 0}|batch:{batch_size}",
         segment_scores=segment_scores,
-        extra={"model": model_name, "reference_free": reference_free},
+        extra={"model": model_name, "reference_free": not use_references},
     )

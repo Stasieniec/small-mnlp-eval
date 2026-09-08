@@ -4,18 +4,28 @@ A compression report full of deltas without significance tests invites the
 reader to over-read noise. A 0.3 BLEU drop on 1000 segments is not evidence of
 anything, and saying so is more useful than reporting it as a finding.
 
-Two paths, both using the same centred paired-bootstrap p-value so the numbers
-are comparable:
+Two paths. Both are paired bootstrap tests and both are add-one smoothed, but
+they are **not the same estimator**, and a p-value from one is not directly
+comparable with a p-value from the other:
 
-* Surface metrics are resampled with sacreBLEU's own ``PairedTest``, which
-  recomputes BLEU and chrF++ from sufficient statistics on each resample. That
-  is correct in a way that averaging per-sentence BLEU is not.
+* Surface metrics use sacreBLEU's own ``PairedTest``, which recomputes BLEU and
+  chrF++ from sufficient statistics on each resample. That is correct in a way
+  that averaging per-sentence BLEU is not, and it is what the MT literature
+  reports, so it is the right choice despite the incomparability. Its statistic
+  centres the absolute score difference on its own bootstrap mean and counts
+  one-sided.
 * Neural metrics are resampled from the per-segment scores stored at scoring
-  time, so no metric model has to be reloaded.
+  time, so no metric model has to be reloaded. Its statistic is the two-sided
+  centred difference, ``P(|d_b - d| >= |d|)``.
 
-Both are paired: the same resampled segment indices are applied to both
-systems, which removes test-set difficulty as a source of variance and is the
-reason this test is far more sensitive than comparing independent confidence
+An earlier version of this module claimed both used the same statistic. They do
+not, the two rejection rates under the null differ, and the report labels the
+columns accordingly rather than pretending one asterisk threshold means the
+same thing in both.
+
+Both are genuinely paired: the same resampled segment indices are applied to
+both systems, which removes test-set difficulty as a source of variance and is
+why this test is far more sensitive than comparing independent confidence
 intervals.
 """
 
@@ -42,8 +52,23 @@ def paired_bootstrap_surface(
     compute_ter: bool = False,
 ) -> dict[str, Any]:
     """Test a system against a baseline on BLEU and chrF++."""
-    # sacreBLEU seeds its resampler from the environment, so this has to be set
-    # before PairedTest is constructed for the run to be reproducible.
+    if seed == 0:
+        # sacreBLEU reads SACREBLEU_SEED then does `self._seed if self._seed
+        # else None`, so zero is falsy and silently means "draw entropy from
+        # the OS". The recorded signature would still claim seed 0, giving a
+        # provenance record that says seeded while the surface p-values change
+        # between identical runs.
+        msg = (
+            "bootstrap_seed 0 is not usable: sacreBLEU treats it as unseeded, so "
+            "surface p-values would not be reproducible while claiming to be. "
+            "Use any non-zero seed."
+        )
+        raise ValueError(msg)
+
+    # sacreBLEU seeds its resampler from the environment, and reads it when
+    # PairedTest is constructed, so it has to be set before that and restored
+    # afterwards rather than leaking into the rest of the process.
+    previous_seed = os.environ.get("SACREBLEU_SEED")
     os.environ["SACREBLEU_SEED"] = str(seed)
     from sacrebleu.metrics import BLEU, CHRF, TER
     from sacrebleu.significance import PairedTest
@@ -77,7 +102,13 @@ def paired_bootstrap_surface(
         test_type="bs",
         n_samples=n_samples,
     )
-    signatures, results = test()
+    try:
+        signatures, results = test()
+    finally:
+        if previous_seed is None:
+            os.environ.pop("SACREBLEU_SEED", None)
+        else:
+            os.environ["SACREBLEU_SEED"] = previous_seed
 
     output: dict[str, Any] = {
         "method": "paired bootstrap resampling",
@@ -108,7 +139,11 @@ def paired_bootstrap_surface(
                 system_result.p_value is not None and system_result.p_value < 0.05
             ),
             "bootstrap_mean": _round(system_result.mean),
-            "bootstrap_ci": _round(system_result.ci),
+            # sacreBLEU returns a half-width around the system's own score, not
+            # an interval on the difference. Named to say so, because the
+            # neural path's bootstrap_ci_95 is an interval on the delta and the
+            # two were previously a rename apart.
+            "bootstrap_score_ci_halfwidth": _round(system_result.ci),
             # sacreBLEU returns signature objects here, not strings, and a
             # signature object is not JSON serialisable.
             "signature": _signature_text(signatures.get(metric_name)),

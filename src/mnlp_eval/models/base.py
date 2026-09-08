@@ -32,6 +32,10 @@ class SegmentOutput:
 
     raw_text: str
     n_source_tokens: int = 0
+    #: Padded width of the batch this segment was in. Prefill computes over the
+    #: padded width, not the unpadded token count, so an analytic FLOPs
+    #: estimate that uses the latter undercounts badly at batch sizes above one.
+    n_padded_source_tokens: int = 0
     n_generated_tokens: int = 0
     #: True when generation stopped because the token budget ran out rather
     #: than because the model emitted EOS. Whether that truncated the
@@ -51,6 +55,7 @@ class TranslatorInfo:
     dtype: str
     device: str
     checkpoint_dir: str | None = None
+    unpinned_generation_settings: dict[str, Any] | None = None
     extra: dict[str, Any] | None = None
 
 
@@ -77,6 +82,7 @@ class Translator(abc.ABC):
         self._load_seconds = load_seconds
         self._checkpoint_dir = checkpoint_dir
         self._extra = extra or {}
+        self._terminators: frozenset[int] | None = None
         self._configure_tokenizer()
 
     # ------------------------------------------------------------------
@@ -144,6 +150,7 @@ class Translator(abc.ABC):
             dtype=dtype,
             device=str(self.device),
             checkpoint_dir=self._checkpoint_dir,
+            unpinned_generation_settings=self.unpinned_generation_settings() or None,
             extra=dict(self._extra) or None,
         )
 
@@ -160,7 +167,22 @@ class Translator(abc.ABC):
             import torch.nn as nn
         except ImportError:  # pragma: no cover
             return 0, 0
-        total = sum(parameter.numel() for parameter in self.model.parameters())
+
+        # A 4-bit bitsandbytes checkpoint stores two weights per uint8 element,
+        # so summing numel() reports half the parameters and would credit
+        # weight-only quantization with a fake parameter-count compression
+        # ratio. transformers' own num_parameters() corrects for this, so use
+        # it when the model provides it.
+        total = 0
+        counter = getattr(self.model, "num_parameters", None)
+        if callable(counter):
+            try:
+                total = int(counter())
+            except Exception:  # a failure here just falls back to the manual sum
+                total = 0
+        if not total:
+            total = sum(parameter.numel() for parameter in self.model.parameters())
+
         embedding = sum(
             parameter.numel()
             for module in self.model.modules()
@@ -216,14 +238,19 @@ class Translator(abc.ABC):
             ).to(self.device)
             with torch.inference_mode():
                 sequences = self.model.generate(**batch, **gen_kwargs)
-            prompt_length = batch["input_ids"].shape[1] if self.strips_prompt_from_output else 0
+            # Encoder-decoder output opens with decoder_start_token_id, which
+            # the model was given rather than generated. Counting it made the
+            # fixed token budget differ by one per segment between
+            # encoder-decoder and decoder-only systems.
+            prompt_length = batch["input_ids"].shape[1] if self.strips_prompt_from_output else 1
             for position, index in enumerate(indices):
                 continuation = sequences[position, prompt_length:]
-                generated, complete = self._trim_continuation(continuation)
+                generated, n_content, complete = self._trim_continuation(continuation)
                 results[index] = SegmentOutput(
                     raw_text=self.tokenizer.decode(generated, skip_special_tokens=True),
                     n_source_tokens=len(encoded[index]["input_ids"]),
-                    n_generated_tokens=len(generated),
+                    n_padded_source_tokens=int(batch["input_ids"].shape[1]),
+                    n_generated_tokens=n_content,
                     hit_token_budget=not complete,
                     source_truncated=untruncated_lengths[index] > max_source_length,
                 )
@@ -234,12 +261,68 @@ class Translator(abc.ABC):
             raise RuntimeError(msg)
         return [value for value in results if value is not None]
 
+    #: Decoding knobs this framework treats as evaluation policy and always
+    #: sets itself, so a checkpoint's generation_config.json cannot change how
+    #: it is measured. Anything not listed here is left to the checkpoint,
+    #: because it is a property of the architecture rather than of the
+    #: evaluation: forced_bos_token_id (NLLB needs it to select a target
+    #: language), forced_eos_token_id and bad_words_ids (Marian ships both),
+    #: renormalize_logits, suppress_tokens, decoder_start_token_id. Whatever a
+    #: checkpoint sets outside this list is recorded by
+    #: :meth:`unpinned_generation_settings` so it is at least visible.
+    POLICY_KEYS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "do_sample",
+            "num_beams",
+            "max_new_tokens",
+            "num_return_sequences",
+            "length_penalty",
+            "early_stopping",
+            "repetition_penalty",
+            "no_repeat_ngram_size",
+            "num_beam_groups",
+            "diversity_penalty",
+            "temperature",
+            "top_p",
+            "top_k",
+            "typical_p",
+            "epsilon_cutoff",
+            "eta_cutoff",
+            "min_new_tokens",
+            "min_length",
+            "penalty_alpha",
+        }
+    )
+
+    def unpinned_generation_settings(self) -> dict[str, Any]:
+        """Non-default generation settings this framework does not override.
+
+        Recorded in the run manifest. A reader can then see that, say, a Marian
+        checkpoint forces an EOS token, without the framework having to guess
+        whether overriding that would break the model.
+        """
+        generation_config = getattr(self.model, "generation_config", None)
+        differ = getattr(generation_config, "to_diff_dict", None)
+        if not callable(differ):
+            return {}
+        try:
+            diff = differ()
+        except Exception:  # recording provenance must never fail a run
+            return {}
+        return {
+            key: value
+            for key, value in sorted(diff.items())
+            if key not in self.POLICY_KEYS and key != "transformers_version"
+        }
+
     def _resolve_generate_kwargs(self, direction: Direction, decode: DecodeSpec) -> dict[str, Any]:
-        """Build ``generate`` arguments, pinning every sampling knob explicitly.
+        """Build ``generate`` arguments, pinning every policy knob explicitly.
 
         Several ALMA-family checkpoints inherit a ``generation_config.json``
-        from Llama 2 that enables sampling. Passing these values explicitly
-        stops the checkpoint from quietly deciding how it is evaluated.
+        from Llama 2 that enables sampling, and Qwen2.5 ships a repetition
+        penalty. Passing these values explicitly stops the checkpoint from
+        deciding how it is evaluated. See :attr:`POLICY_KEYS` for the boundary
+        between what is pinned and what is deliberately left alone.
         """
         kwargs: dict[str, Any] = {
             "do_sample": decode.do_sample,
@@ -248,6 +331,10 @@ class Translator(abc.ABC):
             "num_return_sequences": 1,
             "length_penalty": decode.length_penalty,
             "early_stopping": decode.early_stopping,
+            "repetition_penalty": decode.repetition_penalty,
+            "no_repeat_ngram_size": decode.no_repeat_ngram_size,
+            "num_beam_groups": 1,
+            "diversity_penalty": 0.0,
             "use_cache": True,
             "pad_token_id": self.tokenizer.pad_token_id,
         }
@@ -263,21 +350,65 @@ class Translator(abc.ABC):
         kwargs.update(self.generate_kwargs(direction))
         return kwargs
 
-    def _trim_continuation(self, continuation: Any) -> tuple[Any, bool]:
-        """Cut a continuation at its first EOS and say whether one was found.
+    def terminator_ids(self) -> frozenset[int]:
+        """Every token id that ends generation for this model.
 
-        A continuation with no EOS hit the token budget, which is a truncated
-        translation rather than a finished one. Compressed models run into this
-        far more often than baselines, so it is tracked per segment.
+        Reading only ``tokenizer.eos_token_id`` is wrong for a large family of
+        models. Qwen2.5, for instance, has ``tokenizer.eos_token_id = 151645``
+        while its generation config lists ``[151645, 151643]``, and 151643 is
+        also its pad token. A model that stopped on the second terminator would
+        otherwise look like it never stopped, so its padding would be counted
+        as generated text: the token count, the throughput, the budget-hit rate
+        and the truncation rate would all be wrong at once, and a clean
+        translation would be flagged as truncated.
         """
-        eos_id = self.tokenizer.eos_token_id
-        if eos_id is None:
-            return continuation, True
-        matches = (continuation == eos_id).nonzero()
+        if self._terminators is not None:
+            return self._terminators
+
+        candidates: list[Any] = [getattr(self.tokenizer, "eos_token_id", None)]
+        generation_config = getattr(self.model, "generation_config", None)
+        candidates.append(getattr(generation_config, "eos_token_id", None))
+
+        ids: set[int] = set()
+        for candidate in candidates:
+            if candidate is None:
+                continue
+            values = candidate if isinstance(candidate, list | tuple | set) else [candidate]
+            for value in values:
+                try:
+                    ids.add(int(value))
+                except (TypeError, ValueError):  # pragma: no cover - defensive
+                    continue
+        self._terminators = frozenset(ids)
+        return self._terminators
+
+    def _trim_continuation(self, continuation: Any) -> tuple[Any, int, bool]:
+        """Cut a continuation at its first terminator.
+
+        Returns the kept tokens, the count of tokens the model actually
+        produced as content, and whether a terminator was found. The
+        terminator itself is excluded from the content count: it is a control
+        token, and counting it made ``n_wasted_tokens`` report 1 for output as
+        clean as ``"Hello."``.
+
+        A continuation with no terminator ran out of token budget. Whether that
+        truncated the translation is decided downstream, once the hypothesis is
+        known.
+        """
+        terminators = self.terminator_ids()
+        if not terminators:
+            return continuation, len(continuation), True
+
+        import torch
+
+        mask = torch.zeros_like(continuation, dtype=torch.bool)
+        for token_id in terminators:
+            mask |= continuation == token_id
+        matches = mask.nonzero()
         if matches.numel() == 0:
-            return continuation, False
-        first = int(matches[0].item() if matches.dim() == 1 else matches[0, 0].item())
-        return continuation[: first + 1], True
+            return continuation, len(continuation), False
+        first = int(matches.reshape(-1)[0].item())
+        return continuation[: first + 1], first, True
 
     def close(self) -> None:
         """Release GPU memory. Safe to call more than once."""

@@ -12,7 +12,16 @@ plausible for the direction, namely the target, the source, and English. A
 restricted decision is far more reliable on single sentences than an open
 choice among 142 languages, and it answers the question that actually matters:
 did the model translate, echo the source, or fall back to English. The open
-142-way rate is reported alongside it for transparency.
+rate over every language the classifier knows is reported alongside it.
+
+Every rate here is divided by the total segment count, never by the subset that
+could be classified. An earlier version divided the language rates by the
+number of hypotheses long enough to identify, which made a model that emitted
+nothing on 95 percent of segments report an off-target rate of zero: the most
+flattering possible value for the most broken possible system, sitting in a
+table next to rates that used the full denominator. ``on_target_rate``,
+``off_target_rate`` and ``unverifiable_rate`` sum to one by construction, which
+is what makes that failure impossible to reintroduce unnoticed.
 """
 
 from __future__ import annotations
@@ -44,16 +53,26 @@ class BehaviourScores:
     n_segments: int
     empty_rate: float
     source_copy_rate: float
-    length_ratio: float
     truncation_rate: float
     budget_hit_rate: float
     repetition_rate: float
-    wasted_token_fraction: float
+    length_ratio: float | None = None
+    wasted_token_fraction: float | None = None
     parse_flag_rates: dict[str, float] = field(default_factory=dict)
+    #: Share of all segments confirmed to be in the target language.
+    on_target_rate: float | None = None
+    #: Share of all segments confirmed to be in some other language.
     off_target_rate: float | None = None
+    #: Share of all segments too short or too empty to identify. The three
+    #: rates above sum to one.
+    unverifiable_rate: float | None = None
     source_language_rate: float | None = None
     english_fallback_rate: float | None = None
     off_target_rate_open: float | None = None
+    #: Off-target share among classifiable hypotheses only. Comparable with the
+    #: figure usually quoted in the literature, but it says nothing about
+    #: segments that produced no output, so it is never the headline.
+    off_target_rate_among_scorable: float | None = None
     lid: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -81,10 +100,13 @@ def score_behaviour(
     hypotheses = [segment.hypothesis for segment in segments]
     empty = sum(1 for text in hypotheses if not text.strip())
 
+    # _normalise strips punctuation, so two punctuation-only strings would
+    # otherwise compare equal and a model emitting "!!!" would be scored as
+    # copying the source rather than as producing garbage.
     copies = sum(
         1
         for segment in segments
-        if segment.hypothesis.strip()
+        if _normalise(segment.hypothesis)
         and _normalise(segment.hypothesis) == _normalise(segment.source)
     )
 
@@ -103,13 +125,13 @@ def score_behaviour(
         n_segments=total,
         empty_rate=round(empty / total, 4),
         source_copy_rate=round(copies / total, 4),
-        length_ratio=round(hypothesis_chars / reference_chars, 4) if reference_chars else 0.0,
+        length_ratio=round(hypothesis_chars / reference_chars, 4) if reference_chars else None,
         truncation_rate=round(sum(1 for s in segments if s.truncated) / total, 4),
         budget_hit_rate=round(sum(1 for s in segments if s.hit_token_budget) / total, 4),
         repetition_rate=round(
             sum(1 for s in segments if FLAG_REPETITION in s.parse_flags) / total, 4
         ),
-        wasted_token_fraction=round(wasted / generated, 4) if generated else 0.0,
+        wasted_token_fraction=round(wasted / generated, 4) if generated else None,
         parse_flag_rates={
             flag: round(count / total, 4) for flag, count in sorted(flag_counts.items())
         },
@@ -125,6 +147,7 @@ def _add_language_scores(
     direction: Direction,
     lid_backend: str,
 ) -> None:
+    total = len(hypotheses)
     if lid_backend == "none":
         scores.lid = {"backend": "none", "reason": "disabled by configuration"}
         return
@@ -142,15 +165,9 @@ def _add_language_scores(
     restricted = LanguageIdentifier.from_model_file(MODEL_FILE, norm_probs=True)
     restricted.set_languages(candidates)
     open_model = LanguageIdentifier.from_model_file(MODEL_FILE, norm_probs=True)
-    # Every branch below reports the same keys, so two runs' lid blocks can be
-    # diffed directly.
-    base_report: dict[str, Any] = {
-        "backend": "py3langid",
-        "languages": candidates,
-        "min_characters": MIN_LID_CHARACTERS,
-    }
 
-    evaluated = 0
+    scorable = 0
+    on_target = 0
     off_target = 0
     source_language = 0
     english = 0
@@ -159,10 +176,15 @@ def _add_language_scores(
     for text in hypotheses:
         stripped = text.strip()
         if len(stripped) < MIN_LID_CHARACTERS:
+            # Language identification on a two-word fragment is noise. These
+            # segments are counted as unverifiable rather than assigned to
+            # either side.
             continue
-        evaluated += 1
+        scorable += 1
         detected, _ = restricted.classify(stripped)
-        if detected != direction.target:
+        if detected == direction.target:
+            on_target += 1
+        else:
             off_target += 1
             if detected == direction.source:
                 source_language += 1
@@ -172,23 +194,30 @@ def _add_language_scores(
         if detected_open != direction.target:
             off_target_open += 1
 
-    if not evaluated:
-        scores.lid = {
-            **base_report,
-            "n_evaluated": 0,
-            "n_skipped_too_short": len(hypotheses),
-            "reason": f"no hypothesis reached {MIN_LID_CHARACTERS} characters",
-        }
+    scores.lid = {
+        "backend": "py3langid",
+        "languages": candidates,
+        "n_segments": total,
+        "n_scorable": scorable,
+        "n_unverifiable": total - scorable,
+        "min_characters": MIN_LID_CHARACTERS,
+        "denominator": "n_segments for every rate except off_target_rate_among_scorable",
+    }
+    if not total:
         return
 
-    scores.off_target_rate = round(off_target / evaluated, 4)
-    scores.source_language_rate = round(source_language / evaluated, 4)
-    scores.english_fallback_rate = (
-        round(english / evaluated, 4) if direction.target != "en" else None
-    )
-    scores.off_target_rate_open = round(off_target_open / evaluated, 4)
-    scores.lid = {
-        **base_report,
-        "n_evaluated": evaluated,
-        "n_skipped_too_short": len(hypotheses) - evaluated,
-    }
+    # Divided by the full segment count, so a model that emits nothing cannot
+    # score zero off-target. The three shares sum to one.
+    scores.on_target_rate = round(on_target / total, 4)
+    scores.off_target_rate = round(off_target / total, 4)
+    scores.unverifiable_rate = round((total - scorable) / total, 4)
+    scores.source_language_rate = round(source_language / total, 4)
+    scores.off_target_rate_open = round(off_target_open / total, 4)
+    scores.off_target_rate_among_scorable = round(off_target / scorable, 4) if scorable else None
+
+    # When the source is English, "fell back to English" and "echoed the source
+    # language" are the same event, and reporting one number twice under two
+    # headings invents a second independent failure mode. Only report it when
+    # it says something the source-language rate does not.
+    if direction.target != "en" and direction.source != "en":
+        scores.english_fallback_rate = round(english / total, 4)
