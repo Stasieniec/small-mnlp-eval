@@ -21,10 +21,25 @@ __all__ = [
     "resolve_dtype",
 ]
 
-#: Weight file suffixes counted towards on-disk checkpoint size. Tokenizer
-#: files and configs are excluded: they are identical across compression
-#: variants and would dilute the compression ratio.
-_WEIGHT_SUFFIXES = (".safetensors", ".bin", ".pt", ".pth", ".gguf", ".ckpt", ".msgpack")
+#: Weight-file formats, in the order a checkpoint's primary format is chosen.
+#: Many Hub repositories ship the same weights more than once (PyTorch plus
+#: safetensors plus Flax), so summing every weight-ish file inflated the disk
+#: figure severalfold and corrupted the disk compression ratio. Only the first
+#: format present is counted.
+_FORMAT_PRIORITY = (".safetensors", ".bin", ".pt", ".pth", ".gguf", ".ckpt")
+
+#: File stems that carry a weight suffix but are not model weights. Trainer
+#: state in particular is often several times the size of the model.
+_NON_WEIGHT_STEMS = frozenset(
+    {
+        "training_args",
+        "optimizer",
+        "scheduler",
+        "rng_state",
+        "trainer_state",
+        "scaler",
+    }
+)
 
 #: Quantization methods whose configuration lives inside the checkpoint. For
 #: these, passing a config is optional and only needed to override defaults.
@@ -114,26 +129,38 @@ def resolve_checkpoint_dir(model_name_or_path: str, revision: str | None = None)
     try:
         from huggingface_hub import snapshot_download
 
-        return snapshot_download(model_name_or_path, revision=revision, local_files_only=True)
+        # str() is not redundant: snapshot_download is typed Any when
+        # huggingface-hub is absent, which is the case in the lint environment.
+        return str(snapshot_download(model_name_or_path, revision=revision, local_files_only=True))
     except Exception:
         return None
 
 
 def checkpoint_bytes(directory: str | Path | None) -> int | None:
-    """Sum the weight files in a checkpoint directory.
+    """Size of a checkpoint's weights on disk, counting one format only.
 
     Follows symlinks, since the Hugging Face cache stores blobs separately from
-    the snapshot tree and the snapshot entries are links.
+    the snapshot tree and the snapshot entries are links. Counts only the
+    highest-priority format present, so a repository shipping both
+    ``pytorch_model.bin`` and ``model.safetensors`` is not counted twice, and
+    skips trainer state that happens to share a weight suffix.
     """
     if directory is None:
         return None
     root = Path(directory)
     if not root.is_dir():
         return None
-    total = 0
-    found = False
+
+    by_format: dict[str, int] = {}
     for path in root.rglob("*"):
-        if path.suffix.lower() in _WEIGHT_SUFFIXES and path.is_file():
-            total += path.stat().st_size
-            found = True
-    return total if found else None
+        suffix = path.suffix.lower()
+        if suffix not in _FORMAT_PRIORITY or not path.is_file():
+            continue
+        if path.stem.lower() in _NON_WEIGHT_STEMS:
+            continue
+        by_format[suffix] = by_format.get(suffix, 0) + path.stat().st_size
+
+    for suffix in _FORMAT_PRIORITY:
+        if by_format.get(suffix):
+            return by_format[suffix]
+    return None

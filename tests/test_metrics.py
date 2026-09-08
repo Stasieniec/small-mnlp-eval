@@ -116,31 +116,92 @@ def test_off_target_output_is_detected() -> None:
     ]
     scores = score_behaviour(_segments(hypotheses), DE_EN)
     assert scores.off_target_rate == 0.5
+    assert scores.on_target_rate == 0.5
     assert scores.source_language_rate == 0.5
 
 
-def test_short_hypotheses_are_excluded_from_language_identification() -> None:
-    # Language ID on a two-word fragment is noise, and counting that noise as
-    # off-target would manufacture a finding.
+def test_language_shares_always_sum_to_one() -> None:
+    # The invariant that makes a collapsed system impossible to hide. Divide
+    # the language rates by the classifiable subset instead and this breaks.
+    for hypotheses in (
+        REFERENCES,
+        ["", "", "Ok", "This is a perfectly ordinary English sentence."],
+        ["Das ist ein deutscher Satz mit mehreren Woertern."] * 4,
+    ):
+        scores = score_behaviour(_segments(hypotheses), DE_EN)
+        total = (
+            (scores.on_target_rate or 0.0)
+            + (scores.off_target_rate or 0.0)
+            + (scores.unverifiable_rate or 0.0)
+        )
+        assert total == pytest.approx(1.0), hypotheses
+
+
+def test_a_collapsed_model_cannot_score_zero_off_target() -> None:
+    # 95 empty hypotheses and 5 good ones. Dividing by the classifiable subset
+    # reported off_target_rate 0.0 here, the most flattering possible value for
+    # the most broken possible system.
+    hypotheses = [""] * 95 + ["This is a German sentence here."] * 5
+    scores = score_behaviour(_segments(hypotheses), DE_EN)
+    assert scores.unverifiable_rate == 0.95
+    assert scores.on_target_rate == 0.05
+    # Retained under an explicit name, so the misleading figure is still
+    # available for comparison with the literature but is never the headline.
+    assert scores.off_target_rate_among_scorable == 0.0
+
+
+def test_short_hypotheses_count_as_unverifiable_not_on_target() -> None:
+    # Language ID on a two-word fragment is noise, so it is neither credited
+    # nor blamed. It is reported as unverifiable.
     scores = score_behaviour(_segments(["Ok", "Ja", "Nein"]), DE_EN)
-    assert scores.lid["n_evaluated"] == 0
-    assert scores.off_target_rate is None
+    assert scores.lid["n_scorable"] == 0
+    assert scores.unverifiable_rate == 1.0
+    assert scores.on_target_rate == 0.0
+    assert scores.off_target_rate_among_scorable is None
     assert scores.lid["min_characters"] == MIN_LID_CHARACTERS
 
 
 def test_language_identification_can_be_disabled() -> None:
     scores = score_behaviour(_segments(REFERENCES), DE_EN, lid_backend="none")
     assert scores.off_target_rate is None
+    assert scores.on_target_rate is None
     assert scores.lid["backend"] == "none"
 
 
-def test_english_fallback_is_only_reported_for_non_english_targets() -> None:
+def test_english_fallback_is_not_reported_when_it_duplicates_source_language() -> None:
+    # For an out-of-English direction, "fell back to English" and "echoed the
+    # source language" are the same event. Reporting one number under two
+    # headings would invent a second independent failure mode.
+    into_german = score_behaviour(
+        _segments(
+            ["This is a perfectly ordinary English sentence."],
+            sources=["This is a perfectly ordinary English sentence."],
+        ),
+        EN_DE,
+    )
+    assert into_german.source_language_rate == 1.0
+    assert into_german.english_fallback_rate is None
+
+    # Into English, an English fallback is simply on-target.
     into_english = score_behaviour(_segments(REFERENCES), DE_EN)
     assert into_english.english_fallback_rate is None
-    into_german = score_behaviour(
-        _segments(["This is a perfectly ordinary English sentence."]), EN_DE
-    )
-    assert into_german.english_fallback_rate == 1.0
+
+
+def test_punctuation_only_output_is_not_a_source_copy() -> None:
+    # _normalise strips punctuation, so without a guard "!!!" and "..." are
+    # equal and garbage gets scored as a faithful copy.
+    scores = score_behaviour(_segments(["!!!", "!!!"], sources=["...", "..."]), DE_EN)
+    assert scores.source_copy_rate == 0.0
+
+
+def test_zero_denominators_report_none_rather_than_zero() -> None:
+    segments = _segments(["something"])
+    segments[0].reference = ""
+    segments[0].n_generated_tokens = 0
+    segments[0].n_wasted_tokens = 0
+    scores = score_behaviour(segments, DE_EN)
+    assert scores.length_ratio is None
+    assert scores.wasted_token_fraction is None
 
 
 def test_truncation_and_budget_rates_are_separate() -> None:

@@ -207,10 +207,14 @@ def _macro_average(per_direction: dict[str, Any]) -> dict[str, Any]:
             aggregate[name] = round(sum(values) / len(values), 4)
 
     behaviour_keys = [
+        "on_target_rate",
+        "off_target_rate",
+        "unverifiable_rate",
+        "source_language_rate",
+        "english_fallback_rate",
+        "off_target_rate_among_scorable",
         "empty_rate",
         "source_copy_rate",
-        "off_target_rate",
-        "source_language_rate",
         "length_ratio",
         "truncation_rate",
         "budget_hit_rate",

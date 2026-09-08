@@ -135,4 +135,5 @@ markers = [
   "gpu: requires a CUDA device",
   "network: requires network access to the Hugging Face Hub",
   "slow: takes more than a few seconds",
+  "torch: requires torch, but no GPU and no model download",
 ]

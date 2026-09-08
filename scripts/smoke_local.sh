@@ -115,7 +115,17 @@ else:
     # as single digits, which is the failure this threshold catches.
     check(bleu > 20, f"reference BLEU is plausible: {bleu}")
     check(behaviour["empty_rate"] == 0.0, "reference produced no empty output")
-    check(behaviour["off_target_rate"] == 0.0, "reference stayed on target")
+    check(behaviour["on_target_rate"] == 1.0, "reference stayed on target on every segment")
+    check(
+        abs(
+            behaviour["on_target_rate"]
+            + behaviour["off_target_rate"]
+            + behaviour["unverifiable_rate"]
+            - 1.0
+        )
+        < 1e-6,
+        "language shares sum to 1, so a collapse cannot hide in the denominator",
+    )
     check(behaviour["truncation_rate"] == 0.0, "reference truncated nothing")
 
     bench = json.loads((reference / "bench.json").read_text())

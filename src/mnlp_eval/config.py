@@ -256,6 +256,13 @@ class DecodeSpec:
     seed: int = 42
     length_penalty: float = 1.0
     early_stopping: bool = False
+    # Pinned to neutral rather than inherited. Qwen2.5 ships
+    # repetition_penalty 1.1 in its generation config, which suppresses the
+    # degenerate-repetition collapse mode this framework measures as a
+    # behavioural metric. Inheriting it silently would mean the checkpoint
+    # decides how visible its own failure mode is.
+    repetition_penalty: float = 1.0
+    no_repeat_ngram_size: int = 0
     # Length-bucketed batching is a large speed win but changes how much
     # padding each sequence sees, which under beam search can perturb output.
     # It is part of run identity so a bucketed run is never silently compared
@@ -272,6 +279,12 @@ class DecodeSpec:
         return spec
 
     def validate(self) -> None:
+        if self.repetition_penalty <= 0:
+            msg = f"decode spec: repetition_penalty must be positive, got {self.repetition_penalty}"
+            raise ConfigError(msg)
+        if self.no_repeat_ngram_size < 0:
+            msg = "decode spec: no_repeat_ngram_size cannot be negative"
+            raise ConfigError(msg)
         if self.num_beams < 1:
             msg = f"decode spec: num_beams must be at least 1, got {self.num_beams}"
             raise ConfigError(msg)
@@ -361,6 +374,14 @@ class MetricsSpec:
         unknown = sorted(set(spec.groups) - {"surface", "neural", "metricx"})
         if unknown:
             msg = f"metrics spec: unknown group(s) {', '.join(unknown)}"
+            raise ConfigError(msg)
+        if spec.bootstrap_seed == 0:
+            # sacreBLEU treats a zero seed as unseeded, so the surface
+            # p-values would silently stop being reproducible.
+            msg = "metrics spec: bootstrap_seed must be non-zero (sacreBLEU treats 0 as unseeded)"
+            raise ConfigError(msg)
+        if spec.bootstrap_samples < 1:
+            msg = "metrics spec: bootstrap_samples must be at least 1"
             raise ConfigError(msg)
         return spec
 

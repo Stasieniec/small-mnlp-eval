@@ -57,18 +57,32 @@ def device_peak_flops(device_name: str) -> tuple[float | None, str]:
 def estimate_generation_flops(
     non_embedding_parameters: int,
     *,
-    prefill_tokens: int,
+    prefill_positions: int,
     generated_tokens: int,
     num_beams: int = 1,
-) -> int:
-    """Estimate forward FLOPs for one generation workload.
+    architecture: str = "causal",
+) -> int | None:
+    """Estimate forward FLOPs for one decoder-only generation workload.
 
-    Uses the standard ``2 N`` FLOPs per parameter per token approximation for a
-    forward pass. Prefill processes the prompt once; decoding runs ``num_beams``
-    sequences in parallel, each producing one token per step, so beam search
-    multiplies the decode cost.
+    Uses the standard ``2 N`` FLOPs per parameter per token approximation.
+    Both terms are multiplied by ``num_beams``: transformers expands
+    ``input_ids`` by the beam count *before* the prefill pass, so prefill is
+    beam-expanded too. ``prefill_positions`` must be the padded width the model
+    actually computed over, not the sum of unpadded token counts. Using the
+    unpadded sum with an unexpanded prefill undercounted prefill by more than
+    5x in measurement.
+
+    Returns ``None`` for encoder-decoder models. Their cost splits between an
+    encoder that runs once unexpanded and a decoder that runs beam-expanded,
+    and ``non_embedding_parameters`` covers both, so a single ``2 N`` figure
+    would overstate the decode term roughly twofold. Reporting nothing is
+    better than reporting a number known to be wrong, which is the same policy
+    applied to MFU on an unlisted device.
     """
+    if architecture != "causal":
+        return None
     per_token = 2 * non_embedding_parameters
-    prefill = per_token * prefill_tokens
-    decode = per_token * generated_tokens * max(num_beams, 1)
+    beams = max(num_beams, 1)
+    prefill = per_token * prefill_positions * beams
+    decode = per_token * generated_tokens * beams
     return int(prefill + decode)
