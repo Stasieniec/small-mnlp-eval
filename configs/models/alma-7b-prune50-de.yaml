@@ -1,0 +1,18 @@
+# Template: pair-specific structured pruning, calibrated on German only.
+#
+# Evaluated on all ten directions rather than only on German, because the
+# transfer half of RQ3 is exactly the question of what a de-calibrated
+# subnetwork does to Icelandic. The report marks the matched directions and
+# reports matched and mismatched quality separately.
+extends: alma-7b.yaml
+name: alma-7b-prune50-de
+baseline: alma-7b
+model_name_or_path: /scratch/CHANGE_ME/alma-7b-prune50-de
+compression:
+  family: pruning
+  method: structured, FFN intermediate channels and attention heads
+  nominal_sparsity: 0.5
+  pruned_for: de-en,en-de
+  calibration: configs/calibration/pair-de.yaml
+  subnetwork: subnetworks/prune50-de.json
+notes: Pair-specific subnetwork. One of five, one per ALMA language pair.

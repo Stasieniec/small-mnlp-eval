@@ -1,0 +1,18 @@
+# Balanced calibration data for multi-directional pruning.
+#
+# Equal segments per direction, not proportional to what is available.
+# Icelandic has 2,009 training pairs against Russian's 15,000, so a
+# proportional draw would leave the multi-directional subnetwork calibrated
+# almost entirely on the languages the experiment is least worried about.
+#
+# 128 per direction is 1,280 segments, which is in the range structured
+# pruning methods use for calibration and small enough that a criterion pass
+# is cheap. Raise it with segments_per_direction if the criterion is noisy,
+# but raise it for every subnetwork in the sweep at once.
+name: multi-10dir
+dataset: haoranxu/ALMA-Human-Parallel
+split: train
+directions: [cs-en, de-en, is-en, ru-en, zh-en, en-cs, en-de, en-is, en-ru, en-zh]
+segments_per_direction: 128
+seed: 1234
+prompt: alma

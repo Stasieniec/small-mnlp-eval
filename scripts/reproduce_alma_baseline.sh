@@ -14,7 +14,7 @@
 # Cost: ten directions, 17,471 segments, beam 5, bf16 7B. Budget 6 to 12 hours
 # on one A100. On Snellius prefer:
 #   bash slurm/submit_sweep.sh configs/suites/wmt22-alma-repro.yaml \
-#        configs/models/alma-7b-r.yaml
+#        configs/models/alma-7b.yaml
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -23,7 +23,7 @@ CLI=${CLI:-./.venv/bin/mnlp-eval}
 COMET_CLI=${COMET_CLI:-./.venv-comet/bin/mnlp-eval}
 RUNS_ROOT=${RUNS_ROOT:-runs}
 SUITE=configs/suites/wmt22-alma-repro.yaml
-MODEL=configs/models/alma-7b-r.yaml
+MODEL=configs/models/alma-7b.yaml
 
 export TOKENIZERS_PARALLELISM=false
 

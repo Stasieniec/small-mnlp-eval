@@ -11,13 +11,19 @@ from __future__ import annotations
 from typing import Final, NamedTuple
 
 __all__ = [
+    "ALMA_DIRECTIONS",
+    "ALMA_PAIRS",
+    "ALMA_PARALLEL_TRAIN_PAIRS",
     "LANG_TABLE",
+    "LOW_RESOURCE_THRESHOLD",
     "NLLB_CODE",
     "Direction",
     "lang_name",
     "max_source_length_for",
+    "pair_language",
     "parse_direction",
     "parse_directions",
+    "resource_tier",
     "sacrebleu_tokenizer",
 ]
 
@@ -249,3 +255,71 @@ def max_source_length_for(direction: Direction, default: int) -> int:
     if override is None:
         return default
     return max(default, override)
+
+
+# The five language pairs ALMA is trained on, and the ten directions that
+# follow from them. Every suite in this repository is a subset of these, and
+# the pruning experiment covers all ten.
+ALMA_PAIRS: Final[tuple[str, ...]] = ("cs", "de", "is", "ru", "zh")
+
+ALMA_DIRECTIONS: Final[tuple[str, ...]] = (
+    "cs-en",
+    "de-en",
+    "is-en",
+    "ru-en",
+    "zh-en",
+    "en-cs",
+    "en-de",
+    "en-is",
+    "en-ru",
+    "en-zh",
+)
+
+# Parallel training pairs available per language in haoranxu/ALMA-Human-Parallel
+# (train split, read from the datasets server on 2026-09-09).
+#
+# These counts, not an external notion of "resource level", are what defines
+# high and low resource for this project: they are the data that is actually
+# available for calibrating a pruning criterion and for LoRA repair. Icelandic
+# has roughly a seventh of what the other four languages have and no validation
+# split at all, which is why it is the direction where compression is expected
+# to hurt most and repair to help least.
+ALMA_PARALLEL_TRAIN_PAIRS: Final[dict[str, int]] = {
+    "cs": 12076,
+    "de": 14211,
+    "is": 2009,
+    "ru": 15000,
+    "zh": 15406,
+}
+
+#: Below this many parallel training pairs a language counts as low resource.
+#: Placed between Icelandic's 2,009 and Czech's 12,076, the only gap in the
+#: distribution wide enough to draw a line through.
+LOW_RESOURCE_THRESHOLD: Final[int] = 5000
+
+
+def pair_language(direction: Direction | str) -> str:
+    """Return the non-English side of a direction, which names the pair.
+
+    ``de-en`` and ``en-de`` are two directions of the same pair, and RQ2 and
+    RQ3 both group by pair rather than by direction.
+    """
+    parsed = direction if isinstance(direction, Direction) else parse_direction(direction)
+    if parsed.source == "en":
+        return parsed.target
+    if parsed.target == "en":
+        return parsed.source
+    msg = f"direction {parsed} is not English-centric, so it does not name an ALMA pair"
+    raise ValueError(msg)
+
+
+def resource_tier(language: str) -> str:
+    """Return ``"high"``, ``"low"`` or ``"unknown"`` for a language code.
+
+    Derived from :data:`ALMA_PARALLEL_TRAIN_PAIRS`. Reported alongside the
+    counts themselves so a reader can see the rule rather than trust the label.
+    """
+    count = ALMA_PARALLEL_TRAIN_PAIRS.get(language)
+    if count is None:
+        return "unknown"
+    return "low" if count < LOW_RESOURCE_THRESHOLD else "high"

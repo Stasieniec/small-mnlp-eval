@@ -2,9 +2,9 @@
 # Note that bitsandbytes quantizes on load, so the on-disk checkpoint is
 # unchanged and the disk-based compression ratio will read as 1.0 while the
 # VRAM ratio drops. The report shows all three ratios for exactly this reason.
-extends: alma-7b-r.yaml
-name: alma-7b-r-bnb-nf4
-baseline: alma-7b-r
+extends: alma-7b.yaml
+name: alma-7b-bnb-nf4
+baseline: alma-7b
 quantization:
   method: bitsandbytes
   load_in_4bit: true

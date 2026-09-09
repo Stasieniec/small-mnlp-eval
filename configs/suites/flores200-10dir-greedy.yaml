@@ -1,0 +1,20 @@
+# Out-of-domain check on the same ten directions.
+#
+# WMT test sets are news; FLORES-200 is Wikipedia-derived and covers every
+# direction under one collection process, so a per-direction difference is
+# less likely to be a difference between test sets. Pruning is calibrated on
+# ALMA's news-domain parallel data, which makes an out-of-domain suite the
+# place a subnetwork that has overfitted its calibration data shows up.
+#
+# Secondary evidence, not the headline table: FLORES has 1,012 segments per
+# direction, so it is cheap enough to run for every system in the sweep.
+name: flores200-10dir-greedy
+data:
+  dataset: haoranxu/FLORES-200
+  directions: [cs-en, de-en, is-en, ru-en, zh-en, en-cs, en-de, en-is, en-ru, en-zh]
+decode:
+  num_beams: 1
+  max_new_tokens: 256
+  max_source_length: 256
+  batch_size: 16
+  seed: 42

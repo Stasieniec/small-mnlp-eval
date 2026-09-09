@@ -26,12 +26,13 @@ from typing import Any, TypeVar
 
 import yaml
 
-from mnlp_eval.languages import Direction, parse_directions
+from mnlp_eval.languages import Direction, pair_language, parse_directions
 from mnlp_eval.prompts import get_prompt, prompt_hash
 
 __all__ = [
     "AdapterSpec",
     "BenchSpec",
+    "CompressionSpec",
     "DataSpec",
     "DecodeSpec",
     "MetricsSpec",
@@ -51,6 +52,14 @@ _VALID_DTYPES = frozenset({"float32", "float16", "bfloat16", "auto"})
 _VALID_QUANT_METHODS = frozenset(
     {"bitsandbytes", "gptq", "awq", "compressed_tensors", "hqq", "torchao"}
 )
+#: Compression families this project reports on. ``none`` is the baseline and
+#: is spelled out rather than left implicit, so a system with no compression
+#: block is distinguishable from one whose author forgot to fill it in.
+_VALID_COMPRESSION_FAMILIES = frozenset({"none", "pruning", "quantization", "distillation"})
+
+#: Value of ``pruned_for`` meaning a subnetwork selected on data covering every
+#: direction at once, as opposed to one pair.
+MULTI_DIRECTIONAL = "multi"
 
 
 class ConfigError(ValueError):
@@ -124,6 +133,89 @@ class QuantizationSpec:
 
 
 @dataclass(frozen=True)
+class CompressionSpec:
+    """How a system was compressed, as reported rather than as executed.
+
+    Purely descriptive: none of it changes what the model computes, so none of
+    it takes part in run identity. Two configs that differ only here describe
+    the same system and share a run id, which is correct.
+
+    The report reads this block to answer the questions the experiment is
+    built around. Without ``pruned_for`` there is no way to tell a subnetwork
+    pruned on German data from one pruned on Icelandic data once both are
+    sitting in a runs directory, and the transfer matrix cannot be built at
+    all.
+    """
+
+    family: str = "none"
+    method: str = ""
+    nominal_sparsity: float | None = None
+    #: ``"multi"`` for a subnetwork selected on all ten directions, or a list of
+    #: the directions its calibration data came from.
+    pruned_for: str | list[str] = MULTI_DIRECTIONAL
+    #: Path to a subnetwork descriptor, for the overlap analysis. See
+    #: docs/subnetworks.md.
+    subnetwork: str | None = None
+    #: What repair was applied after pruning, for example a LoRA rank and the
+    #: data it was trained on. Free text, quoted verbatim in the report.
+    repair: str = ""
+    #: Path to the calibration config used to select the subnetwork.
+    calibration: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CompressionSpec:
+        payload = dict(data)
+        _reject_unknown(cls, payload, "compression")
+        spec = cls(**payload)
+        spec.validate()
+        return spec
+
+    def validate(self) -> None:
+        if self.family not in _VALID_COMPRESSION_FAMILIES:
+            msg = (
+                f"compression: family {self.family!r} is not one of "
+                f"{', '.join(sorted(_VALID_COMPRESSION_FAMILIES))}"
+            )
+            raise ConfigError(msg)
+        if self.nominal_sparsity is not None and not 0.0 <= self.nominal_sparsity < 1.0:
+            msg = (
+                f"compression: nominal_sparsity must be in [0, 1), got {self.nominal_sparsity}. "
+                "It is the fraction removed, not the fraction kept."
+            )
+            raise ConfigError(msg)
+        for direction in self.target_directions():
+            # Rejects a typo here rather than in the report, where an
+            # unmatched direction silently empties the transfer matrix.
+            pair_language(direction)
+
+    @property
+    def is_multi_directional(self) -> bool:
+        return isinstance(self.pruned_for, str) and self.pruned_for == MULTI_DIRECTIONAL
+
+    def target_directions(self) -> list[str]:
+        """Directions this system was compressed for, empty if multi-directional."""
+        if self.is_multi_directional:
+            return []
+        raw = self.pruned_for
+        items = [item.strip() for item in raw.split(",")] if isinstance(raw, str) else list(raw)
+        return sorted(str(item) for item in items if str(item).strip())
+
+    def describe(self) -> str:
+        """Short label for a table cell."""
+        if self.family == "none":
+            return "uncompressed"
+        parts = [self.family]
+        if self.nominal_sparsity is not None:
+            parts.append(f"{self.nominal_sparsity:.0%}")
+        parts.append(
+            MULTI_DIRECTIONAL if self.is_multi_directional else "+".join(self.target_directions())
+        )
+        if self.repair:
+            parts.append("repaired")
+        return " ".join(part for part in parts if part)
+
+
+@dataclass(frozen=True)
 class AdapterSpec:
     """A PEFT adapter applied on top of a base checkpoint."""
 
@@ -160,6 +252,7 @@ class ModelSpec:
     trust_remote_code: bool = False
     quantization: QuantizationSpec | None = None
     adapter: AdapterSpec | None = None
+    compression: CompressionSpec = field(default_factory=CompressionSpec)
     entrypoint: str | None = None
     kwargs: dict[str, Any] = field(default_factory=dict)
     baseline: str | None = None
@@ -177,6 +270,11 @@ class ModelSpec:
             payload["quantization"] = QuantizationSpec.from_dict(raw_quant)
         if (raw_adapter := payload.get("adapter")) is not None:
             payload["adapter"] = AdapterSpec.from_dict(raw_adapter)
+        # Unlike the other nested specs this one has a non-None default, so the
+        # payload may already carry a built object, for example when a caller
+        # rebuilds a spec from another spec's fields.
+        if isinstance(raw_compression := payload.get("compression"), dict):
+            payload["compression"] = CompressionSpec.from_dict(raw_compression)
         spec = cls(**payload)
         spec.validate()
         return spec
@@ -217,7 +315,7 @@ class ModelSpec:
     def identity(self) -> dict[str, Any]:
         """Return the fields that make this model a distinct system."""
         payload: dict[str, Any] = dict(_plain(self))
-        for label in ("name", "notes", "device_map", "baseline"):
+        for label in ("name", "notes", "device_map", "baseline", "compression"):
             payload.pop(label, None)
         payload["prompt_fingerprint"] = self.prompt_fingerprint
         return payload
@@ -432,6 +530,11 @@ class BenchSpec:
     # Force min_new_tokens == max_new_tokens so latency does not reward a model
     # for stopping early. See mnlp_eval.bench.efficiency for the reasoning.
     force_fixed_length: bool = True
+    # Walk every parameter to record the per-layer structure and the share of
+    # weights that are exactly zero. This is how a structurally pruned model
+    # reports what was removed rather than only how much. One reduction per
+    # tensor, negligible next to loading the model.
+    measure_structure: bool = True
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> BenchSpec:

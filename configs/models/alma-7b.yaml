@@ -1,0 +1,21 @@
+# The uncompressed baseline and the structured-pruning target.
+#
+# ALMA-7B is the fully fine-tuned stage-two model: monolingual fine-tuning of
+# Llama-2-7B followed by full-weight supervised fine-tuning on ALMA's human
+# parallel data. Full fine-tuning matters for this project, because a pruning
+# criterion and a LoRA repair adapter both act on the dense weights, and a
+# LoRA-only checkpoint would put an adapter on top of an adapter.
+#
+# ALMA-7B-R is the CPO-refined sibling. It is a stronger translator but a
+# different training objective, so it is a secondary system here, not the
+# baseline the pruned models are ratioed against.
+name: alma-7b
+loader: hf_causal
+prompt: alma
+model_name_or_path: haoranxu/ALMA-7B
+dtype: bfloat16
+compression:
+  family: none
+notes: >
+  Reference system. Every pruned or quantized variant should declare
+  baseline: alma-7b so the report can compute ratios and p-values against it.

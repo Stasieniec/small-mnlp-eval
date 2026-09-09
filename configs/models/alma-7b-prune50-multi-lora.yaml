@@ -1,0 +1,14 @@
+# Template: the same subnetwork after LoRA repair.
+#
+# The adapter is merged before evaluation, so repair does not show up as a
+# latency penalty that has nothing to do with compression. Both this and the
+# unrepaired sibling must be evaluated, because the repaired model alone
+# cannot separate "pruning did little damage" from "repair fixed a lot".
+extends: alma-7b-prune50-multi.yaml
+name: alma-7b-prune50-multi-lora
+adapter:
+  path: /scratch/CHANGE_ME/alma-7b-prune50-multi-lora
+  merge: true
+compression:
+  repair: LoRA r=16 on ALMA-Human-Parallel, all ten directions
+notes: Structurally pruned then repaired with LoRA on the same directions.

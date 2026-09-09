@@ -1,0 +1,22 @@
+# Headline suite: all ten directions ALMA supports, at ALMA's own decode
+# settings, so scores sit on the same scale as their published tables.
+#
+# The Icelandic configs of haoranxu/WMT22-Test hold 1,000 segments each, which
+# is the WMT21 Icelandic test set: WMT22 had no Icelandic general-MT task, and
+# ALMA evaluates Icelandic on WMT21 for that reason. The dataset name is
+# therefore slightly misleading and the direction-level provenance recorded by
+# the generate stage is what should be quoted in the report.
+#
+# 17,491 segments per system, roughly 6 to 10 A100-hours for a 7B model at
+# beam 5. Use alma10-greedy for the sparsity sweep and this suite for the
+# headline table.
+name: alma10-beam5
+data:
+  dataset: haoranxu/WMT22-Test
+  directions: [cs-en, de-en, is-en, ru-en, zh-en, en-cs, en-de, en-is, en-ru, en-zh]
+decode:
+  num_beams: 5
+  max_new_tokens: 256
+  max_source_length: 256
+  batch_size: 4
+  seed: 42
