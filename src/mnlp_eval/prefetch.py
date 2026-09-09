@@ -66,6 +66,17 @@ def prefetch(
     if metrics is not None:
         report["metrics"] = _fetch_metrics(metrics)
 
+    warnings = [
+        f"{key}: {value['warning']}"
+        for section in report.values()
+        for key, value in section.items()
+        if value.get("warning")
+    ]
+    if warnings:
+        _log(f"{len(warnings)} item(s) could not be prefetched but are not errors:")
+        for warning in warnings:
+            _log(f"  {warning}")
+
     failures = [
         f"{key}: {value['reason']}"
         for section in report.values()
@@ -76,6 +87,8 @@ def prefetch(
         _log(f"{len(failures)} item(s) could not be prefetched:")
         for failure in failures:
             _log(f"  {failure}")
+    elif warnings:
+        _log("everything downloadable is in the local cache")
     else:
         _log("all items present in the local cache")
     return report
@@ -105,11 +118,35 @@ def _fetch_dataset(dataset: str, direction: str, split: str) -> dict[str, Any]:
         return {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
 
 
+def _looks_like_a_filesystem_path(reference: str) -> bool:
+    """Whether a model reference names a path rather than a Hub repository.
+
+    Hub identifiers are ``owner/name`` and never begin with a separator or a
+    dot, so the distinction is unambiguous.
+    """
+    return reference.startswith(("/", "./", "../", "~"))
+
+
 def _fetch_repo(
     reference: str, revision: str | None, allow_patterns: list[str] | None = None
 ) -> dict[str, Any]:
     if Path(reference).expanduser().is_dir():
         return {"ok": True, "note": "local directory"}
+    if _looks_like_a_filesystem_path(reference):
+        # Nothing to download either way, so this is a warning rather than a
+        # failure. It has to be, because prefetch.sh runs over every config in
+        # the directory and the pruning templates carry placeholder scratch
+        # paths until a teammate fills them in. Under --strict, treating this
+        # as a failure would break the documented Snellius setup step.
+        return {
+            "ok": True,
+            "note": "local path",
+            "warning": (
+                f"{reference} is not a Hub repository and does not exist yet. "
+                "The job that uses it will fail unless the checkpoint is in place "
+                "by then."
+            ),
+        }
     try:
         from huggingface_hub import snapshot_download
 

@@ -13,7 +13,7 @@ from mnlp_eval.cli import (
     build_parser,
     main,
 )
-from mnlp_eval.config import ConfigError
+from mnlp_eval.config import ConfigError, ModelSpec
 
 
 def test_parser_requires_a_subcommand(capsys: pytest.CaptureFixture) -> None:
@@ -255,3 +255,42 @@ def test_metrics_default_to_the_shipped_config(monkeypatch: pytest.MonkeyPatch) 
     if not DEFAULT_METRICS_CONFIG.is_file():
         pytest.skip("default metrics config not present")
     assert "surface" in _load_metrics(None).groups
+
+
+def test_prefetch_tolerates_a_checkpoint_that_does_not_exist_yet(tmp_path: Path) -> None:
+    """The shipped pruning templates carry placeholder scratch paths.
+
+    slurm/prefetch.sh globs every config in the directory and runs with
+    --strict, so treating an absent local checkpoint as a download failure
+    would break the documented Snellius setup step for everyone until the last
+    teammate's checkpoint landed.
+    """
+    from mnlp_eval.prefetch import prefetch
+
+    spec = ModelSpec.from_dict(
+        {
+            "name": "not-yet",
+            "loader": "hf_causal",
+            "model_name_or_path": str(tmp_path / "absent"),
+        }
+    )
+
+    report = prefetch([spec], [])
+
+    entry = report["models"]["not-yet:model"]
+    assert entry["ok"] is True
+    assert "does not exist yet" in entry["warning"]
+
+
+def test_prefetch_reports_a_present_local_checkpoint_without_a_warning(tmp_path: Path) -> None:
+    from mnlp_eval.prefetch import prefetch
+
+    checkpoint = tmp_path / "present"
+    checkpoint.mkdir()
+    spec = ModelSpec.from_dict(
+        {"name": "here", "loader": "hf_causal", "model_name_or_path": str(checkpoint)}
+    )
+
+    report = prefetch([spec], [])
+
+    assert report["models"]["here:model"] == {"ok": True, "note": "local directory"}
