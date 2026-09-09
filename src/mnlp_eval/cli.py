@@ -5,7 +5,8 @@ Four pipeline stages, ``generate``, ``bench``, ``score`` and ``report``, plus
 before any of them. Then ``info`` to see what the current environment can do,
 ``verify-testset`` to check test-set provenance against ALMA's own files, and
 ``suite-directions`` and ``run-dir`` so a batch script can resolve what it
-needs without parsing configs itself.
+needs without parsing configs itself, ``calibration`` to build the pruning and
+repair data, and ``overlap`` to compare subnetworks with each other.
 
 Configuration comes from YAML files. ``--set`` applies dotted-path overrides on
 top, which change the run identity as they should: an override is a different
@@ -32,6 +33,7 @@ from mnlp_eval.config import (
     SuiteSpec,
     load_yaml_config,
 )
+from mnlp_eval.languages import ALMA_DIRECTIONS
 from mnlp_eval.runspec import RunPaths, discover_runs
 
 DEFAULT_RUNS_ROOT = Path("runs")
@@ -380,6 +382,74 @@ def command_run_dir(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_calibration(args: argparse.Namespace) -> int:
+    """Build the calibration and repair data the pruning runs share."""
+    from mnlp_eval.data.calibration import CalibrationSpec, build_calibration_set
+
+    payload = load_yaml_config(args.spec)
+    _apply_overrides(payload, list(getattr(args, "set", None) or []))
+    spec = CalibrationSpec.from_dict(payload)
+    manifest = build_calibration_set(
+        spec,
+        Path(args.out),
+        contamination_check=None if args.no_contamination_check else args.contamination_check,
+    )
+    contamination = manifest.get("contamination") or {}
+    collisions = contamination.get("total_collisions")
+    if collisions:
+        # Not a warning. A calibration set that overlaps the test set makes
+        # every quality number downstream of it indefensible.
+        return _fail(
+            f"{collisions} calibration segment(s) also appear in "
+            f"{contamination.get('dataset')}. This set must not be used."
+        )
+    unchecked = sorted(
+        direction
+        for direction, entry in (contamination.get("directions") or {}).items()
+        if not entry.get("checked")
+    )
+    if unchecked:
+        print(
+            f"warning: contamination unchecked for {', '.join(unchecked)}",
+            file=sys.stderr,
+        )
+    print(
+        f"{spec.total_segments} segments across {len(spec.directions)} direction(s), "
+        f"fingerprint {manifest['fingerprint']}",
+        file=sys.stderr,
+    )
+    print(Path(args.out) / spec.name)
+    return 0
+
+
+def command_overlap(args: argparse.Namespace) -> int:
+    """Compare subnetwork descriptors and write the overlap analysis."""
+    from mnlp_eval.analysis import compare_subnetworks, load_subnetworks, overlap_report
+    from mnlp_eval.artifacts import atomic_write_json, atomic_write_text
+
+    candidates: list[str | Path] = list(args.subnetwork or [])
+    for directory in args.subnetwork_dir or []:
+        found = sorted(Path(directory).glob("*.json"))
+        if not found:
+            return _fail(f"no .json descriptors under {directory}")
+        candidates.extend(found)
+    if len(candidates) < 2:
+        return _fail(
+            "overlap needs at least two descriptors; pass --subnetwork twice or "
+            "--subnetwork-dir once"
+        )
+
+    analysis = compare_subnetworks(load_subnetworks(candidates))
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(out_dir / "overlap.md", overlap_report(analysis))
+    atomic_write_json(out_dir / "overlap.json", analysis)
+    for problem in analysis["problems"]:
+        print(f"warning: {problem}", file=sys.stderr)
+    print(out_dir / "overlap.md")
+    return 0
+
+
 def command_verify_testset(args: argparse.Namespace) -> int:
     from mnlp_eval.verify import verify_testset
 
@@ -538,13 +608,56 @@ def build_parser() -> argparse.ArgumentParser:
     _add_model_suite_arguments(run_dir)
     run_dir.set_defaults(handler=command_run_dir)
 
+    calibration = subparsers.add_parser(
+        "calibration", help="build calibration and repair data from ALMA's training set"
+    )
+    calibration.add_argument("--spec", required=True, help="path to a calibration YAML config")
+    calibration.add_argument(
+        "--out", default="data/calibration", help="directory to write the set into"
+    )
+    calibration.add_argument(
+        "--contamination-check",
+        default="haoranxu/WMT22-Test",
+        help="test set to check the drawn segments against",
+    )
+    calibration.add_argument(
+        "--no-contamination-check",
+        action="store_true",
+        help="skip the check, for a machine with no access to the test set",
+    )
+    calibration.add_argument(
+        "--set",
+        action="append",
+        metavar="KEY=VALUE",
+        help="override, for example --set segments_per_direction=256",
+    )
+    calibration.set_defaults(handler=command_calibration)
+
+    overlap = subparsers.add_parser(
+        "overlap", help="compare subnetwork descriptors against each other and against chance"
+    )
+    overlap.add_argument(
+        "--subnetwork",
+        action="append",
+        metavar="PATH",
+        help="a subnetwork descriptor. Repeatable; see docs/subnetworks.md",
+    )
+    overlap.add_argument(
+        "--subnetwork-dir",
+        action="append",
+        metavar="DIR",
+        help="a directory of descriptors, all of whose .json files are compared",
+    )
+    overlap.add_argument("--out", default=str(DEFAULT_REPORT_DIR), help="output directory")
+    overlap.set_defaults(handler=command_overlap)
+
     verify = subparsers.add_parser(
         "verify-testset", help="check a Hub test set against ALMA's own files"
     )
     verify.add_argument("--dataset", default="haoranxu/WMT22-Test")
     verify.add_argument(
         "--directions",
-        default="de-en,en-de,ru-en,en-ru,is-en,en-is",
+        default=",".join(ALMA_DIRECTIONS),
         help="comma-separated directions to check",
     )
     verify.add_argument(
