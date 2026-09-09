@@ -63,6 +63,17 @@ jobs:
           uv pip install --python /tmp/wheel-venv/bin/python dist/*.whl
           /tmp/wheel-venv/bin/mnlp-eval --version
           /tmp/wheel-venv/bin/mnlp-eval info
+          # Exercises a command whose imports live in a subpackage, so a
+          # subpackage missing from the wheel fails here rather than on a
+          # cluster. `info` alone would not reach mnlp_eval.analysis.
+          mkdir -p "${RUNNER_TEMP}/nets"
+          printf '{"name":"a","components":{"h":{"total":4,"kept":{"0":[0,1]}}}}' \
+              > "${RUNNER_TEMP}/nets/a.json"
+          printf '{"name":"b","components":{"h":{"total":4,"kept":{"0":[1,2]}}}}' \
+              > "${RUNNER_TEMP}/nets/b.json"
+          /tmp/wheel-venv/bin/mnlp-eval overlap \
+              --subnetwork-dir "${RUNNER_TEMP}/nets" --out "${RUNNER_TEMP}/report"
+          grep -q "Excess" "${RUNNER_TEMP}/report/overlap.md"
 
       - name: Pre-commit hooks
         run: uv run --with pre-commit pre-commit run --all-files

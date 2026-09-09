@@ -2,15 +2,20 @@
 
 Quality and efficiency evaluation for compressed machine translation LLMs.
 
-This is the shared evaluation harness for a model-compression project on the
-[ALMA](https://github.com/fe1ixxu/ALMA) translation models. Compression work
-(quantization, pruning, knowledge distillation) happens elsewhere; this
-repository decides whether a compressed model is any good, and reports the cost
-it saved to get there.
+This is the evaluation and experimental layer for a model-compression project
+on the [ALMA](https://github.com/fe1ixxu/ALMA) translation models. The project
+asks whether ALMA-7B can be structurally pruned into smaller multi-directional
+or pair-specific subnetworks, how that interacts with resource level across its
+ten translation directions, and how far a lightweight LoRA repair recovers what
+pruning removed. Pruning happens elsewhere; this repository produces the
+calibration data it runs on and every number the report quotes.
 
 The design goal is that a compressed checkpoint becomes a fully evaluated
 system by adding one YAML file, and that any two systems in the same table are
 guaranteed to have been measured the same way.
+
+[docs/experiment-plan.md](docs/experiment-plan.md) maps each research question
+to the commands and artifacts that answer it. Read that first.
 
 ## What it measures
 
@@ -47,6 +52,21 @@ because a compression report needs them:
 FLOPs are an analytic estimate, not a traced operator count, and are not
 estimated at all for encoder-decoder models. Utilisation is computed against
 the device's dense bf16 peak and named `mfu_bf16_equivalent` to say so.
+
+**Structure**, because for structured pruning "how much smaller" is not the
+question. Measured from the loaded weights rather than from the config that
+produced them:
+
+- attention and FFN width per layer, and whether the pruning budget was spent
+  evenly across depth
+- the share of floating-point weights that are exactly zero, which is how a
+  mask that was applied but never compacted shows up: full parameter count,
+  full checkpoint size, full latency, no saving delivered
+
+**Subnetwork overlap**, for the question of whether two pair-specific
+subnetworks kept the same units. Reported as excess over chance, because two
+independently chosen 50 percent subnetworks already share about a third of what
+they keep. See [docs/subnetworks.md](docs/subnetworks.md).
 
 ## Why there are three environments
 
@@ -90,14 +110,22 @@ uv pip install --python .venv/bin/python -e ".[gen,surface,dev]"
 Then, for a real evaluation:
 
 ```bash
+# The calibration data every pruning run shares. Deterministic, balanced
+# across directions, fingerprinted, and checked against the test sets.
+.venv/bin/mnlp-eval calibration --spec configs/calibration/multi-10dir.yaml
+
 # Generate, measure efficiency, and score surface metrics in one command.
-.venv/bin/mnlp-eval run --model configs/models/alma-7b-r.yaml \
-                        --suite configs/suites/wmt22-6dir-beam5.yaml
+.venv/bin/mnlp-eval run --model configs/models/alma-7b.yaml \
+                        --suite configs/suites/alma10-greedy.yaml
 
 # Neural metrics live in their own environment. See docs/environments.md.
 .venv-comet/bin/mnlp-eval score --groups neural
 
-.venv/bin/mnlp-eval report --baseline alma-7b-r --formats md,csv,tex
+.venv/bin/mnlp-eval report --baseline alma-7b --formats md,csv,tex
+
+# Which units the pair-specific subnetworks kept, and whether they agree
+# more than chance would.
+.venv/bin/mnlp-eval overlap --subnetwork-dir subnetworks/
 ```
 
 `mnlp-eval info` prints what the current environment can do. On Snellius, see
@@ -152,10 +180,10 @@ demonstrate it.
 Most models need no code. Write a YAML file in `configs/models/`:
 
 ```yaml
-name: alma-7b-r-bnb-nf4
+name: alma-7b-bnb-nf4
 loader: hf_causal
 prompt: alma
-model_name_or_path: haoranxu/ALMA-7B-R
+model_name_or_path: haoranxu/ALMA-7B
 dtype: bfloat16
 quantization:
   method: bitsandbytes
@@ -171,13 +199,22 @@ function instead:
 name: alma-7b-wanda-50
 loader: custom
 prompt: alma
+baseline: alma-7b
 entrypoint: recipes.wanda:load     # load(**kwargs) -> (model, tokenizer)
 kwargs:
   sparsity: 0.5
   checkpoint: /scratch-shared/$USER/wanda-50
+compression:
+  family: pruning
+  nominal_sparsity: 0.5
+  pruned_for: multi                # or a direction list, for a pair-specific cut
+  subnetwork: subnetworks/wanda-50.json
 ```
 
-Full details in [docs/plugging-in-a-model.md](docs/plugging-in-a-model.md).
+The `compression` block takes no part in run identity, but the structure,
+resource tier and transfer tables are built from it and are omitted when it is
+absent. Full details in
+[docs/plugging-in-a-model.md](docs/plugging-in-a-model.md).
 
 ## The comparability contract
 
@@ -199,14 +236,17 @@ efficiency measurement procedure.
 
 ```
 src/mnlp_eval/         the package: config, data, models, metrics, bench, report
+src/mnlp_eval/analysis/  subnetwork descriptors and overlap against chance
 configs/models/        one file per system, including compression variants
 configs/suites/        test set plus decode settings
+configs/calibration/   pruning and repair data, balanced and fingerprinted
 configs/metrics/       which metrics, which checkpoints
+subnetworks/           kept-unit descriptors, one per pruning run
 recipes/               loaders for models that need their own code
 envs/                  requirements for the COMET and MetricX environments
 slurm/                 Snellius job scripts and a submit_sweep driver
 scripts/               smoke test, ALMA reproduction, style guard
-docs/                  environments, plugin contract, evaluation protocol
+docs/                  experiment plan, environments, plugin contract, protocol
 tests/                 no GPU, no network, no weights
 ```
 
@@ -216,9 +256,12 @@ tests/                 no GPU, no network, no weights
   results are plausible, including that fp32 reads 32 bits per parameter and
   fp16 reads 16.
 - `mnlp-eval verify-testset` confirms the Hub test sets match ALMA's committed
-  `human_written_data` files segment by segment. All six default directions
-  match: de-en 1984, en-de 2037, ru-en 2016, en-ru 2037, is-en 1000, en-is 1000.
-- `./scripts/reproduce_alma_baseline.sh` reproduces ALMA-7B-R on all ten WMT22
+  `human_written_data` files segment by segment. Row counts across the ten
+  directions: cs-en 1448, de-en 1984, is-en 1000, ru-en 2016, zh-en 1875,
+  en-cs 2037, en-de 2037, en-is 1000, en-ru 2037, en-zh 2037, for 17,491
+  segments per system. The Icelandic configs hold the WMT21 test set, because
+  WMT22 had no Icelandic task and ALMA evaluates it on WMT21 for that reason.
+- `./scripts/reproduce_alma_baseline.sh` reproduces ALMA-7B on all ten
   directions and prints scores to compare against the published table. Until
   that delta is known, every compression result here rests on an unverified
   harness.

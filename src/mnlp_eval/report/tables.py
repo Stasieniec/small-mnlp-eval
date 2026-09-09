@@ -160,9 +160,7 @@ class RunSummary:
         stacks = structure.get("stacks") or {}
         if not stacks:
             return None
-        largest: dict[str, Any] = max(
-            stacks.values(), key=lambda stack: stack.get("parameters", 0)
-        )
+        largest: dict[str, Any] = max(stacks.values(), key=lambda stack: stack.get("parameters", 0))
         return largest
 
     def bench_static(self, name: str) -> Any:

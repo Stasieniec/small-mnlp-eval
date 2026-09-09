@@ -63,10 +63,11 @@ surprise hours later inside a GPU job.
 ## Submit
 
 ```bash
-BASELINE=alma-7b-r bash slurm/submit_sweep.sh \
-    configs/suites/wmt22-6dir-beam5.yaml \
-    configs/models/alma-7b-r.yaml \
-    configs/models/alma-7b-r-bnb-nf4.yaml
+BASELINE=alma-7b bash slurm/submit_sweep.sh \
+    configs/suites/alma10-greedy.yaml \
+    configs/models/alma-7b.yaml \
+    configs/models/alma-7b-prune50-multi.yaml \
+    configs/models/alma-7b-prune50-multi-lora.yaml
 ```
 
 Per model the chain is: a generation array with one task per direction, then
@@ -78,7 +79,7 @@ Two things the scripts are careful about, both of which used to be wrong:
 
 **Array tasks shard with `--only-direction`, not `--directions`.** A suite's
 direction list is part of run identity, so `--directions` would give each task
-its own run id and split one sweep into six one-direction runs the report
+its own run id and split one sweep into ten one-direction runs the report
 refuses to combine. `--only-direction` restricts what a task generates while
 leaving the run identity alone, so every task fills in part of the same run.
 
@@ -117,12 +118,17 @@ do. `bench.sbatch` therefore asks for the whole node and pins
 `CUDA_VISIBLE_DEVICES=0`. The run records SM clock, temperature and power draw
 so a throttled measurement is at least visible.
 
-**Cost.** The six-direction WMT22 suite is 10,074 segments. At beam 5 a bf16 7B
-model takes roughly 3 to 6 hours on one A100, so a sweep of five compression
-variants is 15 to 30 GPU-hours of generation alone. Use
-`configs/suites/wmt22-6dir-greedy.yaml` for exploratory work: greedy decoding
-is about three times cheaper, and the report refuses to mix its results with
-beam-5 numbers.
+**Cost.** The ten-direction suite is 17,491 segments. At beam 5 a bf16 7B model
+takes roughly 6 to 10 hours on one A100, so the sweep this project needs, a
+baseline plus several sparsity levels plus five pair-specific subnetworks plus
+their repaired versions, is well over a hundred GPU-hours of generation alone
+at beam 5.
+
+Use `configs/suites/alma10-greedy.yaml` for the sweep. Greedy decoding is about
+three times cheaper, and the transfer matrix needs every subnetwork evaluated
+on all ten directions, which is what makes the sweep expensive rather than the
+per-system cost. Reserve `alma10-beam5` for the final systems and the headline
+table, and note that the report refuses to mix results from the two.
 
 **Partitions.** `gpu_a100` at `--gpus=1 --cpus-per-task=18` is one quarter of a
 72-core, 4-GPU node, which is the correct request shape. The `rome` partition

@@ -11,9 +11,9 @@ pipeline works.
 Weight-only 4-bit quantization applied at load time:
 
 ```yaml
-extends: alma-7b-r.yaml
-name: alma-7b-r-bnb-nf4
-baseline: alma-7b-r
+extends: alma-7b.yaml
+name: alma-7b-bnb-nf4
+baseline: alma-7b
 quantization:
   method: bitsandbytes
   load_in_4bit: true
@@ -26,11 +26,11 @@ A checkpoint you quantized elsewhere and saved, for example with
 `llm-compressor` or `GPTQModel`:
 
 ```yaml
-name: alma-7b-r-gptq-4bit
+name: alma-7b-gptq-4bit
 loader: hf_causal
 prompt: alma
-baseline: alma-7b-r
-model_name_or_path: /scratch-shared/$USER/alma-7b-r-gptq
+baseline: alma-7b
+model_name_or_path: /scratch-shared/$USER/alma-7b-gptq
 dtype: bfloat16
 quantization:
   method: gptq
@@ -43,10 +43,10 @@ default.
 A distilled student with a LoRA adapter:
 
 ```yaml
-name: alma-7b-r-distilled-lora
+name: alma-7b-distilled-lora
 loader: hf_causal
 prompt: alma
-baseline: alma-7b-r
+baseline: alma-7b
 model_name_or_path: haoranxu/ALMA-7B-Pretrain
 adapter:
   path: /scratch-shared/$USER/distilled-lora
@@ -64,6 +64,42 @@ Supported `quantization.method` values: `bitsandbytes`, `gptq`, `awq`,
 Always set `baseline` on a compression variant. It is what lets the report
 compute compression ratios, speedups and significance against the right system.
 
+## The compression block
+
+Every compressed system should declare how it was compressed. This block takes
+no part in run identity, so filling it in later does not orphan existing runs,
+but three report tables are built from it and are omitted entirely when it is
+missing.
+
+```yaml
+compression:
+  family: pruning              # none, pruning, quantization or distillation
+  method: structured, FFN intermediate channels and attention heads
+  nominal_sparsity: 0.5        # fraction removed, not the fraction kept
+  pruned_for: de-en,en-de      # or "multi" for a multi-directional subnetwork
+  calibration: configs/calibration/pair-de.yaml
+  subnetwork: subnetworks/prune50-de.json
+  repair: LoRA r=16 on ALMA-Human-Parallel
+```
+
+What each field unlocks:
+
+- `nominal_sparsity` is the x-axis of the sparsity sweep.
+- `pruned_for` is what the cross-direction transfer matrix is built from.
+  Without it there is no way to tell a subnetwork selected on German data from
+  one selected on Icelandic data once both are sitting in a runs directory.
+- `subnetwork` associates the config with its descriptor, so the overlap
+  analysis and the quality numbers refer to the same object. See
+  [subnetworks.md](subnetworks.md).
+- `family` and `repair` are labels in the tables.
+
+`nominal_sparsity` is what the method aimed for. What it achieved is measured
+independently by the bench stage, which reads the loaded model's per-layer
+widths and its share of exactly-zero weights. If the two disagree, believe the
+measurement: a mask that was applied but never compacted reports the full
+parameter count, the full checkpoint size and the full latency, and only the
+zero-weight column reveals that none of the claimed saving is real.
+
 ## The escape hatch: one function
 
 Structured pruning usually changes the architecture, so the checkpoint cannot
@@ -73,7 +109,7 @@ be loaded without the code that produced it. Write a loader and point at it:
 name: alma-7b-wanda-50
 loader: custom
 prompt: alma
-baseline: alma-7b-r
+baseline: alma-7b
 entrypoint: recipes.wanda:load
 kwargs:
   checkpoint: /scratch-shared/$USER/wanda-50
