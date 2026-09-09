@@ -31,6 +31,7 @@ from typing import Any
 
 from mnlp_eval.artifacts import atomic_write_json
 from mnlp_eval.bench.flops import device_peak_flops, estimate_generation_flops
+from mnlp_eval.bench.structure import describe_structure
 from mnlp_eval.config import BenchSpec, RunConfig
 from mnlp_eval.data import load_testset
 from mnlp_eval.languages import parse_direction
@@ -41,7 +42,7 @@ from mnlp_eval.seeding import seed_everything
 
 __all__ = ["BENCH_SCHEMA_VERSION", "bench_run"]
 
-BENCH_SCHEMA_VERSION = 1
+BENCH_SCHEMA_VERSION = 2
 
 
 def _log(message: str) -> None:
@@ -178,6 +179,8 @@ def bench_run(
         f"disk={_human(disk_bytes)}, resident={_human(weights_bytes)}"
     )
 
+    structure = _measure_structure(translator, measure=spec.measure_structure)
+
     measurements: dict[str, Any] = {}
     try:
         for batch_size in spec.batch_sizes:
@@ -205,6 +208,7 @@ def bench_run(
         },
         "data": testset.provenance(),
         "static": static,
+        "structure": structure,
         "time_to_first_token": ttft,
         "by_batch_size": measurements,
         "device_state_after": _nvml_process_memory(),
@@ -212,6 +216,41 @@ def bench_run(
     atomic_write_json(paths.bench, payload)
     paths.record_stage("bench", {"status": "completed", "path": str(paths.bench)})
     return payload
+
+
+def _measure_structure(translator: Translator, *, measure: bool) -> dict[str, Any] | None:
+    """Describe the loaded model's layer structure, or explain why not.
+
+    Never fatal. A model with unrecognised parameter names, or a backend that
+    holds no torch module at all, should still produce timings; losing the
+    structural profile is a smaller loss than losing the whole bench run an
+    hour into a job.
+    """
+    if not measure:
+        return None
+    model = getattr(translator, "model", None)
+    if model is None:
+        return {"unavailable": "the translator exposes no model object"}
+    try:
+        structure = describe_structure(model)
+    except (AttributeError, TypeError, RuntimeError) as exc:
+        return {"unavailable": f"{type(exc).__name__}: {exc}"}
+    stacks = structure.get("stacks") or {}
+    for name, stack in stacks.items():
+        spread = stack.get("ffn_intermediate") or {}
+        width = (
+            f"{spread.get('min')}"
+            if spread.get("min") == spread.get("max")
+            else f"{spread.get('min')} to {spread.get('max')}"
+        )
+        _log(
+            f"  {name}: {stack['n_layers']} layers, FFN width {width}, "
+            f"{'uniform' if stack['uniform'] else 'non-uniform'}"
+        )
+    zero_fraction = structure.get("zero_fraction")
+    if zero_fraction:
+        _log(f"  {zero_fraction:.2%} of floating-point weights are exactly zero")
+    return structure
 
 
 def _weight_footprint(before: dict[str, int | None], after: dict[str, int | None]) -> int | None:
