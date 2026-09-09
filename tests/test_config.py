@@ -8,6 +8,7 @@ import pytest
 
 from mnlp_eval.config import (
     BenchSpec,
+    CompressionSpec,
     ConfigError,
     DataSpec,
     DecodeSpec,
@@ -18,6 +19,7 @@ from mnlp_eval.config import (
     canonical_json,
     load_yaml_config,
 )
+from mnlp_eval.languages import ALMA_DIRECTIONS
 
 BASE_MODEL = {
     "name": "alma-7b-r",
@@ -356,3 +358,110 @@ def test_policy_decode_knobs_are_part_of_run_identity() -> None:
     plain = RunConfig(model, _suite())
     for change in ({"repetition_penalty": 1.1}, {"no_repeat_ngram_size": 3}):
         assert RunConfig(model, _suite(**change)).run_id != plain.run_id
+
+
+# --------------------------------------------------------------------------
+# Shipped configuration files
+# --------------------------------------------------------------------------
+
+CONFIG_ROOT = Path(__file__).resolve().parent.parent / "configs"
+
+
+@pytest.mark.parametrize(
+    "path", sorted((CONFIG_ROOT / "models").glob("*.yaml")), ids=lambda path: path.name
+)
+def test_every_shipped_model_config_is_valid(path: Path) -> None:
+    """A broken template would surface an hour into a cluster job, not here."""
+    spec = ModelSpec.from_dict(load_yaml_config(path))
+    assert spec.name == path.stem
+
+
+@pytest.mark.parametrize(
+    "path", sorted((CONFIG_ROOT / "suites").glob("*.yaml")), ids=lambda path: path.name
+)
+def test_every_shipped_suite_config_is_valid(path: Path) -> None:
+    suite = SuiteSpec.from_dict(load_yaml_config(path))
+    assert suite.name == path.stem
+    assert suite.data.directions
+
+
+@pytest.mark.parametrize(
+    "path", sorted((CONFIG_ROOT / "calibration").glob("*.yaml")), ids=lambda path: path.name
+)
+def test_every_shipped_calibration_config_is_valid(path: Path) -> None:
+    from mnlp_eval.data.calibration import CalibrationSpec
+
+    spec = CalibrationSpec.from_dict(load_yaml_config(path))
+    assert spec.name == path.stem
+
+
+@pytest.mark.parametrize(
+    "path", sorted((CONFIG_ROOT / "metrics").glob("*.yaml")), ids=lambda path: path.name
+)
+def test_every_shipped_metrics_config_is_valid(path: Path) -> None:
+    assert MetricsSpec.from_dict(load_yaml_config(path)).groups
+
+
+def test_the_pruning_templates_declare_what_the_report_needs() -> None:
+    """Without these fields the transfer matrix cannot be built at all."""
+    specific = ModelSpec.from_dict(
+        load_yaml_config(CONFIG_ROOT / "models" / "alma-7b-prune50-de.yaml")
+    )
+    multi = ModelSpec.from_dict(
+        load_yaml_config(CONFIG_ROOT / "models" / "alma-7b-prune50-multi.yaml")
+    )
+
+    assert specific.compression.family == "pruning"
+    assert specific.compression.target_directions() == ["de-en", "en-de"]
+    assert specific.baseline == "alma-7b"
+    assert multi.compression.is_multi_directional
+
+
+def test_the_ten_direction_suites_cover_every_alma_direction() -> None:
+    for name in ("alma10-beam5", "alma10-greedy", "flores200-10dir-greedy"):
+        suite = SuiteSpec.from_dict(load_yaml_config(CONFIG_ROOT / "suites" / f"{name}.yaml"))
+        assert set(suite.data.directions) == set(ALMA_DIRECTIONS), name
+
+
+# --------------------------------------------------------------------------
+# Compression metadata
+# --------------------------------------------------------------------------
+
+
+def test_compression_metadata_stays_out_of_run_identity() -> None:
+    """Two systems that differ only in how they are described are one system.
+
+    The alternative is worse: a run id that changes when somebody fixes a typo
+    in a notes field orphans every artifact already on disk.
+    """
+    base = {
+        "name": "pruned",
+        "loader": "hf_causal",
+        "model_name_or_path": "stub/pruned",
+        "compression": {"family": "pruning", "nominal_sparsity": 0.5},
+    }
+    relabelled = {**base, "compression": {"family": "pruning", "nominal_sparsity": 0.25}}
+
+    assert ModelSpec.from_dict(base).identity() == ModelSpec.from_dict(relabelled).identity()
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ({"family": "magic"}, "not one of"),
+        ({"nominal_sparsity": 1.0}, "must be in"),
+        ({"nominal_sparsity": -0.1}, "must be in"),
+        ({"pruned_for": "de-fr"}, "not English-centric"),
+        ({"sparsity": 0.5}, "unknown key"),
+    ],
+)
+def test_malformed_compression_blocks_are_rejected(payload: dict, message: str) -> None:
+    with pytest.raises((ConfigError, ValueError), match=message):
+        CompressionSpec.from_dict(payload)
+
+
+def test_pruned_for_accepts_a_list_or_a_string() -> None:
+    as_string = CompressionSpec.from_dict({"pruned_for": "de-en,en-de"})
+    as_list = CompressionSpec.from_dict({"pruned_for": ["en-de", "de-en"]})
+
+    assert as_string.target_directions() == as_list.target_directions() == ["de-en", "en-de"]

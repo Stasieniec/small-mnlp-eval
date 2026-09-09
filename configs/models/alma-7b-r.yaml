@@ -1,12 +1,17 @@
-# The uncompressed baseline and the compression target.
-# ALMA-R has its LoRA merged in, so it loads as a plain causal LM and needs no
-# chat template. Its generation_config.json is inherited from Llama 2 and
-# enables sampling; the framework overrides that explicitly.
+# ALMA-7B-R: the CPO-refined sibling of the baseline.
+#
+# Secondary system, not the pruning target. ALMA-R adds contrastive preference
+# optimization on top of ALMA and reports higher COMET, so including it gives
+# the report a second reference point on the quality axis. Pruning it would
+# confound two changes in training objective with the effect of compression,
+# which is why configs/models/alma-7b.yaml is the baseline.
 name: alma-7b-r
 loader: hf_causal
 prompt: alma
 model_name_or_path: haoranxu/ALMA-7B-R
 dtype: bfloat16
+compression:
+  family: none
 notes: >
-  Reference system. Every compression variant should declare
-  baseline: alma-7b-r so the report can compute ratios against it.
+  Optional upper reference. Its LoRA is already merged, so it loads as a plain
+  causal LM and needs no chat template.

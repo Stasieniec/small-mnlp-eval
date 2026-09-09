@@ -1,0 +1,23 @@
+# Template: multi-directional structured pruning at 50 percent, no repair.
+#
+# Copy this per sparsity level and point `model_name_or_path` at the saved
+# checkpoint. The compression block is what the report reads to build the
+# sparsity sweep and the transfer matrix; filling it in is not optional.
+#
+# `pruned_for: multi` says the pruning criterion was calibrated on data
+# covering all ten directions. Compare against the pair-specific templates at
+# the same sparsity to answer RQ1's second half.
+extends: alma-7b.yaml
+name: alma-7b-prune50-multi
+baseline: alma-7b
+model_name_or_path: /scratch/CHANGE_ME/alma-7b-prune50-multi
+compression:
+  family: pruning
+  method: structured, FFN intermediate channels and attention heads
+  nominal_sparsity: 0.5
+  pruned_for: multi
+  calibration: configs/calibration/multi-10dir.yaml
+  subnetwork: subnetworks/prune50-multi.json
+notes: >
+  Structurally pruned, no repair. The gap between this and its repaired
+  sibling is the answer to "how much can lightweight LoRA repair recover".

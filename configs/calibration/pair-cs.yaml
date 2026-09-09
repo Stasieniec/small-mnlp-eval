@@ -1,0 +1,14 @@
+# Pair-specific calibration data: cs only, both directions.
+#
+# The same segments_per_direction as multi-10dir, so a pair-specific
+# subnetwork sees a tenth of the segments the multi-directional one does.
+# That asymmetry is the point: the comparison is between calibrating on one
+# pair and calibrating on all ten, at the same per-direction budget. Equalising
+# the totals instead would confound the two with a change in calibration size.
+name: pair-cs
+dataset: haoranxu/ALMA-Human-Parallel
+split: train
+directions: [cs-en, en-cs]
+segments_per_direction: 128
+seed: 1234
+prompt: alma

@@ -1,6 +1,6 @@
-extends: alma-7b-r.yaml
-name: alma-7b-r-bnb-int8
-baseline: alma-7b-r
+extends: alma-7b.yaml
+name: alma-7b-bnb-int8
+baseline: alma-7b
 quantization:
   method: bitsandbytes
   load_in_8bit: true
