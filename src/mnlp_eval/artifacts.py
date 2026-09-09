@@ -25,6 +25,7 @@ __all__ = [
     "atomic_write_text",
     "read_json",
     "read_jsonl",
+    "read_jsonl_dicts",
     "write_jsonl",
     "write_lines",
 ]
@@ -117,6 +118,29 @@ def write_jsonl(path: Path, records: Iterable[Segment | dict[str, Any]]) -> int:
         lines.append(json.dumps(payload, ensure_ascii=False, sort_keys=True))
     atomic_write_text(path, "\n".join(lines) + ("\n" if lines else ""))
     return len(lines)
+
+
+def read_jsonl_dicts(path: Path) -> Iterator[dict[str, Any]]:
+    """Stream raw records from a JSON Lines file.
+
+    ``read_jsonl`` parses into :class:`Segment`, which is right for hypothesis
+    files and wrong for anything else the pipeline writes, such as calibration
+    records that carry a prompt instead of a hypothesis.
+    """
+    with path.open(encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                payload = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                msg = f"{path}:{line_number}: malformed JSON Lines record"
+                raise ValueError(msg) from exc
+            if not isinstance(payload, dict):
+                msg = f"{path}:{line_number}: expected an object, got {type(payload).__name__}"
+                raise ValueError(msg)
+            yield payload
 
 
 def read_jsonl(path: Path) -> Iterator[Segment]:
