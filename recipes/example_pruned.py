@@ -7,15 +7,25 @@ a model config at it:
     name: alma-7b-wanda-50
     loader: custom
     prompt: alma
-    baseline: alma-7b-r
+    baseline: alma-7b
     entrypoint: recipes.example_pruned:load
     kwargs:
       checkpoint: /scratch-shared/$USER/wanda-50
       sparsity: 0.5
+    compression:
+      family: pruning
+      nominal_sparsity: 0.5
+      pruned_for: multi
+      subnetwork: subnetworks/wanda-50.json
 
 Everything downstream is unchanged: prompting, batching, hypothesis extraction,
 all metrics, efficiency measurement, compression ratios, and significance
-against the baseline.
+against the baseline. The compression block is what the structure, resource
+tier and transfer tables are built from; see docs/plugging-in-a-model.md.
+
+A structured pruning method should also write a subnetwork descriptor at
+pruning time, listing the indices it kept. It cannot be recovered from the
+saved checkpoint afterwards. See docs/subnetworks.md.
 """
 
 from __future__ import annotations

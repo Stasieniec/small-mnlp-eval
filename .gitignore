@@ -28,6 +28,12 @@ slurm-logs/
 *.log
 slurm-*.out
 
+# Calibration and repair sets. Generated output, rebuilt deterministically
+# from configs/calibration/ and pinned by the fingerprint the report quotes.
+# Anchored to the repository root, because an unanchored pattern also matches
+# src/mnlp_eval/data/, which is source.
+/data/
+
 # Local caches
 .cache/
 hf_home/

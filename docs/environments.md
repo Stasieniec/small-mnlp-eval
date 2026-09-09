@@ -102,7 +102,7 @@ fetching it whole would be 45 GB of PyTorch, TensorFlow and Flax weights the
 framework never loads.
 
 **Quantization extras.** `bitsandbytes` and `peft` live in the `quant` extra,
-not in `gen`. The shipped `alma-7b-r-bnb-*` configs need them. Install with
+not in `gen`. The shipped `alma-7b-bnb-*` configs need them. Install with
 `uv pip install --python .venv/bin/python -e ".[gen,quant,surface,dev]"`, or
 expect an error naming `bitsandbytes` metadata rather than the extra.
 
