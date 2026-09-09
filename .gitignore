@@ -34,6 +34,12 @@ slurm-*.out
 # src/mnlp_eval/data/, which is source.
 /data/
 
+# uv writes this whenever `uv run` is used. Nothing here reads it: the
+# documented install is `uv pip install -e`, and the two metric environments
+# are pinned by envs/*-requirements.txt. A committed lockfile nothing consults
+# would only drift, and would change what `uv run` does in CI.
+uv.lock
+
 # Local caches
 .cache/
 hf_home/
