@@ -15,7 +15,8 @@ from pathlib import Path
 from typing import Any
 
 from mnlp_eval.artifacts import read_json
-from mnlp_eval.config import canonical_json
+from mnlp_eval.config import CompressionSpec, canonical_json
+from mnlp_eval.languages import ALMA_PARALLEL_TRAIN_PAIRS, pair_language, resource_tier
 from mnlp_eval.runspec import RunPaths, discover_runs
 
 __all__ = ["RunSummary", "Table", "build_tables", "collect_runs", "write_summary_csv"]
@@ -123,6 +124,46 @@ class RunSummary:
         payload = self.scores.get(group, {}).get("directions", {}).get(direction, {})
         value = payload.get("metrics", {}).get(name, {}).get("score")
         return float(value) if isinstance(value, int | float) else None
+
+    @property
+    def compression(self) -> CompressionSpec:
+        """The system's declared compression, defaulting to uncompressed.
+
+        Read from the manifest rather than from the config file, so a report
+        built months later describes what was actually run.
+        """
+        payload = self.manifest["model"].get("compression")
+        if not isinstance(payload, dict):
+            return CompressionSpec()
+        return CompressionSpec.from_dict(payload)
+
+    @property
+    def structure(self) -> dict[str, Any] | None:
+        """Measured layer structure, from the bench stage."""
+        if not self.bench:
+            return None
+        payload = self.bench.get("structure")
+        if not isinstance(payload, dict) or "unavailable" in payload:
+            return None
+        return payload
+
+    @property
+    def main_stack(self) -> dict[str, Any] | None:
+        """The layer stack holding the most parameters.
+
+        A decoder-only model has exactly one. An encoder-decoder model has two,
+        and the decoder is the one whose width dominates generation cost.
+        """
+        structure = self.structure
+        if not structure:
+            return None
+        stacks = structure.get("stacks") or {}
+        if not stacks:
+            return None
+        largest: dict[str, Any] = max(
+            stacks.values(), key=lambda stack: stack.get("parameters", 0)
+        )
+        return largest
 
     def bench_static(self, name: str) -> Any:
         if not self.bench:
@@ -273,14 +314,29 @@ def build_tables(
     *,
     baseline: str | None = None,
 ) -> list[Table]:
-    """Build every table for one comparable group of runs."""
+    """Build every table for one comparable group of runs.
+
+    The last three answer the project's research questions directly: what the
+    pruning actually removed, whether low-resource directions suffer more, and
+    whether a subnetwork selected for one language pair still works on the
+    others. They are omitted when the runs present cannot support them, so a
+    quantization-only comparison does not carry three empty tables.
+    """
     ordered = _order(summaries, baseline)
     reference = _find_baseline(ordered, baseline)
-    return [
+    tables = [
         _quality_table(ordered),
         _behaviour_table(ordered),
         _efficiency_table(ordered, reference),
     ]
+    for optional in (
+        _structure_table(ordered, reference),
+        _resource_tier_table(ordered, reference),
+        _transfer_table(ordered),
+    ):
+        if optional is not None:
+            tables.append(optional)
+    return tables
 
 
 def _order(summaries: list[RunSummary], baseline: str | None) -> list[RunSummary]:
@@ -492,16 +548,303 @@ def _efficiency_table(summaries: list[RunSummary], reference: RunSummary | None)
     )
 
 
+# --------------------------------------------------------------------------
+# Tables for the pruning research questions
+# --------------------------------------------------------------------------
+
+
+def _quality_metric(summaries: list[RunSummary]) -> tuple[str, str, str] | None:
+    """One metric for every derived table, chosen once for the whole group.
+
+    Shared with the Pareto plots so a report never states a transfer gap in
+    COMET and draws the frontier in BLEU without saying so.
+    """
+    from mnlp_eval.report.pareto import choose_quality_metric
+
+    return choose_quality_metric(summaries)
+
+
+def _structure_table(summaries: list[RunSummary], reference: RunSummary | None) -> Table | None:
+    """What structured pruning removed, per layer rather than in total.
+
+    Parameter count alone cannot distinguish a model that lost a third of
+    every FFN from one that lost eight whole layers, and the two behave very
+    differently. Omitted entirely when no run measured its structure.
+    """
+    measured = [summary for summary in summaries if summary.main_stack]
+    if not measured:
+        return None
+
+    reference_stack = reference.main_stack if reference else None
+    rows: list[list[str]] = []
+    for summary in summaries:
+        stack = summary.main_stack
+        compression = summary.compression
+        if stack is None:
+            rows.append([summary.model, compression.describe(), *["-"] * 7])
+            continue
+        attention = stack.get("attention_inner_dim") or {}
+        ffn = stack.get("ffn_intermediate") or {}
+        structure = summary.structure or {}
+        rows.append(
+            [
+                summary.model,
+                compression.describe(),
+                str(stack.get("n_layers", "-")),
+                _range(attention),
+                _range(ffn),
+                "yes" if stack.get("uniform") else "no",
+                _kept(reference_stack, stack, "n_layers"),
+                _kept(reference_stack, stack, "ffn_intermediate", nested="total"),
+                _fmt(structure.get("zero_fraction"), percent=True),
+            ]
+        )
+
+    notes = [
+        "Measured from the loaded weights, not from the config that produced them, "
+        "so a checkpoint whose config and tensors disagree shows up here.",
+        "Widths are the inner dimensions of the layer stack holding the most "
+        "parameters: the input width of the attention output projection, and of the "
+        "FFN down projection.",
+        "Uniform means every layer kept the same width. A no is the interesting "
+        "answer: it means the pruning criterion spent its budget unevenly across "
+        "depth, which a single sparsity number hides.",
+        "Zero weights counts floating-point parameters that are exactly zero. A "
+        "structurally pruned checkpoint should read near zero here, because its "
+        "removed channels are gone rather than masked. A high number means the mask "
+        "was applied but the weights were never compacted, so none of the claimed "
+        "memory or latency saving is real yet.",
+    ]
+    if reference is None:
+        notes.append("No baseline run was resolved, so the kept-fraction columns are blank.")
+    return Table(
+        title="Structure",
+        columns=[
+            "System",
+            "Compression",
+            "Layers",
+            "Attention width",
+            "FFN width",
+            "Uniform",
+            "Layers kept",
+            "FFN width kept",
+            "Zero weights",
+        ],
+        rows=rows,
+        notes=notes,
+    )
+
+
+def _range(spread: dict[str, Any]) -> str:
+    low, high = spread.get("min"), spread.get("max")
+    if low is None:
+        return "-"
+    return str(low) if low == high else f"{low} to {high}"
+
+
+def _kept(
+    reference: dict[str, Any] | None,
+    stack: dict[str, Any],
+    key: str,
+    *,
+    nested: str | None = None,
+) -> str:
+    """Share of a structural quantity the system kept, relative to the baseline."""
+    if reference is None:
+        return "-"
+
+    def value(source: dict[str, Any]) -> float | None:
+        raw = source.get(key)
+        if nested and isinstance(raw, dict):
+            raw = raw.get(nested)
+        return float(raw) if isinstance(raw, int | float) else None
+
+    base, candidate = value(reference), value(stack)
+    if not base or candidate is None:
+        return "-"
+    return f"{candidate / base:.1%}"
+
+
+def _resource_tier_table(summaries: list[RunSummary], reference: RunSummary | None) -> Table | None:
+    """Whether compression costs more in low-resource directions.
+
+    The macro average over ten directions is dominated by the eight
+    high-resource ones, so a system that has lost Icelandic entirely can still
+    look mildly degraded. Splitting the average by resource tier is the whole
+    of RQ2, and it is one subtraction away from data the report already has.
+    """
+    chosen = _quality_metric(summaries)
+    if chosen is None or reference is None or len(summaries) < 2:
+        return None
+    group, key, label = chosen
+
+    tiers: dict[str, list[str]] = {}
+    for direction in reference.directions:
+        try:
+            tier = resource_tier(pair_language(direction))
+        except ValueError:
+            continue
+        tiers.setdefault(tier, []).append(direction)
+    if len(tiers) < 2:
+        return None
+
+    ordered_tiers = [tier for tier in ("high", "low", "unknown") if tier in tiers]
+    rows: list[list[str]] = []
+    for summary in summaries:
+        if summary.run_id == reference.run_id:
+            continue
+        means: dict[str, float | None] = {}
+        for tier in ordered_tiers:
+            deltas: list[float] = []
+            for direction in tiers[tier]:
+                base = reference.per_direction(group, direction, key)
+                candidate = summary.per_direction(group, direction, key)
+                if base is not None and candidate is not None:
+                    deltas.append(candidate - base)
+            means[tier] = sum(deltas) / len(deltas) if deltas else None
+        low, high = means.get("low"), means.get("high")
+        gap = low - high if low is not None and high is not None else None
+        rows.append(
+            [
+                summary.model,
+                summary.compression.describe(),
+                *[_signed(means[tier], group) for tier in ordered_tiers],
+                _signed(gap, group),
+            ]
+        )
+    if not rows:
+        return None
+
+    tier_note = "; ".join(
+        f"{tier}: {', '.join(sorted({pair_language(d) for d in directions}))}"
+        for tier, directions in sorted(tiers.items())
+    )
+    counts = ", ".join(
+        f"{language} {count:,}" for language, count in sorted(ALMA_PARALLEL_TRAIN_PAIRS.items())
+    )
+    return Table(
+        title=f"Degradation by resource tier ({label})",
+        columns=[
+            "System",
+            "Compression",
+            *[f"{tier} resource" for tier in ordered_tiers],
+            "Low minus high",
+        ],
+        rows=rows,
+        notes=[
+            f"Mean change in {label} against {reference.model}, averaged within a tier.",
+            f"Tiers by language: {tier_note}.",
+            "A tier is set by the parallel training pairs ALMA has for that language "
+            f"in haoranxu/ALMA-Human-Parallel ({counts}), because that is the data "
+            "available for calibrating a pruning criterion and for repair.",
+            "A negative low-minus-high figure is the RQ2 result: compression costs "
+            "the low-resource direction more than it costs the high-resource ones.",
+        ],
+    )
+
+
+def _transfer_table(summaries: list[RunSummary]) -> Table | None:
+    """How a pair-specific subnetwork does on the pairs it was not selected for.
+
+    Needs at least one system declaring ``compression.pruned_for``. Matched
+    cells are bracketed, so a reader can see at a glance whether the diagonal
+    stands out from the rest of its row.
+    """
+    specific = [summary for summary in summaries if summary.compression.target_directions()]
+    if not specific:
+        return None
+    chosen = _quality_metric(summaries)
+    if chosen is None:
+        return None
+    group, key, label = chosen
+
+    directions = summaries[0].directions
+    rows: list[list[str]] = []
+    for summary in summaries:
+        targets = set(summary.compression.target_directions())
+        cells: list[str] = []
+        matched: list[float] = []
+        mismatched: list[float] = []
+        for direction in directions:
+            value = summary.per_direction(group, direction, key)
+            if value is None:
+                cells.append("-")
+                continue
+            cells.append(f"[{value:.4g}]" if direction in targets else f"{value:.4g}")
+            (matched if direction in targets else mismatched).append(value)
+        matched_mean = sum(matched) / len(matched) if matched else None
+        mismatched_mean = sum(mismatched) / len(mismatched) if mismatched else None
+        gap = (
+            matched_mean - mismatched_mean
+            if matched_mean is not None and mismatched_mean is not None
+            else None
+        )
+        rows.append(
+            [
+                summary.model,
+                "multi" if not targets else "+".join(sorted(targets)),
+                *cells,
+                _fmt(matched_mean, 4),
+                _fmt(mismatched_mean, 4),
+                _signed(gap, group),
+            ]
+        )
+
+    return Table(
+        title=f"Cross-direction transfer ({label})",
+        columns=[
+            "System",
+            "Selected for",
+            *directions,
+            "Matched",
+            "Mismatched",
+            "Specialization",
+        ],
+        rows=rows,
+        notes=[
+            "A bracketed cell is a direction the subnetwork was selected for. "
+            "Specialization is the matched mean minus the mismatched mean.",
+            "A multi-directional system has no matched directions, so its "
+            "specialization is blank. It belongs in the table as the row every "
+            "pair-specific system should be read against, column by column.",
+            "Comparing specialization across systems is only meaningful when their "
+            "sparsity matches, because a deeper cut lowers every column at once.",
+        ],
+    )
+
+
+def _signed(value: float | None, group: str) -> str:
+    """Format a delta, keeping the sign and using the metric's own precision."""
+    if value is None:
+        return "-"
+    digits = 2 if group == "surface" else 4
+    return f"{value:+.{digits}f}"
+
+
 def write_summary_csv(summaries: list[RunSummary], path: Path) -> int:
     """Write one flat row per run, for loading into a notebook or spreadsheet."""
     records: list[dict[str, Any]] = []
     for summary in summaries:
+        compression = summary.compression
+        stack = summary.main_stack or {}
         record: dict[str, Any] = {
             "model": summary.model,
             "suite": summary.suite,
             "run_id": summary.run_id,
             "baseline": summary.baseline_name or "",
             "n_directions": len(summary.directions),
+            "compression_family": compression.family,
+            "compression_method": compression.method,
+            "nominal_sparsity": compression.nominal_sparsity,
+            "pruned_for": "multi"
+            if compression.is_multi_directional
+            else "+".join(compression.target_directions()),
+            "repair": compression.repair,
+            "n_layers": stack.get("n_layers"),
+            "uniform_layers": stack.get("uniform"),
+            "ffn_intermediate_mean": (stack.get("ffn_intermediate") or {}).get("mean"),
+            "attention_inner_dim_mean": (stack.get("attention_inner_dim") or {}).get("mean"),
+            "zero_fraction": (summary.structure or {}).get("zero_fraction"),
             "bleu": summary.metric("surface", "bleu"),
             "chrf2pp": summary.metric("surface", "chrf2pp"),
             "comet22": summary.metric("neural", "wmt22_comet_da"),
