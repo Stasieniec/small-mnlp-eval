@@ -150,7 +150,7 @@ def _build_bench_spec(args: argparse.Namespace, config: RunConfig | None = None)
         )
         raise ConfigError(msg)
     # Only the default was out of range, so pick a direction the suite covers
-    # rather than failing on a value nobody asked for.
+    # rather than failing on a value the caller never set.
     fallback = config.suite.data.directions[0]
     print(
         f"bench: suite {config.suite.name!r} does not cover the default direction "

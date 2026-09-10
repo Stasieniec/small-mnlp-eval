@@ -4,7 +4,7 @@ ALMA's ``clean_outputstring`` recovers a translation by splitting the full
 decoded sequence on the target-language cue inside three nested ``try`` blocks,
 and returns an empty string when all of them fail. For a project whose subject
 is degradation that is the worst possible behaviour: a collapsed model scores a
-legitimate-looking zero and nobody notices.
+legitimate-looking zero.
 
 Here, extraction operates on the generated continuation only (the caller slices
 the prompt off by input length), and every hypothesis carries flags describing

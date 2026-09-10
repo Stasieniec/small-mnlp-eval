@@ -1,18 +1,16 @@
 """Analytic FLOPs estimation and model FLOPs utilisation.
 
-Measured wall-clock time is the number that matters for a compression report,
-but the survey this project follows (Zhu et al., Section 2.1) lists FLOPs and
-MFU among its metrics, so both are reported.
+Reported because Zhu et al., Section 2.1, lists both. Wall-clock time is the
+number a compression report turns on.
 
-Two honesty caveats are built into the field names rather than left to a
-footnote:
+Two limits are recorded in the field names rather than in a footnote:
 
-* The estimate is analytic, from parameter counts and token counts. It is not
-  a traced operator count, and it ignores normalisation, activation and
-  softmax cost, which are small but not zero.
+* The estimate is analytic, from parameter and token counts. It is not a
+  traced operator count, and it ignores normalisation, activation and softmax
+  cost.
 * MFU is computed against the device's dense bf16 peak. A 4-bit model executes
-  low-precision matmuls with a different hardware ceiling, so its MFU is not a
-  utilisation figure in the usual sense. The field is therefore named
+  low-precision matmuls with a different ceiling, so its figure is not a
+  utilisation number in the usual sense, and the field is named
   ``mfu_bf16_equivalent``.
 """
 
@@ -65,19 +63,15 @@ def estimate_generation_flops(
     """Estimate forward FLOPs for one decoder-only generation workload.
 
     Uses the standard ``2 N`` FLOPs per parameter per token approximation.
-    Both terms are multiplied by ``num_beams``: transformers expands
-    ``input_ids`` by the beam count *before* the prefill pass, so prefill is
-    beam-expanded too. ``prefill_positions`` must be the padded width the model
-    actually computed over, not the sum of unpadded token counts. Using the
-    unpadded sum with an unexpanded prefill undercounted prefill by more than
-    5x in measurement.
+    Both terms are multiplied by ``num_beams``, because transformers expands
+    ``input_ids`` by the beam count before the prefill pass.
+    ``prefill_positions`` must be the padded width the model computed over, not
+    the sum of unpadded token counts.
 
     Returns ``None`` for encoder-decoder models. Their cost splits between an
     encoder that runs once unexpanded and a decoder that runs beam-expanded,
     and ``non_embedding_parameters`` covers both, so a single ``2 N`` figure
-    would overstate the decode term roughly twofold. Reporting nothing is
-    better than reporting a number known to be wrong, which is the same policy
-    applied to MFU on an unlisted device.
+    would overstate the decode term.
     """
     if architecture != "causal":
         return None

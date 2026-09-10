@@ -62,8 +62,8 @@ class RunSummary:
 
         Recorded by the generate stage. The data specification names a dataset
         and a limit; the fingerprint is the content. Two runs can share a
-        specification and have been scored on different data, which is exactly
-        what happens when a local held-out file is edited between runs.
+        specification and have been scored on different data, for example when
+        a local held-out file is edited between runs.
         """
         fingerprints: dict[str, str] = {}
         for entry in self.stage_records.get("generate", {}).values():
@@ -345,7 +345,7 @@ def _find_baseline(summaries: list[RunSummary], baseline: str | None) -> RunSumm
 
     An explicit ``--baseline`` that matches nothing returns None rather than
     falling back, so a typo shows up as blank ratio columns plus a warning from
-    the report rather than as ratios against a system nobody asked for.
+    the report, rather than as ratios against an unrequested system.
     """
     if baseline:
         return next((item for item in summaries if item.model == baseline), None)
