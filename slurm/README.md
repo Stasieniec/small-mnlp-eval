@@ -1,22 +1,19 @@
 # Running on Snellius
 
-## Prefetching, and why
+## Prefetching
 
-Everything a batch job touches should be in `HF_HOME` before the job starts.
+Everything a batch job touches should be in `HF_HOME` before the job starts. A
+run that downloads mid-job has timings that are not comparable, and weights
+that may differ from the last run if a Hub repository moved.
 
-Two reasons, and it is worth being precise about which is which. The first is
-reproducibility: a run that downloads mid-job is a run whose timings are not
-comparable, and whose weights might differ from the last one if a Hub
-repository moved. That reason is solid and applies regardless. The second is
-network availability, and here the framework's earlier claim that Snellius
-compute nodes have no internet access was not verified. SURF's own AI guide
-downloads a Hugging Face dataset from inside an `sbatch` job, and no SURF
-documentation states that outbound access is blocked; only inbound is. Check
-your own account before relying on it either way.
+Whether compute nodes can reach the network is a separate question and is not
+verified here. SURF documents blocking inbound access, not outbound, and SURF's
+own AI guide downloads from the Hub inside an `sbatch` job. Check your account
+before relying on it either way.
 
 The scripts default to `HF_HUB_OFFLINE=1`, which turns a missing asset into a
-fast, clear failure rather than a slow download. Override it with
-`HF_HUB_OFFLINE=0` if you would rather a job fetch what it needs.
+fast failure rather than a slow download. Set `HF_HUB_OFFLINE=0` if you would
+rather a job fetch what it needs.
 
 SURF also maintains a shared cache at `/projects/2/managed_datasets/hf_cache_dir`,
 which may already hold what you need.
@@ -75,7 +72,7 @@ efficiency, then scoring. The report waits on every scoring job. `BASELINE` is
 required, because every compression ratio, speedup and p-value is computed
 against it and the report silently drops all of them if it cannot find it.
 
-Two things the scripts are careful about, both of which used to be wrong:
+Two things the scripts are careful about:
 
 **Array tasks shard with `--only-direction`, not `--directions`.** A suite's
 direction list is part of run identity, so `--directions` would give each task
