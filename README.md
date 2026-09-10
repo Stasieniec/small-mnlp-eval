@@ -145,5 +145,4 @@ tests/                no GPU, no network, no weights
   known, every result here rests on an unverified harness.
 - `pytest tests/` needs no GPU, network or weights.
 
-No emojis and no em-dashes anywhere; `scripts/check_style.py` enforces it. See
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Setup and conventions for contributors: [CONTRIBUTING.md](CONTRIBUTING.md).

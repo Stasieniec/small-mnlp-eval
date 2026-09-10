@@ -19,8 +19,8 @@ repos:
 
   - repo: local
     hooks:
-      - id: no-emoji-or-em-dash
-        name: no emoji or em-dashes
+      - id: check-characters
+        name: check characters
         entry: python scripts/check_style.py
         language: system
         types: [text]

@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
-"""Fail if tracked text files contain emoji or em-dashes.
+"""Report emoji and em-dash characters in tracked text files.
 
-The project rules that this repository contains no emoji and no em-dashes are
-enforced here rather than left to review, because these characters arrive
-easily through copy-paste and generated text, and a reviewer will not reliably
-spot one in a 600 line diff.
-
+These arrive through copy-paste and are not reliably spotted in a large diff.
 Binary files are skipped by attempting a UTF-8 decode. En-dashes are not
-checked: they appear legitimately in numeric ranges.
+checked, since they appear legitimately in numeric ranges.
 """
 
 from __future__ import annotations
@@ -178,8 +174,7 @@ def main(argv: list[str] | None = None) -> int:
         for problem in problems:
             print(f"  {problem}", file=sys.stderr)
         print(
-            "\nThis repository contains no emoji and no em-dashes. "
-            "Replace an em-dash with a comma, a colon, or two sentences.",
+            "\nReplace an em-dash with a comma, a colon, or two sentences.",
             file=sys.stderr,
         )
     if problems or unusable:

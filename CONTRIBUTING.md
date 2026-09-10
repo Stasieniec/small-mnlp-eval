@@ -23,18 +23,11 @@ The COMET and MetricX environments are needed only for neural metrics. See
 
 CI runs all five. The test suite needs no GPU, network or model weights.
 
-## House style
+## Comments
 
-No emojis and no em-dashes anywhere: code, comments, docstrings, docs, configs,
-commit messages. `scripts/check_style.py` enforces it. Replace an em-dash with
-a comma, a colon, or two sentences.
-
-No AI agents as authors or co-authors, in commit trailers or pull request
-descriptions.
-
-Comments record a decision, a constraint or a trap: a pin that exists for a
+A comment records a decision, a constraint or a trap: a pin that exists for a
 reason, a value taken from an upstream script, a failure mode that is easy to
-reintroduce. They do not restate the code or narrate the repository's history.
+reintroduce. It does not restate the code.
 
 ## Changing the evaluation protocol
 
