@@ -139,12 +139,25 @@ def _build_bench_spec(args: argparse.Namespace, config: RunConfig | None = None)
     payload = combined.get("bench") or {}
     if getattr(args, "bench_direction", None):
         payload["direction"] = args.bench_direction
+    requested = "direction" in payload
     spec = BenchSpec.from_dict(payload)
-    if config is not None and spec.direction not in config.suite.data.directions:
-        # Benchmark a direction the suite actually covers rather than failing on
-        # the default, which is de-en.
-        spec = BenchSpec.from_dict({**payload, "direction": config.suite.data.directions[0]})
-    return spec
+    if config is None or spec.direction in config.suite.data.directions:
+        return spec
+    if requested:
+        msg = (
+            f"bench direction {spec.direction!r} is not in suite "
+            f"{config.suite.name!r}, which covers {', '.join(config.suite.data.directions)}"
+        )
+        raise ConfigError(msg)
+    # Only the default was out of range, so pick a direction the suite covers
+    # rather than failing on a value nobody asked for.
+    fallback = config.suite.data.directions[0]
+    print(
+        f"bench: suite {config.suite.name!r} does not cover the default direction "
+        f"{spec.direction}, benchmarking {fallback} instead",
+        file=sys.stderr,
+    )
+    return BenchSpec.from_dict({**payload, "direction": fallback})
 
 
 def _load_metrics(path: str | None, overrides: list[str] | None = None) -> MetricsSpec:
@@ -258,9 +271,8 @@ def command_bench(args: argparse.Namespace) -> int:
         # efficiency numbers that do not describe the run they sit next to.
         paths = RunPaths(Path(args.run))
         config = RunConfig.from_manifest(paths.read_manifest(), Path(args.run).parent)
-        # Act on the directory given, not on a recomputed one. Pointing at a
-        # renamed or archived run previously created a fresh, hypothesis-free
-        # directory and wrote bench.json there instead.
+        # Act on the directory given, not on one recomputed from the slug,
+        # so that a renamed or archived run is benchmarked in place.
         bench_run(config, _build_bench_spec(args, config), paths=paths)
         print(paths.bench)
         return 0

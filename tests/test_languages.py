@@ -9,8 +9,10 @@ from mnlp_eval.languages import (
     NLLB_CODE,
     lang_name,
     max_source_length_for,
+    pair_language,
     parse_direction,
     parse_directions,
+    resource_tier,
     sacrebleu_tokenizer,
 )
 
@@ -62,7 +64,7 @@ def test_directions_preserve_order() -> None:
 
 @pytest.mark.parametrize(
     ("target", "expected"),
-    [("zh", "zh"), ("ja", "ja-mecab"), ("ko", "ko-mecab"), ("de", "13a"), ("en", "13a")],
+    [("zh", "zh"), ("ja", "ja-mecab"), ("de", "13a"), ("en", "13a"), ("ko", "13a")],
 )
 def test_tokenizer_matches_alma(target: str, expected: str) -> None:
     assert sacrebleu_tokenizer(target) == expected
@@ -76,3 +78,18 @@ def test_zh_en_gets_almas_raised_source_length() -> None:
 
 def test_source_length_override_never_lowers_the_cap() -> None:
     assert max_source_length_for(parse_direction("zh-en"), 1024) == 1024
+
+
+def test_resource_tier_marks_icelandic_as_the_low_resource_pair() -> None:
+    assert [resource_tier(pair_language(d)) for d in ("is-en", "en-is")] == ["low", "low"]
+    assert {resource_tier(code) for code in ("cs", "de", "ru", "zh")} == {"high"}
+    assert resource_tier("fr") == "unknown"
+
+
+def test_pair_language_folds_both_directions_onto_one_pair() -> None:
+    assert pair_language("de-en") == pair_language("en-de") == "de"
+
+
+def test_a_direction_without_english_names_no_alma_pair() -> None:
+    with pytest.raises(ValueError, match="not English-centric"):
+        pair_language("de-fr")

@@ -14,14 +14,11 @@ choice among all 142 languages it knows, and it answers what matters:
 did the model translate, echo the source, or fall back to English. The open
 rate over every language the classifier knows is reported alongside it.
 
-Every rate here is divided by the total segment count, never by the subset that
-could be classified. An earlier version divided the language rates by the
-number of hypotheses long enough to identify, which made a model that emitted
-nothing on 95 percent of segments report an off-target rate of zero: the most
-flattering possible value for the most broken possible system, sitting in a
-table next to rates that used the full denominator. ``on_target_rate``,
-``off_target_rate`` and ``unverifiable_rate`` sum to one by construction, which
-is what makes that failure impossible to reintroduce unnoticed.
+Every rate is divided by the total segment count, never by the subset that
+could be classified. Dividing by the subset makes a model that emits nothing on
+most segments report an off-target rate near zero, since the few segments it
+does produce are the ones it got right. ``on_target_rate``, ``off_target_rate``
+and ``unverifiable_rate`` sum to one by construction.
 """
 
 from __future__ import annotations

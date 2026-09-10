@@ -25,7 +25,6 @@ __all__ = [
     "STATUS_EMPTY",
     "STATUS_OK",
     "Parsed",
-    "alma_legacy_clean",
     "detect_repetition",
     "extract_hypothesis",
 ]
@@ -129,24 +128,3 @@ def detect_repetition(
         if all(tail[i : i + size] == unit for i in range(0, span, size)):
             return " ".join(unit)
     return None
-
-
-def alma_legacy_clean(full_output: str, key_word: str, split_idx: int = 1) -> str:
-    """Faithful reimplementation of ALMA's ``clean_outputstring``.
-
-    Kept so the framework can quantify how often upstream parsing would have
-    silently produced an empty string on the same outputs. Not used for
-    scoring. ``full_output`` must be the whole decoded sequence including the
-    prompt, and ``key_word`` the suffix such as ``"\\nEnglish:"``.
-    """
-    try:
-        parts = full_output.split(key_word)[split_idx].split("\n")
-        for candidate in parts[:3]:
-            if candidate.strip():
-                return candidate.strip()
-    except IndexError:
-        pass
-    try:
-        return full_output.split(key_word)[2].split("\n")[0].strip()
-    except IndexError:
-        return ""

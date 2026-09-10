@@ -15,6 +15,25 @@ from mnlp_eval.cli import (
 )
 from mnlp_eval.config import ConfigError, ModelSpec
 
+MODEL_YAML = """
+name: stub
+loader: hf_causal
+model_name_or_path: stub/model
+"""
+
+SUITE_YAML = """
+name: ru-only
+data:
+  dataset: haoranxu/WMT22-Test
+  directions: [ru-en]
+"""
+
+
+def _write(directory: Path, name: str, body: str) -> Path:
+    path = directory / name
+    path.write_text(body, encoding="utf-8")
+    return path
+
 
 def test_parser_requires_a_subcommand(capsys: pytest.CaptureFixture) -> None:
     with pytest.raises(SystemExit):
@@ -294,3 +313,42 @@ def test_prefetch_reports_a_present_local_checkpoint_without_a_warning(tmp_path:
     report = prefetch([spec], [])
 
     assert report["models"]["here:model"] == {"ok": True, "note": "local directory"}
+
+
+def test_an_explicit_bench_direction_outside_the_suite_is_an_error(tmp_path: Path) -> None:
+    """Silently benchmarking a different direction would mislabel the result."""
+    args = build_parser().parse_args(
+        [
+            "bench",
+            "--model",
+            str(_write(tmp_path, "model.yaml", MODEL_YAML)),
+            "--suite",
+            str(_write(tmp_path, "suite.yaml", SUITE_YAML)),
+            "--bench-direction",
+            "en-is",
+        ]
+    )
+    config = _build_run_config(args)
+
+    with pytest.raises(ConfigError, match="not in suite"):
+        _build_bench_spec(args, config)
+
+
+def test_the_default_bench_direction_falls_back_to_one_the_suite_covers(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    args = build_parser().parse_args(
+        [
+            "bench",
+            "--model",
+            str(_write(tmp_path, "model.yaml", MODEL_YAML)),
+            "--suite",
+            str(_write(tmp_path, "suite.yaml", SUITE_YAML)),
+        ]
+    )
+    config = _build_run_config(args)
+
+    spec = _build_bench_spec(args, config)
+
+    assert spec.direction == "ru-en"
+    assert "benchmarking ru-en instead" in capsys.readouterr().err

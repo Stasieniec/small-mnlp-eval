@@ -18,10 +18,9 @@ comparable with a p-value from the other:
   time, so no metric model has to be reloaded. Its statistic is the two-sided
   centred difference, ``P(|d_b - d| >= |d|)``.
 
-An earlier version of this module claimed both used the same statistic. They do
-not, the two rejection rates under the null differ, and the report labels the
-columns accordingly rather than pretending one asterisk threshold means the
-same thing in both.
+The two are not the same estimator. Their rejection rates under the null
+differ, so a p-value from one is not directly comparable with a p-value from
+the other, and the report labels the columns accordingly.
 
 Both are genuinely paired: the same resampled segment indices are applied to
 both systems, which removes test-set difficulty as a source of variance and is
@@ -139,10 +138,9 @@ def paired_bootstrap_surface(
                 system_result.p_value is not None and system_result.p_value < 0.05
             ),
             "bootstrap_mean": _round(system_result.mean),
-            # sacreBLEU returns a half-width around the system's own score, not
-            # an interval on the difference. Named to say so, because the
-            # neural path's bootstrap_ci_95 is an interval on the delta and the
-            # two were previously a rename apart.
+            # A half-width around the system's own score, not an interval on
+            # the difference. Named to say so: the neural path's
+            # bootstrap_ci_95 is an interval on the delta.
             "bootstrap_score_ci_halfwidth": _round(system_result.ci),
             # sacreBLEU returns signature objects here, not strings, and a
             # signature object is not JSON serialisable.

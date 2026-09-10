@@ -1,9 +1,8 @@
 """Subnetwork descriptors and overlap analysis.
 
-The chance baseline is the part that has to be right. Two independently
-chosen 50 percent subnetworks share about a third of what they keep, so a
-Jaccard index of 0.33 is the null result and quoting it as shared structure
-would be the central mistake this analysis exists to prevent.
+The chance baseline is the part that has to be right. Two independently chosen
+50 percent subnetworks share about a third of what they keep, so a Jaccard
+index of 0.33 is the null result rather than evidence of shared structure.
 """
 
 from __future__ import annotations

@@ -1,9 +1,7 @@
 """Stage D: aggregate runs into tables.
 
-The one rule enforced here rather than documented: runs whose data or decoding
-settings differ are never placed in the same table. That is the single easiest
-way for a compression comparison to become quietly meaningless, and by week six
-of a project nobody remembers which sweep used greedy decoding.
+Runs whose data or decoding settings differ are never placed in the same
+table. Grouping is by measurement conditions, not by convention.
 """
 
 from __future__ import annotations
@@ -356,10 +354,8 @@ def _find_baseline(summaries: list[RunSummary], baseline: str | None) -> RunSumm
 
 
 #: Display names for the neural metric keys, and the order columns appear in.
-#: Every metric present gets its own column. An earlier version had a single
-#: column headed "COMET-22" that fell back to XCOMET-XL or COMETKiwi when
-#: those were the only neural metrics scored, putting different metrics on
-#: different scales under one heading with no note.
+#: Every metric present gets its own column, because they are on different
+#: scales and one heading cannot stand for two of them.
 _NEURAL_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("neural", "wmt22_comet_da", "COMET-22"),
     ("neural", "wmt22_cometkiwi_da", "COMETKiwi (ref-free)"),
@@ -735,8 +731,8 @@ def _resource_tier_table(summaries: list[RunSummary], reference: RunSummary | No
             "A tier is set by the parallel training pairs ALMA has for that language "
             f"in haoranxu/ALMA-Human-Parallel ({counts}), because that is the data "
             "available for calibrating a pruning criterion and for repair.",
-            "A negative low-minus-high figure is the RQ2 result: compression costs "
-            "the low-resource direction more than it costs the high-resource ones.",
+            "A negative low-minus-high figure means compression cost the "
+            "low-resource directions more than the high-resource ones.",
         ],
     )
 
