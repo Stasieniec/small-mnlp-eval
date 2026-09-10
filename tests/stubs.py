@@ -32,7 +32,7 @@ class StubTranslator(Translator):
     """A translator that echoes canned output, bypassing the batching loop.
 
     Lets the generate, score and report stages be exercised end to end with no
-    model, which is what makes the pipeline testable at all.
+    model.
     """
 
     kind = "stub"

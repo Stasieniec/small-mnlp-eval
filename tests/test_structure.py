@@ -5,8 +5,8 @@ removed needs to be right on the cases that matter: uneven per-layer budgets,
 whole layers dropped, masks applied but not compacted, and quantized weights
 where a zero byte is not a pruned weight.
 
-Tensors are fakes. describe_structure never imports torch, which is what makes
-that possible and what keeps it usable in the metric environments.
+Tensors are fakes: describe_structure never imports torch, which also keeps
+it usable in the metric environments.
 """
 
 from __future__ import annotations
