@@ -48,6 +48,9 @@ hf_home/
 # setup_metricx_env.sh clones it here and puts it on PYTHONPATH.
 third_party/
 
+# Slides and other course material that is not part of the framework.
+*.pptx
+
 # Editors
 .idea/
 .vscode/

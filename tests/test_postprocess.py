@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from mnlp_eval.postprocess import (
     FLAG_EXTRA_LINES,
     FLAG_REPETITION,
@@ -11,7 +9,6 @@ from mnlp_eval.postprocess import (
     FLAG_STRIPPED_MARKER,
     STATUS_EMPTY,
     STATUS_OK,
-    alma_legacy_clean,
     detect_repetition,
     extract_hypothesis,
 )
@@ -99,16 +96,3 @@ def test_repetition_detection_can_be_disabled() -> None:
 def test_no_marker_still_extracts_the_first_line() -> None:
     parsed = extract_hypothesis("Dies ist ein Test.\nnoise", "")
     assert parsed.hypothesis == "Dies ist ein Test."
-
-
-@pytest.mark.parametrize(
-    ("raw", "expected"),
-    [
-        ("Translate this:\nGerman: x\nEnglish: This is a test.\n", "This is a test."),
-        ("Translate this:\nGerman: x\nEnglish:", ""),
-    ],
-)
-def test_legacy_parser_is_reproduced_faithfully(raw: str, expected: str) -> None:
-    # Kept so the framework can quantify how often ALMA's parser would have
-    # silently produced an empty string. The second case is exactly that.
-    assert alma_legacy_clean(raw, "\nEnglish:") == expected

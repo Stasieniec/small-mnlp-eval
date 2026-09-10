@@ -200,8 +200,8 @@ def overlap_report(analysis: dict[str, Any]) -> str:
             "number of positions, computed per layer and summed. The Jaccard of an "
             "expected intersection is not quite the expectation of the Jaccard, but the "
             "difference is negligible at these layer widths.",
-            "- Excess is the figure to quote. A value near zero means the two pruning "
-            "runs agreed no more than chance, whatever the raw Jaccard says.",
+            "- Excess is the figure to report. Near zero means the two selections "
+            "agreed no more than chance, whatever the raw Jaccard says.",
             "- The overlap coefficient divides by the smaller selection instead, which "
             "is the right measure when the two subnetworks have different sparsities: "
             "it asks whether the sparser one is a subset of the denser one.",

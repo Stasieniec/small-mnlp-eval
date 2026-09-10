@@ -117,8 +117,8 @@ def test_generate_is_incomplete_until_every_suite_direction_reports(
 
 
 def test_concurrent_stage_writers_do_not_lose_records(run_config: RunConfig) -> None:
-    # The regression this design exists to prevent. With a single mutable
-    # manifest this lost at least one record in 60 of 60 trials.
+    # The reason stage records are one file each rather than entries in a
+    # shared mutable manifest.
     import concurrent.futures
 
     paths = RunPaths.for_config(run_config)

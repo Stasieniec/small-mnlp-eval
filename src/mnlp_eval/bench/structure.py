@@ -1,17 +1,13 @@
-"""Structural accounting for pruned models.
+"""Per-layer structure and sparsity of a loaded model.
 
-Parameter count and checkpoint size answer "how much smaller", but neither
-answers "what was removed", and for structured pruning that is the question.
 A subnetwork that drops a third of every FFN and one that drops eight whole
-layers can report the same parameter count while behaving nothing alike, and
-the per-layer profile is what tells them apart.
+layers can report the same parameter count while behaving nothing alike, so
+structured pruning needs the per-layer profile rather than a total.
 
-Everything here is read from the loaded model itself rather than from the
-config that produced it. A pruning script that updated its config but not its
-weights, or the reverse, is exactly the kind of mistake that would otherwise
-be discovered while writing the report.
+Everything is read from the loaded model rather than from its config, so a
+checkpoint whose config and tensors disagree is visible.
 
-No torch import. Tensors are used through ``numel``, ``shape``, ``dtype`` and
+No torch import: tensors are used through ``numel``, ``shape``, ``dtype`` and
 ``count_nonzero``, which keeps this module importable in the metric
 environments and testable without a GPU.
 """
@@ -30,15 +26,13 @@ STRUCTURE_SCHEMA_VERSION = 1
 #: stay separate instead of collapsing into one list of doubled layers.
 _LAYER_PATTERN = re.compile(r"^(?P<stack>.*?)\.(?P<index>\d+)\.(?P<rest>.*)$")
 
-#: Leaf module names by role. Covers Llama (which is what ALMA is), Mistral,
-#: BART and Marian, and T5. A model whose projections are named differently
-#: reports its parameter and zero counts as usual and leaves the structural
-#: fields null, rather than guessing.
+#: Leaf module names by role, covering the architectures this project runs:
+#: Llama, which is what ALMA is, and the BART-style naming Marian and NLLB
+#: share. A model that names its projections differently reports parameter and
+#: zero counts as usual and leaves the structural fields null.
 _ROLE_NAMES: dict[str, frozenset[str]] = {
-    "attention_query": frozenset({"q_proj", "q", "query"}),
-    "attention_output": frozenset({"o_proj", "out_proj", "o"}),
-    "ffn_input": frozenset({"up_proj", "gate_proj", "fc1", "wi", "wi_0", "w1"}),
-    "ffn_output": frozenset({"down_proj", "fc2", "wo", "w2"}),
+    "attention_output": frozenset({"o_proj", "out_proj"}),
+    "ffn_output": frozenset({"down_proj", "fc2"}),
 }
 
 #: Config fields worth recording next to the measured structure. A mismatch
@@ -58,10 +52,9 @@ _CONFIG_FIELDS = (
 def describe_structure(model: Any, *, count_zeros: bool = True) -> dict[str, Any]:
     """Return the measured structure of ``model``.
 
-    ``count_zeros`` walks every floating-point parameter. It is the only way
-    to see a mask that was applied but never materialised, which is what an
-    unstructured or a not-yet-compacted structured pruning run produces. It
-    costs one reduction per tensor and is cheap next to loading the model.
+    ``count_zeros`` walks every floating-point parameter, which is the only
+    way to see a mask that was applied but never materialised. It costs one
+    reduction per tensor.
     """
     config = getattr(model, "config", None)
     config_fields = {
@@ -174,11 +167,7 @@ def _count_zeros(tensor: Any) -> int | None:
 
 
 def _is_floating(tensor: Any) -> bool:
-    dtype = getattr(tensor, "dtype", None)
-    flag = getattr(dtype, "is_floating_point", None)
-    if isinstance(flag, bool):
-        return flag
-    return "float" in str(dtype).lower()
+    return bool(getattr(getattr(tensor, "dtype", None), "is_floating_point", False))
 
 
 def _head_dim(config_fields: dict[str, Any]) -> int | None:
@@ -202,8 +191,6 @@ def _describe_stack(layers: dict[int, dict[str, Any]], head_dim: int | None) -> 
         # it: the attention output projection, and the FFN down projection.
         attention_inner = _in_features(shapes.get("attention_output"))
         ffn_intermediate = _in_features(shapes.get("ffn_output"))
-        if ffn_intermediate is None:
-            ffn_intermediate = _out_features(shapes.get("ffn_input"))
         record = {
             **layer,
             "attention_inner_dim": attention_inner,
@@ -232,17 +219,8 @@ def _in_features(shape: list[int] | None) -> int | None:
     return int(shape[1]) if shape and len(shape) == 2 else None
 
 
-def _out_features(shape: list[int] | None) -> int | None:
-    return int(shape[0]) if shape and len(shape) == 2 else None
-
-
 def _is_uniform(records: list[dict[str, Any]]) -> bool:
-    """Whether every layer has the same width.
-
-    False is the interesting answer: it means pruning allocated different
-    budgets to different layers, which is the thing a single sparsity number
-    hides.
-    """
+    """Whether every layer has the same width."""
     widths = {(record["attention_inner_dim"], record["ffn_intermediate"]) for record in records}
     return len(widths) <= 1
 

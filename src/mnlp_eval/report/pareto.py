@@ -1,9 +1,6 @@
 """Quality against cost frontiers.
 
-A compression project's central claim is a trade-off, and a trade-off is easier
-to judge as a frontier than as a column of numbers. Two plots: quality against
-resident size, and quality against throughput. Points on the upper-left or
-upper-right frontier are the ones worth defending in a report.
+Two plots: quality against resident size, and quality against throughput.
 """
 
 from __future__ import annotations

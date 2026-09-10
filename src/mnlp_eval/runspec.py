@@ -66,11 +66,10 @@ class RunPaths:
     def stage_path(self, stage: str, key: str | None = None) -> Path:
         """Path of one stage record.
 
-        Stage reports live in their own files rather than inside the manifest.
-        Merging them into a single mutable document meant a read-modify-write
-        with no lock, and concurrent Slurm array tasks lost records in 60 of 60
-        measured trials. One file per stage, and per direction where a stage is
-        sharded, removes the shared mutable state entirely.
+        One file per stage, and per direction where a stage is sharded across
+        an array. Accumulating them in the manifest instead would need a
+        read-modify-write under a lock, which concurrent Slurm array tasks on a
+        shared filesystem do not have.
         """
         name = f"{stage}.{key}.json" if key else f"{stage}.json"
         return self.stages_dir / name

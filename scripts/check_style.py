@@ -106,8 +106,8 @@ def tracked_files() -> list[Path]:
 def expand(paths: list[Path]) -> tuple[list[Path], list[str]]:
     """Resolve the requested paths into files, reporting anything unusable.
 
-    A missing path used to be skipped in silence, so a typo'd argument printed
-    "style check passed", and a directory argument checked nothing inside it.
+    A missing path is an error rather than a silent skip, so a mistyped
+    argument cannot print "style check passed".
     """
     files: list[Path] = []
     problems: list[str] = []
