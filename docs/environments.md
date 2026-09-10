@@ -1,6 +1,6 @@
 # Environments
 
-This project needs three Python environments. That is not a stylistic choice.
+This project needs three Python environments.
 
 ## Why three
 
@@ -12,18 +12,14 @@ This project needs three Python environments. That is not a stylistic choice.
 
 `torchmetrics<0.11.0` is a 2022 release. Resolving all three sets of pins into
 one environment either fails outright or silently downgrades numpy underneath
-the generation code, which is worse.
+the generation code.
 
 The framework therefore joins its stages through files on disk and never
 through function calls across a metric boundary. The core `mnlp_eval` package
-depends only on `pyyaml`, precisely so it can be installed in all three.
-
-Two consequences worth having anyway:
-
-- A finished run can be re-scored with a new metric years later without
-  spending GPU hours regenerating hypotheses.
-- Scoring runs as its own Slurm job, on its own node, with its own wall-clock
-  limit.
+depends only on `pyyaml`, so it can be installed in all three. Two consequences
+that are useful independently: a finished run can be re-scored with a new
+metric without regenerating hypotheses, and scoring runs as its own Slurm job
+with its own wall-clock limit.
 
 ## Creating them
 
@@ -84,11 +80,10 @@ cleanly and then fails on `import comet`.
 
 **transformers 5.x.** The `gen` extra caps transformers below 5.0, because
 COMET requires `transformers<5.0` and keeping both environments on one major
-version removes a class of tokenizer-drift questions that would otherwise have
-to be ruled out by hand. ALMA's current `install_alma.sh` pins 4.51.1, though
-that release postdates both ALMA papers; ALMA-7B-R's own
+version rules out tokenizer drift between them. ALMA's `install_alma.sh` pins
+4.51.1, a release that postdates both ALMA papers; ALMA-7B-R's
 `generation_config.json` records `transformers_version: 4.36.2`, which is what
-actually produced the checkpoint.
+produced the checkpoint.
 
 **Gated checkpoints.** `Unbabel/wmt22-cometkiwi-da` and `Unbabel/XCOMET-XL`
 require accepting a licence on the Hub. Export `HF_TOKEN` before prefetching.
