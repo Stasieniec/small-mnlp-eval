@@ -6,7 +6,8 @@ before any of them. Then ``info`` to see what the current environment can do,
 ``verify-testset`` to check test-set provenance against ALMA's own files, and
 ``suite-directions`` and ``run-dir`` so a batch script can resolve what it
 needs without parsing configs itself, ``calibration`` to build the pruning and
-repair data, and ``overlap`` to compare subnetworks with each other.
+repair data, ``prune`` to select and compact a subnetwork, and ``overlap`` to
+compare subnetworks with each other.
 
 Configuration comes from YAML files. ``--set`` applies dotted-path overrides on
 top, which change the run identity as they should: an override is a different
@@ -18,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -434,6 +436,46 @@ def command_calibration(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_prune(args: argparse.Namespace) -> int:
+    """Select a subnetwork, compact the model, and write what it kept."""
+    from mnlp_eval.prune.spec import PruneSpec, run_pruning
+
+    payload = load_yaml_config(args.spec)
+    _apply_overrides(payload, list(getattr(args, "set", None) or []))
+    spec = PruneSpec.from_dict(payload)
+    manifest = run_pruning(
+        spec,
+        Path(args.out),
+        subnetwork_dir=Path(args.subnetwork_dir),
+        config_dir=Path(args.model_config_dir),
+    )
+
+    achieved = manifest["unit_sparsity"]
+    if abs(achieved - spec.sparsity) > 0.05:
+        # Rounding to whole heads and channels moves the figure a little. A
+        # large gap means the budget could not be met, and a sweep whose
+        # members are not at the sparsity they claim compares nothing.
+        return _fail(
+            f"asked for sparsity {spec.sparsity} but kept units imply {achieved}. "
+            "Check the per-layer floors against the requested budget."
+        )
+    print(json.dumps(manifest, indent=2, sort_keys=True))
+    return 0
+
+
+def command_prune_spec(args: argparse.Namespace) -> int:
+    """Print one field of a pruning config, for a batch script to resolve."""
+    from mnlp_eval.prune.spec import PruneSpec
+
+    spec = PruneSpec.from_dict(load_yaml_config(args.spec))
+    if not args.field:
+        print(json.dumps(asdict(spec), indent=2, sort_keys=True))
+        return 0
+    value = getattr(spec, args.field)
+    print(value if not isinstance(value, list) else ",".join(value))
+    return 0
+
+
 def command_overlap(args: argparse.Namespace) -> int:
     """Compare subnetwork descriptors and write the overlap analysis."""
     from mnlp_eval.analysis import compare_subnetworks, load_subnetworks, overlap_report
@@ -644,6 +686,42 @@ def build_parser() -> argparse.ArgumentParser:
         help="override, for example --set segments_per_direction=256",
     )
     calibration.set_defaults(handler=command_calibration)
+
+    prune = subparsers.add_parser(
+        "prune", help="select and compact a subnetwork from a dense checkpoint"
+    )
+    prune.add_argument("--spec", required=True, help="path to a pruning YAML config")
+    prune.add_argument(
+        "--out", default="checkpoints", help="directory to write the pruned checkpoint into"
+    )
+    prune.add_argument(
+        "--subnetwork-dir",
+        default="subnetworks",
+        help="directory for the kept-unit descriptor the overlap analysis reads",
+    )
+    prune.add_argument(
+        "--model-config-dir",
+        default="configs/models",
+        help="where to write the model config, next to the baseline it extends",
+    )
+    prune.add_argument(
+        "--set",
+        action="append",
+        metavar="KEY=VALUE",
+        help="override, for example --set sparsity=0.3",
+    )
+    prune.set_defaults(handler=command_prune)
+
+    prune_spec = subparsers.add_parser(
+        "prune-spec", help="print a pruning config's fields, one at a time"
+    )
+    prune_spec.add_argument("--spec", required=True, help="path to a pruning YAML config")
+    prune_spec.add_argument(
+        "--field",
+        choices=("name", "method", "calibration", "sparsity", "allocation", "pruned_for"),
+        help="print just this field; omit for the whole spec as JSON",
+    )
+    prune_spec.set_defaults(handler=command_prune_spec)
 
     overlap = subparsers.add_parser(
         "overlap", help="compare subnetwork descriptors against each other and against chance"
