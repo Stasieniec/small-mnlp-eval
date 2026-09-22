@@ -1,0 +1,10 @@
+# Pair-specific FLAP: calibrated on German only, at the same per-direction
+# budget as the multi-directional run. The comparison is scope at a fixed
+# per-direction budget, not scope confounded with calibration size.
+#
+# Evaluated on all ten directions regardless, because the transfer half of RQ3
+# is exactly the question of what a de-calibrated subnetwork does to Icelandic.
+extends: flap-50-multi.yaml
+name: alma-7b-flap50-de
+calibration: data/calibration/pair-de
+directions: [de-en, en-de]

@@ -1,0 +1,22 @@
+# SlimGPT at 50 percent, calibrated on all ten directions.
+#
+# The expensive one. It builds a Hessian per projection, inverts it, and walks
+# the layers in order so that each is compensated against the input the pruned
+# layers before it actually produce. Budget roughly 26 GB on ALMA-7B at this
+# calibration size; the knob if that does not fit is the number of calibration
+# segments, not max_length, which would change what the Hessian measures and
+# stop the sweep being comparable.
+#
+# The per-layer schedule the paper proposes, which prunes early layers less,
+# is not implemented; uniform and global are used instead. See the module
+# docstring in src/mnlp_eval/prune/methods/slimgpt.py.
+name: alma-7b-slimgpt50-multi
+method: slimgpt
+model_name_or_path: haoranxu/ALMA-7B
+calibration: data/calibration/multi-10dir
+sparsity: 0.5
+allocation: global
+dtype: bfloat16
+batch_size: 4
+max_length: 512
+seed: 1234
