@@ -73,3 +73,74 @@ class StubTranslator(Translator):
             )
             for source, text in zip(sources, texts, strict=True)
         ]
+
+
+def tiny_llama(**overrides: Any) -> Any:
+    """A two-layer multi-head Llama, the architecture family ALMA-7B is.
+
+    Tiny and randomly initialised, so the pruning tests need no GPU, network or
+    weights. Seeded, since criterion tests compare two runs of one model.
+    """
+    import torch
+    from transformers import LlamaConfig, LlamaForCausalLM
+
+    settings: dict[str, Any] = {
+        "vocab_size": 64,
+        "hidden_size": 32,
+        "intermediate_size": 48,
+        "num_hidden_layers": 2,
+        "num_attention_heads": 4,
+        "num_key_value_heads": 4,
+        "max_position_embeddings": 64,
+        "tie_word_embeddings": False,
+    }
+    settings.update(overrides)
+    torch.manual_seed(0)
+    model = LlamaForCausalLM(LlamaConfig(**settings))
+    model.eval()
+    return model
+
+
+def tiny_qwen2(**overrides: Any) -> Any:
+    """A two-layer grouped-query Qwen2 with tied embeddings, as Qwen2.5-0.5B is.
+
+    Grouped-query and tied embeddings are the two cases that behave differently
+    from ALMA under pruning.
+    """
+    import torch
+    from transformers import Qwen2Config, Qwen2ForCausalLM
+
+    settings: dict[str, Any] = {
+        "vocab_size": 64,
+        "hidden_size": 32,
+        "intermediate_size": 48,
+        "num_hidden_layers": 2,
+        "num_attention_heads": 8,
+        "num_key_value_heads": 2,
+        "max_position_embeddings": 64,
+        "tie_word_embeddings": True,
+    }
+    settings.update(overrides)
+    torch.manual_seed(0)
+    model = Qwen2ForCausalLM(Qwen2Config(**settings))
+    model.eval()
+    return model
+
+
+def token_batches(count: int = 3, rows: int = 2, tokens: int = 6, pad: int = 0) -> list[Any]:
+    """Calibration-shaped batches of random token ids with an attention mask.
+
+    ``pad`` masks that many leading positions, as the translators pad, so a
+    test can tell whether padded positions were excluded.
+    """
+    import torch
+
+    torch.manual_seed(1)
+    batches = []
+    for _ in range(count):
+        ids = torch.randint(0, 64, (rows, tokens))
+        attention = torch.ones_like(ids)
+        if pad:
+            attention[:, :pad] = 0
+        batches.append({"input_ids": ids, "attention_mask": attention})
+    return batches
