@@ -2,12 +2,12 @@
 
 Quality and efficiency evaluation for compressed machine translation LLMs.
 
-The evaluation layer for a project on structured pruning of
+A project on structured pruning of
 [ALMA-7B](https://github.com/fe1ixxu/ALMA): whether it contains smaller
 multi-directional or pair-specific subnetworks that still translate, how that
 interacts with resource level across its ten directions, and how much a LoRA
-repair recovers. Pruning happens elsewhere. This repository produces the
-calibration data it runs on and every number the report quotes.
+repair recovers. It produces the calibration data, runs the pruning, and
+produces every number the report quotes.
 
 A compressed checkpoint becomes a fully evaluated system by adding one YAML
 file, and two systems can only appear in the same table if they were measured
@@ -48,14 +48,20 @@ confounded with calibration size.
 
 `unbabel-comet` pins `numpy<2` and `torchmetrics<0.11`; MetricX pins
 `transformers==4.30.2`. Neither can share a process with a current generation
-stack, so the four stages are joined by files on disk:
+stack, so the stages are joined by files on disk:
 
 ```
+prune     (GPU, prune env)   ->  checkpoints/<name>/, subnetworks/<name>.json
 generate  (GPU, gen env)     ->  runs/<slug>/hyps/<direction>.{jsonl,txt}
 bench     (GPU, gen env)     ->  runs/<slug>/bench.json
 score     (GPU, metric env)  ->  runs/<slug>/scores.<group>.json
 report    (CPU, any env)     ->  reports/
 ```
+
+`prune` runs once per subnetwork and the four stages below it run once per
+system. A pruned checkpoint's shapes no longer match its config, so the stage
+also emits the model config and the loader that reads it back; see
+[docs/pruning.md](docs/pruning.md).
 
 A run directory holds `manifest.json` (identity, written once), `env.json`,
 `stages/`, `hyps/`, `bench.json` and `scores.*.json`, and is interpretable on
@@ -66,13 +72,14 @@ a new metric without regenerating. See [docs/environments.md](docs/environments.
 
 ```bash
 uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -e ".[gen,surface,dev]"
+uv pip install --python .venv/bin/python -e ".[gen,prune,surface,dev]"
 
 ./scripts/smoke_local.sh          # all four stages on a small slice, 6 GB VRAM
 ```
 
 ```bash
 mnlp-eval calibration --spec configs/calibration/multi-10dir.yaml
+mnlp-eval prune --spec configs/prune/flap-50-multi.yaml
 mnlp-eval run --model configs/models/alma-7b.yaml \
               --suite configs/suites/alma10-greedy.yaml
 .venv-comet/bin/mnlp-eval score --groups neural
@@ -119,13 +126,14 @@ compression:
 
 A model needing custom modelling code supplies one function instead. See
 [docs/plugging-in-a-model.md](docs/plugging-in-a-model.md) and, for the
-subnetwork descriptor, [docs/subnetworks.md](docs/subnetworks.md).
+subnetwork descriptor, [docs/subnetworks.md](docs/subnetworks.md). The `prune`
+stage writes this file itself, along with the descriptor it points at.
 
 ## Layout
 
 ```
-src/mnlp_eval/        config, data, models, metrics, bench, analysis, report
-configs/              models, suites, calibration, metrics
+src/mnlp_eval/        config, data, models, prune, metrics, bench, analysis, report
+configs/              models, suites, calibration, prune, metrics
 subnetworks/          kept-unit descriptors, one per pruning run (see docs)
 recipes/              loaders for models that need their own code
 envs/                 requirements for the COMET and MetricX environments

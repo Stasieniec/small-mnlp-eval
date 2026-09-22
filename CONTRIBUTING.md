@@ -4,7 +4,7 @@
 
 ```bash
 uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -e ".[gen,surface,dev]"
+uv pip install --python .venv/bin/python -e ".[gen,prune,surface,dev]"
 pre-commit install
 ```
 

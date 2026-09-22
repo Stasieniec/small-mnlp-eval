@@ -58,6 +58,16 @@ quant = [
   "peft>=0.11",
   "optimum>=1.21",
 ]
+# Structured pruning. Pinned tighter than `gen` on purpose: pruning reaches
+# into attention module internals, and the 4.48 refactor moved the head count
+# out of the module attributes and into the tensor shapes. Supporting both
+# sides of that is a compatibility shim this project does not need.
+prune = [
+  "torch>=2.1",
+  "transformers>=4.48,<5",
+  "accelerate>=0.30",
+  "safetensors>=0.4",
+]
 vllm = ["vllm>=0.6"]
 report = ["matplotlib>=3.8"]
 dev = [
@@ -124,6 +134,7 @@ module = [
   "mnlp_eval.models.loading",
   "mnlp_eval.metrics.metricx",
   "mnlp_eval.env_capture",
+  "mnlp_eval.prune.spec",
 ]
 disable_error_code = ["no-untyped-call", "arg-type"]
 
