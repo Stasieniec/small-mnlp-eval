@@ -187,6 +187,33 @@ def test_the_whole_criterion_produces_a_loadable_checkpoint(build: Any, tmp_path
     assert loaded.model.layers[0].mlp.down_proj.bias is None
 
 
+def test_the_dense_scores_see_each_layer_s_own_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    import torch
+
+    model = tiny_llama()
+    groups = describe_layers(model)
+    batches = token_batches()
+    inputs = slimgpt._layer_inputs(model, batches)
+    expected = slimgpt._advance(model.model.layers[0], inputs)[0][0].clone()
+
+    seen: list[Any] = []
+    hessians = slimgpt._hessians
+
+    def spy(layer: Any, given: Any) -> Any:
+        seen.append(given[0][0].clone())
+        return hessians(layer, given)
+
+    monkeypatch.setattr(slimgpt, "_hessians", spy)
+    slimgpt.prune(model, batches, groups, sparsity=0.5, allocation="global")
+
+    # Calls one and two are the scoring pass. Scoring layer 1 on the
+    # embeddings rather than on layer 0's output misranked every layer past
+    # the first in the 50 percent pilot.
+    assert torch.equal(seen[0], inputs[0][0])
+    assert torch.allclose(seen[1], expected)
+    assert not torch.allclose(seen[1], inputs[0][0])
+
+
 def test_later_layers_are_pruned_on_what_earlier_ones_now_produce() -> None:
     import torch
 
