@@ -56,16 +56,22 @@ def prune(
     inputs = _layer_inputs(model, batches)
 
     # Pass one: unit worth on the dense model. A global budget compares layers
-    # before any of them is changed.
+    # before any of them is changed. The dense activations have to be advanced
+    # as well: scoring every layer on ``inputs`` ranks layers 1 onward on the
+    # embeddings, which is what the first 50 percent pilot did and collapsed.
     head_scores: list[list[float]] = []
     channel_scores: list[list[float]] = []
-    for layer, group in zip(layers, groups, strict=True):
-        hessians = _hessians(layer, inputs)
+    dense = inputs
+    for position, (layer, group) in enumerate(zip(layers, groups, strict=True)):
+        hessians = _hessians(layer, dense)
         attention = _column_costs(layer.self_attn.o_proj, hessians["o_proj"])
         head_scores.append(pool_heads(attention, group))
         channel_scores.append(
             [float(value) for value in _column_costs(layer.mlp.down_proj, hessians["down_proj"])]
         )
+        if position + 1 < len(layers):
+            dense = _advance(layer, dense)
+    del dense
 
     plan = allocate(head_scores, channel_scores, groups, sparsity=sparsity, allocation=allocation)
 
