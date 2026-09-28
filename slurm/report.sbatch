@@ -12,7 +12,7 @@
 set -euo pipefail
 
 module load 2025
-module load Python/3.12.3-GCCcore-13.3.0
+module load Python/3.13.1-GCCcore-14.2.0
 
 cd "${SLURM_SUBMIT_DIR}"
 
