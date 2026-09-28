@@ -109,6 +109,29 @@ def test_a_dead_channel_is_the_first_thing_discarded() -> None:
     assert groups[0].intermediate == costs.numel()
 
 
+def test_tokens_behind_the_padding_mask_do_not_reach_the_hessian() -> None:
+    import torch
+
+    model = tiny_llama()
+    batches = token_batches(pad=2)
+    scrambled = [
+        {"input_ids": batch["input_ids"].clone(), "attention_mask": batch["attention_mask"]}
+        for batch in batches
+    ]
+    for batch in scrambled:
+        batch["input_ids"][:, :2] = (batch["input_ids"][:, :2] + 7) % 64
+
+    layer = model.model.layers[0]
+    clean = slimgpt._hessians(layer, slimgpt._layer_inputs(model, batches))
+    noisy = slimgpt._hessians(layer, slimgpt._layer_inputs(model, scrambled))
+
+    # What sits behind the mask is not data, and here it reaches further than
+    # a score: the Hessian is also what the compensating weight update solves
+    # against, so a padded position moves the surviving weights.
+    for name in ("o_proj", "down_proj"):
+        assert torch.allclose(clean[name], noisy[name], atol=1e-5)
+
+
 def test_head_costs_pool_the_columns_of_one_head() -> None:
     import torch
 
