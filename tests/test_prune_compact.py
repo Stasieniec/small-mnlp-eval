@@ -171,6 +171,43 @@ class TestRoundTrip:
         # the only consumer that must agree with it.
         assert plan_from_subnetwork(subnetwork) == plan
 
+    def test_a_checkpoint_biased_on_only_some_layers_loads(self, tmp_path: Path) -> None:
+        """FLAP's compensation is per projection, so the bias set has holes.
+
+        A bias is installed only where units were actually dropped, and a
+        global budget can prune a layer's heads while leaving its FFN whole.
+        One flag for the whole checkpoint rebuilt biases the weights do not
+        carry, and the load failed on a real 7B checkpoint.
+        """
+        import torch
+        from recipes.pruned import load_model
+        from torch import nn
+
+        model = build_llama()
+        groups = describe_layers(model)
+        # Layer 0 drops channels and heads, layer 1 drops heads only, which is
+        # exactly the shape the global budget produced.
+        plan = (
+            LayerPlan(heads=tuple(range(2)), channels=tuple(range(24))),
+            LayerPlan(heads=tuple(range(2)), channels=tuple(range(groups[1].intermediate))),
+        )
+        layers = model.model.layers
+        for layer in layers:
+            attention = layer.self_attn.o_proj
+            attention.bias = nn.Parameter(torch.randn(attention.out_features) * 0.01)
+        down = layers[0].mlp.down_proj
+        down.bias = nn.Parameter(torch.randn(down.out_features) * 0.01)
+
+        self.save(model, plan, tmp_path)
+        expected = logits(model)
+
+        loaded, _ = load_model(tmp_path)
+
+        assert torch.equal(logits(loaded), expected)
+        assert loaded.model.layers[0].mlp.down_proj.bias is not None
+        assert loaded.model.layers[1].mlp.down_proj.bias is None
+        assert all(layer.self_attn.o_proj.bias is not None for layer in loaded.model.layers)
+
     def test_a_descriptor_that_disagrees_with_the_weights_fails_at_load(
         self, tmp_path: Path
     ) -> None:
