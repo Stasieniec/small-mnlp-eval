@@ -28,18 +28,32 @@ mkdir -p "$HF_HOME"
 echo "export HF_HOME=$HF_HOME" >> ~/.bashrc
 
 module load 2025
-module load Python/3.12.3-GCCcore-13.3.0
+module load Python/3.13.1-GCCcore-14.2.0
 
 pip install --user uv
-uv venv --python 3.11 .venv
+uv venv --managed-python --python 3.11 .venv
 uv pip install --python .venv/bin/python -e ".[gen,prune,quant,surface,report]"
 
-uv venv --python 3.11 .venv-comet
+uv venv --managed-python --python 3.11 .venv-comet
 uv pip install --python .venv-comet/bin/python -r envs/comet-requirements.txt
 
 # Optional, for the final report. Not a pip install; see docs/environments.md.
 bash scripts/setup_metricx_env.sh
 ```
+
+`--managed-python` is load bearing. Without it `uv` builds the venv on the
+system `python3.11` under `/usr/bin`, whose headers live in
+`/usr/include/python3.11`. That directory exists on the login nodes and not on
+the GPU node image, and triton JIT-compiles a CUDA helper against `Python.h` at
+the first kernel launch, so the venv passes every CPU test and then fails two
+minutes into every GPU job. A managed interpreter carries its own headers under
+`$HOME`, which every node can see.
+
+The module Python only bootstraps `uv`; what runs is the 3.11 interpreter in
+`.venv`. Its version still has to be one the loaded stack actually provides,
+and the stacks do not share versions: `Python/3.12.3-GCCcore-13.3.0` is in
+`2024`, not `2025`. A mismatch fails the module load, and every batch script
+runs under `set -euo pipefail`, so the job dies before it reaches the CLI.
 
 The `2025` stack is deliberate. `2023` is marked deprecated in SURF's software
 documentation and provided as-is without support.
