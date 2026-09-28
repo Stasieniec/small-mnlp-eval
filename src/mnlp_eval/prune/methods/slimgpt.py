@@ -89,18 +89,23 @@ def prune(
 
 def _layer_inputs(
     model: Any, batches: Sequence[dict[str, Any]]
-) -> list[tuple[Any, dict[str, Any]]]:
+) -> list[tuple[Any, dict[str, Any], Any]]:
     """Capture what enters the first decoder layer, with its keyword arguments.
 
     Running the whole model once per layer is the obvious way to get a layer's
     input and is unaffordable. The mask, rotary embeddings and position ids are
     captured once and replayed. The forward pass is abandoned at the first
     layer, so nothing below it is computed.
+
+    The batch's own 2D padding mask travels alongside, because the mask inside
+    the keyword arguments is the expanded causal one and carries no separable
+    record of which positions were padding.
     """
     import torch
 
     layers = decoder_layers(model)
-    captured: list[tuple[Any, dict[str, Any]]] = []
+    captured: list[tuple[Any, dict[str, Any], Any]] = []
+    padding: Any = None
 
     class Reached(Exception):
         """Abandons the forward pass once the first layer's input is in hand."""
@@ -112,13 +117,14 @@ def _layer_inputs(
         rest.pop("past_key_value", None)
         rest.pop("past_key_values", None)
         rest["use_cache"] = False
-        captured.append((hidden.detach().clone(), rest))
+        captured.append((hidden.detach().clone(), rest, padding))
         raise Reached
 
     handle = layers[0].register_forward_pre_hook(hook, with_kwargs=True)
     try:
         with torch.inference_mode():
             for batch in batches:
+                padding = batch.get("attention_mask")
                 try:
                     model(**batch, use_cache=False)
                 except Reached:
@@ -132,16 +138,26 @@ def _layer_inputs(
     return captured
 
 
-def _hessians(layer: Any, inputs: Sequence[tuple[Any, dict[str, Any]]]) -> dict[str, Any]:
-    """Accumulate ``X X^T`` for the two projections whose inputs index groups."""
+def _hessians(layer: Any, inputs: Sequence[tuple[Any, dict[str, Any], Any]]) -> dict[str, Any]:
+    """Accumulate ``X X^T`` for the two projections whose inputs index groups.
+
+    Padding is excluded, as in collect.py. Left padding with ``pad_token =
+    eos_token`` makes the padded positions eos embeddings, and an unfiltered
+    ``X X^T`` tilts toward them; here that reaches further than it does in a
+    mean and a variance, because the Hessian drives the compensating weight
+    update as well as the ranking.
+    """
     import torch
 
     accumulators: dict[str, Any] = {}
     counts: dict[str, int] = {}
+    mask: Any = None
 
     def hook(name: str) -> Any:
         def capture(_module: Any, args: tuple[Any, ...]) -> None:
             flat = args[0].reshape(-1, args[0].shape[-1]).float()
+            if mask is not None:
+                flat = flat[mask.reshape(-1).bool()]
             existing = accumulators.get(name)
             if existing is None:
                 width = int(flat.shape[-1])
@@ -159,7 +175,8 @@ def _hessians(layer: Any, inputs: Sequence[tuple[Any, dict[str, Any]]]) -> dict[
     ]
     try:
         with torch.inference_mode():
-            for hidden, kwargs in inputs:
+            for hidden, kwargs, padding in inputs:
+                mask = padding
                 layer(hidden, **kwargs)
     finally:
         for handle in handles:
@@ -169,17 +186,17 @@ def _hessians(layer: Any, inputs: Sequence[tuple[Any, dict[str, Any]]]) -> dict[
 
 
 def _advance(
-    layer: Any, inputs: Sequence[tuple[Any, dict[str, Any]]]
-) -> list[tuple[Any, dict[str, Any]]]:
+    layer: Any, inputs: Sequence[tuple[Any, dict[str, Any], Any]]
+) -> list[tuple[Any, dict[str, Any], Any]]:
     """Run the pruned layer to produce the next layer's input."""
     import torch
 
-    advanced: list[tuple[Any, dict[str, Any]]] = []
+    advanced: list[tuple[Any, dict[str, Any], Any]] = []
     with torch.inference_mode():
-        for hidden, kwargs in inputs:
+        for hidden, kwargs, padding in inputs:
             output = layer(hidden, **kwargs)
             state = output[0] if isinstance(output, tuple) else output
-            advanced.append((state.detach().clone(), kwargs))
+            advanced.append((state.detach().clone(), kwargs, padding))
     return advanced
 
 

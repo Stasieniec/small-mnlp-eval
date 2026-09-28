@@ -141,4 +141,6 @@ models, no GPU and no network. The checks worth knowing about:
 - FLAP's bias reproduces the dense mean output exactly;
 - SlimGPT's compensation measurably reduces the layer's reconstruction error
   against naive truncation, which is the claim that justifies its cost;
-- tokens behind the padding mask do not move any score.
+- tokens behind the padding mask do not move any score, and for SlimGPT not
+  the Hessian either, which the compensation solves against as well as ranks
+  by.
