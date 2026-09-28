@@ -1,156 +1,147 @@
-# small-mnlp-eval
+# small-mnlp-eval: pruning pilot
 
-Quality and efficiency evaluation for compressed machine translation LLMs.
+Structured pruning of [ALMA-7B](https://github.com/fe1ixxu/ALMA) across its
+ten translation directions (English against cs, de, is, ru, zh), and the
+harness that evaluates the result. This branch builds on `feat/bart/pruning`
+with bug fixes found by running it, a reduced pilot suite, and the first
+results. Study design: [docs/experiment.md](docs/experiment.md).
 
-A project on structured pruning of
-[ALMA-7B](https://github.com/fe1ixxu/ALMA): whether it contains smaller
-multi-directional or pair-specific subnetworks that still translate, how that
-interacts with resource level across its ten directions, and how much a LoRA
-repair recovers. It produces the calibration data, runs the pruning, and
-produces every number the report quotes.
+## Results so far
 
-A compressed checkpoint becomes a fully evaluated system by adding one YAML
-file, and two systems can only appear in the same table if they were measured
-the same way.
+Pilot suite `alma10-greedy-300`: first 300 segments of each WMT22 direction,
+greedy decoding, no repair fine-tuning. BLEU and chrF++ only (COMET is
+blocked, see below). No significance testing yet.
 
-## The experiment
+| system | sparsity | BLEU | chrF++ | length ratio | truncated |
+| --- | --- | --- | --- | --- | --- |
+| ALMA-7B dense | 0 | 30.35 | 51.14 | 0.96 | 0.0% |
+| **SlimGPT, multi calibration** | 20% | **20.65** | **41.71** | 0.91 | 0.1% |
+| FLAP, de calibration | 20% | 19.62 | 39.30 | 0.86 | 0.4% |
+| FLAP, multi calibration | 20% | 19.02 | 38.22 | 0.81 | 0.3% |
+| FLAP, multi calibration | 50% | 1.16 | 9.56 | 3.60 | 18.8% |
+| FLAP, de calibration | 50% | 1.05 | 8.93 | 4.24 | 20.7% |
 
-| | |
-| --- | --- |
-| Baseline and pruning target | `haoranxu/ALMA-7B`, fully fine-tuned |
-| Directions | all ten ALMA supports: English against cs, de, is, ru, zh |
-| Test sets | `haoranxu/WMT22-Test` (17,491 segments), FLORES-200 out of domain |
-| Calibration and repair data | `haoranxu/ALMA-Human-Parallel` |
-| Quality | BLEU, chrF++, COMET-22, COMETKiwi, XCOMET-XL, MetricX-24 |
-| Efficiency | size, FLOPs, MFU, latency, throughput, three compression ratios |
+BLEU per direction at 20% sparsity:
 
-Three decisions that are not recoverable from the code:
+| | cs-en | de-en | is-en | ru-en | zh-en | en-cs | en-de | en-is | en-ru | en-zh |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| dense | 42.0 | 31.3 | 38.2 | 36.9 | 19.8 | 24.9 | 28.0 | 23.8 | 25.0 | 33.5 |
+| SlimGPT multi | 28.5 | 21.3 | 26.9 | 24.8 | 12.0 | 15.5 | 19.4 | 15.9 | 16.4 | 25.8 |
+| FLAP de | 28.3 | 20.9 | 26.7 | 25.4 | 10.0 | 14.0 | 19.5 | 15.0 | 16.2 | 20.2 |
+| FLAP multi | 25.8 | 20.8 | 26.0 | 25.1 | 9.4 | 12.7 | 18.8 | 14.5 | 16.6 | 20.6 |
 
-**ALMA-7B rather than ALMA-7B-R.** The pruning criterion and the repair adapter
-both act on dense weights. ALMA-R adds contrastive preference optimization, a
-second change in training objective that would be confounded with the effect
-of compression. It stays available as an upper reference.
+- **50% without repair is unusable.** FLAP output starts plausibly, then
+  fails to stop: about 4x the reference length, invented numbers, tag loops.
+- **20% keeps about two thirds of BLEU and 80% of chrF++.** Output is
+  fluent and in the right language, but short (length ratio 0.81-0.91), so
+  part of the loss is omission.
+- **SlimGPT beats FLAP** on 7 of 10 directions (the rest by 0.6 BLEU or
+  less). Its gains are largest where FLAP is weakest: en-zh (+5.2), zh-en
+  (+2.0), en-cs (+1.5).
+- **By language:** German and Russian are most robust. Chinese is hit hardest
+  (zh-en keeps half its BLEU at best). Out of English suffers more than into
+  English for cs, is and zh.
+- **German-only calibration is not worse than all-ten** despite 256 against
+  1,280 segments, and helps Czech most. Treat as a tie until significance is
+  tested.
 
-**The Icelandic test set is WMT21.** The `is-en` and `en-is` configs of
-`haoranxu/WMT22-Test` hold 1,000 segments each because WMT22 had no Icelandic
-general-MT task and ALMA evaluates Icelandic on WMT21. The dataset name is
-misleading for two of its ten configs; quote the per-direction provenance the
-generate stage records.
+## Problems and solutions
 
-**Calibration is balanced, not proportional.** Icelandic has 2,009 parallel
-training pairs against Russian's 15,000. A proportional draw would leave the
-multi-directional calibration set nearly free of the language most likely to
-break. `segments_per_direction` is also the same for the pair-specific sets, so
-the comparison is scope at a fixed per-direction budget rather than scope
-confounded with calibration size.
+| problem | status | cause and fix |
+| --- | --- | --- |
+| SlimGPT collapsed at 50% (`nobody nobody ...`) | **fixed** | Pass one scored every layer on the embedding output instead of its own input, so layers 1-31 were ranked on the wrong activations. Pass one now advances a dense copy layer by layer. The 50% SlimGPT run predates the fix and was discarded. |
+| SlimGPT Hessian included padding | **fixed** | Left-padded eos positions reached `X X^T`. The 2D mask now travels with each batch and filters the Hessian. |
+| FLAP checkpoint failed to load | **fixed** | FLAP adds a bias only where units were dropped; the loader assumed all or none. `reshape_model` takes a per-projection predicate read from the saved tensors. |
+| Every GPU job died at the first kernel (`Python.h` missing) | **fixed** | Venvs built on system Python, whose headers are absent on GPU nodes. Build with `uv venv --managed-python`; module is now `Python/3.13.1-GCCcore-14.2.0`. |
+| LLM-Pruner OOM on A100-40GB and H100-94GB | open | A float32 `W * dL/dW` accumulator for every prunable weight (about 26 GB) plus activations. Proposed: reduce to per-head and per-channel sums after each backward (exact, sums are linear), and enable gradient checkpointing. |
+| COMET: `Model 'Unbabel/wmt22-comet-da' not supported` | open | In `.venv-comet`; version of `unbabel-comet` to be checked. No neural scores yet. |
+| Report job is always cancelled | open | `submit_pilot.sh` chains the report `afterok` on scoring, and scoring exits 1 on the COMET error after writing `scores.surface.json`. Fixing COMET fixes this; until then read `runs/*/scores.surface.json`. |
+| SlimGPT's global budget cuts layer 0 hard | open | Per-layer standardisation makes heavy-tailed layers lose most. The paper protects early layers with a schedule not implemented here. Worth a `uniform` comparison run. |
+| Pruned models stop short at 20% | observation | Length ratio 0.81-0.91. Read hypotheses for dropped clauses; a LoRA repair stage is the intended remedy. |
 
-## Pipeline
+## What this branch contains
 
-`unbabel-comet` pins `numpy<2` and `torchmetrics<0.11`; MetricX pins
-`transformers==4.30.2`. Neither can share a process with a current generation
-stack, so the stages are joined by files on disk:
+On top of `main`, the pruning branch adds a fifth stage ahead of the four
+evaluation stages. Stages communicate only through files, because COMET and
+MetricX pin dependencies that cannot share a process with the generation
+stack:
 
 ```
-prune     (GPU, prune env)   ->  checkpoints/<name>/, subnetworks/<name>.json
-generate  (GPU, gen env)     ->  runs/<slug>/hyps/<direction>.{jsonl,txt}
-bench     (GPU, gen env)     ->  runs/<slug>/bench.json
-score     (GPU, metric env)  ->  runs/<slug>/scores.<group>.json
-report    (CPU, any env)     ->  reports/
+prune     (GPU, .venv)        ->  checkpoints/<name>/, subnetworks/<name>.json, configs/models/<name>.yaml
+generate  (GPU, .venv)        ->  runs/<slug>/hyps/<direction>.{jsonl,txt}
+bench     (GPU, .venv)        ->  runs/<slug>/bench.json
+score     (GPU, .venv-comet)  ->  runs/<slug>/scores.<group>.json
+report    (CPU, any env)      ->  reports/
 ```
 
-`prune` runs once per subnetwork and the four stages below it run once per
-system. A pruned checkpoint's shapes no longer match its config, so the stage
-also emits the model config and the loader that reads it back; see
-[docs/pruning.md](docs/pruning.md).
+```
+src/mnlp_eval/prune/     shared pipeline: groups, collect, budget, compact, spec
+src/mnlp_eval/prune/methods/
+                         flap.py, llm_pruner.py, slimgpt.py (swappable criteria)
+recipes/pruned.py        loads a compacted checkpoint (dense config + descriptor)
+configs/prune/           one YAML per pruning run: method, sparsity, calibration
+configs/suites/          alma10-greedy (sweep), alma10-beam5 (headline),
+                         alma10-greedy-300 (pilot, this branch)
+slurm/                   job scripts; submit_prune.sh, submit_pilot.sh,
+                         submit_sweep.sh
+docs/                    experiment, protocol, pruning, subnetworks, environments
+tests/                   no GPU, no network, no weights
+```
 
-A run directory holds `manifest.json` (identity, written once), `env.json`,
-`stages/`, `hyps/`, `bench.json` and `scores.*.json`, and is interpretable on
-its own without the configs that produced it. An old run can be re-scored with
-a new metric without regenerating. See [docs/environments.md](docs/environments.md).
+| criterion | statistic | compensation |
+| --- | --- | --- |
+| FLAP | per-channel activation variance times weight norm | bias on `o_proj`/`down_proj` |
+| LLM-Pruner | first-order Taylor `W * dL/dW` | none, LoRA is a separate stage |
+| SlimGPT | Hessian `X X^T` per projection | exact weight update on survivors |
 
-## Use
+A run directory is named `<model>__<suite>__<hash>`, where the hash covers
+everything that can move a number, so two systems appear in one table only if
+they were measured identically. Details in [docs/pruning.md](docs/pruning.md).
+
+## How to use it
+
+Setup on Snellius, once, on a login node (full notes in
+[slurm/README.md](slurm/README.md)):
 
 ```bash
-uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -e ".[gen,prune,surface,dev]"
-
-./scripts/smoke_local.sh          # all four stages on a small slice, 6 GB VRAM
+export HF_HOME=/scratch-shared/$USER/hf_home
+module load 2025
+module load Python/3.13.1-GCCcore-14.2.0
+pip install --user uv
+uv venv --managed-python --python 3.11 .venv
+uv pip install --python .venv/bin/python -e ".[gen,prune,quant,surface,report]"
+uv venv --managed-python --python 3.11 .venv-comet
+uv pip install --python .venv-comet/bin/python -r envs/comet-requirements.txt
+mkdir -p slurm-logs
 ```
+
+Prune, then evaluate on the pilot suite:
 
 ```bash
-mnlp-eval calibration --spec configs/calibration/multi-10dir.yaml
-mnlp-eval prune --spec configs/prune/flap-50-multi.yaml
-mnlp-eval run --model configs/models/alma-7b.yaml \
-              --suite configs/suites/alma10-greedy.yaml
-.venv-comet/bin/mnlp-eval score --groups neural
-mnlp-eval report --baseline alma-7b --formats md,csv,tex
-mnlp-eval overlap --subnetwork-dir subnetworks/
+# 1. Prune. Writes the checkpoint to /scratch-shared/$USER/checkpoints/,
+#    plus subnetworks/<name>.json and configs/models/<name>.yaml.
+bash slurm/submit_prune.sh configs/prune/flap-20-multi.yaml configs/prune/slimgpt-20-multi.yaml
+
+# 2. When pruning is done (it does not chain), generate, score and report.
+BASELINE=alma-7b bash slurm/submit_pilot.sh configs/suites/alma10-greedy-300.yaml \
+    configs/models/alma-7b.yaml \
+    configs/models/alma-7b-flap20-multi.yaml configs/models/alma-7b-slimgpt20-multi.yaml
+
+# 3. Read results: runs/<model>__alma10-greedy-300__<hash>/scores.surface.json
+squeue -u $USER
 ```
 
-`mnlp-eval info` prints what the current environment can do. For Snellius see
-[slurm/README.md](slurm/README.md).
+A new pruning run is one YAML in `configs/prune/`, usually extending an
+existing one and changing `name` and `sparsity`. The full sweep uses
+`slurm/submit_sweep.sh` with `configs/suites/alma10-greedy.yaml`.
 
-`alma10-greedy` is the sweep suite; `alma10-beam5` matches ALMA's decode
-settings and is for the headline table. Results from the two are not
-comparable and the report refuses to mix them.
+Things to know:
 
-## What the report contains
-
-Quality per direction and macro-averaged, with paired bootstrap significance
-against the baseline. Behavioural failure rates: off-target language, empty,
-source copy, repetition, truncation, length ratio. Efficiency with separate
-compression ratios for disk bytes, parameter count and resident VRAM, because
-they diverge. Per-layer structure and the share of weights that are exactly
-zero, which is how a mask that was applied but never compacted shows up.
-Degradation split by resource tier, and a cross-direction transfer matrix for
-pair-specific subnetworks.
-
-[docs/protocol.md](docs/protocol.md) records what each of those means and how
-it is measured.
-
-## Adding a model
-
-Usually one YAML file:
-
-```yaml
-extends: alma-7b.yaml
-name: alma-7b-prune50-multi
-baseline: alma-7b
-model_name_or_path: /scratch-shared/$USER/alma-7b-prune50-multi
-compression:
-  family: pruning
-  nominal_sparsity: 0.5
-  pruned_for: multi
-  subnetwork: subnetworks/prune50-multi.json
-```
-
-A model needing custom modelling code supplies one function instead. See
-[docs/plugging-in-a-model.md](docs/plugging-in-a-model.md) and, for the
-subnetwork descriptor, [docs/subnetworks.md](docs/subnetworks.md). The `prune`
-stage writes this file itself, along with the descriptor it points at.
-
-## Layout
-
-```
-src/mnlp_eval/        config, data, models, prune, metrics, bench, analysis, report
-configs/              models, suites, calibration, prune, metrics
-subnetworks/          kept-unit descriptors, one per pruning run (see docs)
-recipes/              loaders for models that need their own code
-envs/                 requirements for the COMET and MetricX environments
-slurm/                Snellius job scripts
-scripts/              smoke test, ALMA reproduction, style guard
-tests/                no GPU, no network, no weights
-```
-
-## Verification
-
-- `./scripts/smoke_local.sh` runs all four stages and asserts the results are
-  plausible, so a broken pipeline cannot pass as a bad model.
-- `mnlp-eval verify-testset` checks the Hub test sets against ALMA's committed
-  `human_written_data` files segment by segment.
-- `./scripts/reproduce_alma_baseline.sh` reproduces ALMA-7B on all ten
-  directions for comparison against the published table. Until that delta is
-  known, every result here rests on an unverified harness.
-- `pytest tests/` needs no GPU, network or weights.
-
-Setup and conventions for contributors: [CONTRIBUTING.md](CONTRIBUTING.md).
+- The model YAMLs and descriptors that `prune` writes point at your own
+  scratch, which other accounts cannot read and which is purged after 14 days
+  untouched. They are generated, not committed.
+- Slurm logs land in `slurm-logs/` of the checkout you submitted from.
+- Greedy and beam-5 results are not comparable; the report refuses to mix
+  them.
+- Checks before committing: `ruff format`, `ruff check`, `mypy`,
+  `pytest tests/`, `scripts/check_style.py` (no emoji, no em-dashes).
