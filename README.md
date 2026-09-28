@@ -58,6 +58,7 @@ BLEU per direction at 20% sparsity:
 | Report job is always cancelled | open | `submit_pilot.sh` chains the report `afterok` on scoring, and scoring exits 1 on the COMET error after writing `scores.surface.json`. Fixing COMET fixes this; until then read `runs/*/scores.surface.json`. |
 | SlimGPT's global budget cuts layer 0 hard | open | Per-layer standardisation makes heavy-tailed layers lose most. The paper protects early layers with a schedule not implemented here. Worth a `uniform` comparison run. |
 | Pruned models stop short at 20% | observation | Length ratio 0.81-0.91. Read hypotheses for dropped clauses; a LoRA repair stage is the intended remedy. |
+| Custom pruning mask for speciffic directions | open | Finding the best pruning per language... |
 
 ## What this branch contains
 
