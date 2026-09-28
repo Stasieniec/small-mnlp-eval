@@ -1,0 +1,19 @@
+# Reduced alma10-greedy: the first 300 segments of each direction.
+#
+# A pilot, not a smaller version of the sweep. `limit` sits in `data`, which is
+# hashed into run identity, so these runs carry different run ids from
+# alma10-greedy and the report will not combine the two. Running both means
+# paying for both.
+#
+# The draw is `pairs[:limit]`, the first N rather than a random sample, and
+# WMT22's test sets are ordered by document. Absolute scores therefore do not
+# match published WMT22 numbers. Comparisons between systems remain fair
+# because every system sees the same segments.
+#
+# Every direction is kept on purpose. Narrowing n only widens the confidence
+# intervals, while dropping directions would remove the transfer question this
+# project exists to answer.
+extends: alma10-greedy.yaml
+name: alma10-greedy-300
+data:
+  limit: 300
