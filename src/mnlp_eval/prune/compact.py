@@ -15,6 +15,7 @@ parameters that are exactly zero precisely to catch that.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -25,7 +26,11 @@ from mnlp_eval.prune.groups import LayerGroups, decoder_layers, describe_layers
 if TYPE_CHECKING:
     from mnlp_eval.analysis.subnetwork import Subnetwork
 
+#: Asked, per layer index and projection name, whether to build a bias there.
+BiasPredicate = Callable[[int, str], bool]
+
 __all__ = [
+    "BiasPredicate",
     "LayerPlan",
     "compact_layer",
     "compact_model",
@@ -33,6 +38,13 @@ __all__ = [
     "reshape_model",
     "write_descriptor",
 ]
+
+
+def _wants_bias(output_bias: bool | BiasPredicate, layer: int, suffix: str) -> bool:
+    """Resolve the flag-or-predicate form of ``output_bias`` for one projection."""
+    if callable(output_bias):
+        return bool(output_bias(layer, suffix))
+    return output_bias
 
 
 @dataclass(frozen=True)
@@ -48,16 +60,27 @@ def compact_model(model: Any, plan: tuple[LayerPlan, ...]) -> None:
     _apply(model, plan, select=True, output_bias=False)
 
 
-def reshape_model(model: Any, plan: tuple[LayerPlan, ...], *, output_bias: bool = False) -> None:
+def reshape_model(
+    model: Any, plan: tuple[LayerPlan, ...], *, output_bias: bool | BiasPredicate = False
+) -> None:
     """Give ``model`` the shapes ``plan`` implies, without carrying weights over.
 
     ``output_bias`` adds a bias to ``o_proj`` and ``down_proj``, which both
     architectures build without one and FLAP's compensation needs.
+
+    It is a predicate rather than only a flag because the two projections do
+    not acquire a bias together. FLAP installs one per projection that actually
+    dropped units, and a global budget can leave a layer's FFN untouched while
+    still pruning its heads, so one layer can carry an ``o_proj`` bias and no
+    ``down_proj`` bias. A caller rebuilding a saved checkpoint passes a
+    predicate reading the weights it holds.
     """
     _apply(model, plan, select=False, output_bias=output_bias)
 
 
-def _apply(model: Any, plan: tuple[LayerPlan, ...], *, select: bool, output_bias: bool) -> None:
+def _apply(
+    model: Any, plan: tuple[LayerPlan, ...], *, select: bool, output_bias: bool | BiasPredicate
+) -> None:
     layers = decoder_layers(model)
     groups = describe_layers(model)
     if len(plan) != len(layers):
@@ -74,7 +97,7 @@ def compact_layer(
     plan: LayerPlan,
     *,
     select: bool = True,
-    output_bias: bool = False,
+    output_bias: bool | BiasPredicate = False,
 ) -> None:
     """Shrink one decoder layer onto ``plan``.
 
@@ -89,10 +112,22 @@ def compact_layer(
     _resize(attention, "q_proj", rows=head_rows, select=select)
     _resize(attention, "k_proj", rows=kv_rows, select=select)
     _resize(attention, "v_proj", rows=kv_rows, select=select)
-    _resize(attention, "o_proj", columns=head_rows, select=select, add_bias=output_bias)
+    _resize(
+        attention,
+        "o_proj",
+        columns=head_rows,
+        select=select,
+        add_bias=_wants_bias(output_bias, group.index, "o_proj"),
+    )
     _resize(mlp, "gate_proj", rows=channels, select=select)
     _resize(mlp, "up_proj", rows=channels, select=select)
-    _resize(mlp, "down_proj", columns=channels, select=select, add_bias=output_bias)
+    _resize(
+        mlp,
+        "down_proj",
+        columns=channels,
+        select=select,
+        add_bias=_wants_bias(output_bias, group.index, "down_proj"),
+    )
 
     # The one attribute the attention forward reads that pruning invalidates.
     attention.num_key_value_groups = group.num_key_value_groups_after(plan.heads)

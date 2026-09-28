@@ -66,10 +66,18 @@ def load_model(checkpoint: str | Path, dtype: str = "auto") -> tuple[Any, Any]:
     with init_empty_weights(include_buffers=False):
         model = AutoModelForCausalLM.from_config(config)
 
+    # Per projection, not one flag for the checkpoint. FLAP installs a bias
+    # only where units were actually dropped, and a global budget can prune a
+    # layer's heads while leaving its FFN whole, so the same layer can carry an
+    # o_proj bias and no down_proj bias. The saved tensors are the record.
+    biases = {key for key in state if key.endswith((".o_proj.bias", ".down_proj.bias"))}
     reshape_model(
         model,
         plan,
-        output_bias=any(key.endswith("o_proj.bias") for key in state),
+        output_bias=lambda index, suffix: (
+            (f"model.layers.{index}.{'self_attn' if suffix == 'o_proj' else 'mlp'}.{suffix}.bias")
+            in biases
+        ),
     )
 
     # assign=True is the only way to populate a meta-device model, and it
