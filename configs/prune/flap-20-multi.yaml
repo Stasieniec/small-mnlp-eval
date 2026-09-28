@@ -1,0 +1,6 @@
+# FLAP at 20 percent, calibrated on all ten directions. The 50 percent pilot
+# lost the ability to emit eos; this is the point that says whether the method
+# degrades gracefully or was already broken at mild sparsity.
+extends: flap-50-multi.yaml
+name: alma-7b-flap20-multi
+sparsity: 0.2
