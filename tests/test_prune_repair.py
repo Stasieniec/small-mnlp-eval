@@ -29,6 +29,7 @@ from mnlp_eval.prune.repair import (
     RepairSpec,
     encode_example,
     length_grouped_batches,
+    load_repair_data,
     resolve_source,
     run_repair,
     split_held_out,
@@ -329,6 +330,17 @@ def test_repairing_a_repaired_system_is_refused(
 
     with pytest.raises(PruneError, match="already repaired"):
         resolve_source(manifest["model_config"])
+
+
+def test_repair_data_whose_manifest_records_test_collisions_is_refused(
+    pruned_system: dict[str, Path],
+) -> None:
+    (pruned_system["data"] / "calibration.json").write_text(
+        json.dumps({"contamination": {"dataset": "wmt", "total_collisions": 2}}), encoding="utf-8"
+    )
+
+    with pytest.raises(PruneError, match="also appear in wmt"):
+        load_repair_data(pruned_system["data"])
 
 
 def test_a_source_that_is_not_a_pruned_checkpoint_is_refused(tmp_path: Path) -> None:

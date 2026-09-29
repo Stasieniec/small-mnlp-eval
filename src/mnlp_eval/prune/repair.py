@@ -477,8 +477,10 @@ def load_repair_data(
     translations in the other directions.
     """
     from mnlp_eval.artifacts import read_jsonl_dicts
+    from mnlp_eval.prune.collect import refuse_contaminated
 
     root = Path(directory).expanduser()
+    refuse_contaminated(root)
     files = sorted(root.glob("*.jsonl"))
     if directions:
         wanted = set(directions)
