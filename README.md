@@ -54,6 +54,13 @@ SlimGPT with a global budget unless the name says otherwise.
   +0.0116 (p=0.001).
 - Every pruned system is significantly below dense in every direction on
   BLEU, chrF++ and COMET, except five cells of slimgpt20-multi-target.
+- **Pruning saves memory, not time, with this harness.** Parameters and
+  resident memory shrink 1.23x at 20% and 1.90x at 50%, but throughput is
+  0.94-1.00x dense at batch sizes 1 and 8. Eager Hugging Face generation
+  is bound by per-step overhead here (model FLOP utilisation under 2%), so removing
+  weights does not shorten a step. The report's disk ratios compare a
+  float32 dense checkpoint with bfloat16 pruned ones; use the parameter or
+  VRAM ratios.
 - **No repair has run:** the repair set failed its contamination check (see
   below).
 

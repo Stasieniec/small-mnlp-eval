@@ -17,20 +17,20 @@ the chronological log with every job id is below it.
   makes a hard stop. None of the three repairs or their evaluations was
   queued. This is the main thing waiting on you; see "What needs a human
   decision".
-- **Bench: still queued at the time of writing.** The four jobs (27371094
-  alma-7b, 27371086 slimgpt20-multi, 27371087 slimgpt20-multi-uniform,
-  27371089 slimgpt50-multi) each need a whole exclusive A100 node and have
-  waited since 19:58 with reason `Resources`. The final report 27371166
-  runs after them. Until then `reports/` holds the interim report, complete
-  except for efficiency.
-- Compute used: about 6.3 GPU-hours and 800 SBU before bench, against the
-  plan's 40-45 A100-hours. The difference is repair (not run) and SlimGPT
-  pruning taking 12-15 min per model instead of the hour the docs estimate.
+- **Bench ran** for the four shapes (dense, slimgpt20-multi,
+  slimgpt20-multi-uniform, slimgpt50-multi) after waiting 3 h 15 min for
+  whole free nodes. The final report 27371166 finished at 00:06 and
+  `reports/` now holds it, efficiency included. Nothing is queued or
+  running.
+- Compute used: 14.6 GPU-hours allocated and 1,873 SBU, of which the four
+  whole-node bench jobs are 8.4 GPU-hours and 1,072 SBU. The plan was 40-45
+  A100-hours; the difference is repair (not run) and SlimGPT pruning taking
+  12-15 min per model instead of the hour the docs estimate.
 - `git push` fails on this account (no GitHub credentials: no SSH key, no
   token, no `gh`). Everything is committed locally on
   `claude/busy-bell-pyhq1v`; push it from a machine that has access.
 
-Three results stand out:
+Four results stand out:
 
 1. **Calibrating on prompt plus reference (`slimgpt20-multi-target`)
    recovers most of what 20% pruning costs**: BLEU 28.33 against 20.65 for
@@ -44,6 +44,9 @@ Three results stand out:
 3. **Uniform and log-increase budgets both beat the global one at 20%**
    (+2.4 and +1.3 BLEU, COMET +0.007 each, p=0.001), and tie with each other
    on COMET.
+4. **Pruning saves memory, not time, with this harness.** 1.23x less
+   memory at 20% and 1.90x at 50%, but 0.94-1.00x dense throughput, because
+   eager generation here is bound by per-step overhead.
 
 The dense baseline, slimgpt20-multi and both FLAP systems reproduce Jan's
 pilot numbers from his account to the second decimal, so the pipeline is
@@ -300,13 +303,41 @@ slimgpt20-multi is 0.853, against 0.988 for -256.
 
 ### Efficiency
 
-Not measured yet: the bench jobs are still waiting for exclusive nodes (see
-Status). Sizes are known from the checkpoints. Dense ALMA-7B has 6.738B
-parameters, 13.5 GB in bfloat16 (the Hub copy is float32, 27 GB). Every 20%
-system has 5.443B (0.81 of dense, 11 GB); slimgpt50-multi has 3.500B and
-slimgpt50-multi-log 3.503B (0.52, 6.6 GB). The fraction removed is below
-the unit sparsity only because the embeddings and output head (0.262B) are
-not pruned: 0.8 x 6.476B + 0.262B = 5.443B exactly.
+From `bench` on an exclusive A100-SXM4-40GB node: 128 de-en segments,
+exactly 128 new tokens each (early stopping disabled), greedy, median of
+3 repeats after 2 warmup batches.
+
+| system | params | resident | peak VRAM b1 | tok/s b1 | speedup b1 | tok/s b8 | speedup b8 | first token |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| alma-7b (dense) | 6.74B | 12.55 GiB | 12.68 GiB | 38.1 | 1.00x | 239.6 | 1.00x | 29.3 ms |
+| slimgpt20-multi | 5.44B | 10.22 GiB | 10.34 GiB | 36.6 | 0.96x | 227.5 | 0.95x | 30.7 ms |
+| slimgpt20-multi-uniform | 5.47B | 10.19 GiB | 10.30 GiB | 36.5 | 0.96x | 225.9 | 0.94x | 30.8 ms |
+| slimgpt50-multi | 3.50B | 6.61 GiB | 6.69 GiB | 38.0 | 1.00x | 233.4 | 0.97x | 30.5 ms |
+
+- **Memory falls, speed does not.** Parameters and resident memory shrink
+  by 1.23x at 20% and 1.90x at 50%. Throughput does not improve: the 20%
+  systems are 4-6% slower than dense, and the 50% system is level at batch
+  1 and 3% slower at batch 8.
+- **Not a measurement fault.** All four ran at the full 1410 MHz SM clock,
+  37-40 C, and the spread over repeats is under 1.1 s of about 430 s. The
+  GPU is mostly idle, though: 73-104 W, and model FLOP utilisation 0.2% at
+  batch 1 and 1.6% at batch 8. A token takes 26 ms at batch 1 and a step
+  33 ms at batch 8, barely more for eight times the work. The time per
+  token is set by per-step overhead in eager Hugging Face generation, not
+  by reading the weights, so removing weights cannot shorten it. The small
+  slowdown at 20% may come from the irregular matrix widths (FFN 6,648 to
+  11,008 and 8,806, attention 2,688 to 4,096); that is not tested.
+- **The report's disk column misleads.** Dense shows 25.10 GiB because the
+  Hub checkpoint is float32 `.bin`, while the pruned checkpoints are
+  bfloat16 safetensors (10.14 GiB at 20%, 6.52 GiB at 50%). The 2.48x and
+  3.85x disk ratios in `reports/report.md` are mostly the dtype. Use the
+  parameter or VRAM ratios. Dense also took 10 min to load from those
+  float32 shards.
+- Structure, from the loaded weights: slimgpt20-multi keeps 21 to 32 heads
+  and 6,648 to 11,008 FFN channels per layer; uniform keeps 26 heads and
+  8,806 channels everywhere; slimgpt50-multi keeps 11 to 19 heads and 3,427
+  to 11,008 channels. No checkpoint has zeroed-but-kept weights (0.0%), so
+  the removal is real compaction.
 
 ### Failures and fixes
 
@@ -340,15 +371,20 @@ differs from the brief:
 
 ### What needs a human decision
 
-1. **The repair data.** The options as I see them: accept the set as is;
-   rebuild it without the two segments (a change to the repair data); or
-   exclude single-sentence utterances some other way. Facts that bear on
-   it: both segments are one- to three-word stock phrases; both lie outside
-   the 300 segments per direction that this suite evaluates (test segments
-   1356 and 311); ALMA-7B was itself fine-tuned on this corpus, so the
-   dense baseline has already trained on both; the check is exact string
-   match on the source. Once decided, the chain is in `slurm/README.md`
-   ("Chaining prune, repair and evaluation"). The pruned parents'
+1. **The repair data.** Whether the two collisions matter. Facts that
+   bear on it: both segments are one- to three-word stock phrases; both lie
+   outside the 300 segments per direction that this suite evaluates (test
+   segments 1356 and 311); ALMA-7B was itself fine-tuned on this corpus, so
+   the dense baseline has already trained on both; the check is an exact
+   string match on the source. The options as I see them: accept the set,
+   which now means rebuilding it with `mnlp-eval calibration --spec
+   configs/calibration/repair-multi.yaml --no-contamination-check`, because
+   since `4fc7193` repair refuses a set whose manifest records collisions;
+   drop the two segments and rebuild, which changes the repair data and
+   should be named as such; or change what the check counts as a
+   collision. Whichever it is, remove `data/calibration/repair-multi.CONTAMINATED`
+   afterwards. Then the chain is in `slurm/README.md` ("Chaining prune,
+   repair and evaluation"). The pruned parents'
    checkpoints are on scratch, which purges files untouched for 14 days,
    so they last until about 13 October unless re-pruned.
 2. **Which system repair should start from.** The repair configs point at
@@ -362,9 +398,14 @@ differs from the brief:
    `configs/calibration/pair-*.yaml` currently argues against); or build
    the matrix with FLAP, which is not size-sensitive here.
 4. **Whether the other comparisons should move to prompt+target
-   calibration**, given its size, and whether its gain holds with the
+   calibration**, given how large its gain is, and whether it holds with the
    uniform or log-increase budget.
-5. `docs/pruning.md` and `slurm/README.md` estimate an hour per SlimGPT
+5. **How to measure speed.** With eager Hugging Face generation the
+   per-token time is host overhead, so pruning shows no speedup at all.
+   Whether that is the claim the report should make, or whether speed
+   should be measured with a leaner decoding loop (static cache and CUDA
+   graphs, or vLLM), is a design choice.
+6. `docs/pruning.md` and `slurm/README.md` estimate an hour per SlimGPT
    prune; it takes 12-15 minutes. Not changed tonight.
 
 ## Log
@@ -527,3 +568,14 @@ fifteen real score jobs, so it runs even if one system fails.
   analysis and paired bootstraps on the stored COMET segment scores
   (`bootstrap_segment_delta`, the repository's own implementation). Compute
   so far from `sacct`: 6.26 GPU-hours, 801 SBU.
+- 21:44 Commit 15a0a56 adds the per-direction COMET transfer table. Bench
+  still waiting for whole nodes; `squeue --start` showed no planned start
+  until 23:05, when it planned 00:06 and 00:56-00:59.
+- 23:15 Bench 27371086 (slimgpt20-multi, gcn66) and 27371089
+  (slimgpt50-multi, gcn65) started, earlier than planned; 27371094 (dense)
+  and 27371087 (uniform) followed. All four COMPLETED: 27371089 in 29 min,
+  27371087 in 30 min, 27371086 in 30 min, 27371094 in 36 min (10 of them
+  loading the float32 dense shards).
+- 00:06 Final report 27371166 COMPLETED (1 min 40 s), efficiency included.
+  `runs/` and `reports/` copied again to `$HOME/mnlp-runs/` and
+  `$HOME/mnlp-reports/`. Total from `sacct`: 14.63 GPU-hours, 1,873 SBU.
