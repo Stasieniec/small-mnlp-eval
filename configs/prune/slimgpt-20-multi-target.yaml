@@ -7,9 +7,8 @@
 # out-of-English directions lost more than into-English ones for cs, is and
 # zh. Read against slimgpt-20-multi, which differs only in calibration_text.
 #
-# It also sees roughly twice the calibration tokens, a second change;
-# slimgpt-20-multi-256 is the control for that. Both need more memory for the
-# cached layer inputs than the 128-segment runs; queue them on gpu_h100.
+# It also sees about 1.7 times the calibration tokens, a second change;
+# slimgpt-20-multi-256 is the control for that. Both fit a 40 GB A100.
 extends: slimgpt-20-multi.yaml
 name: alma-7b-slimgpt20-multi-target
 calibration_text: prompt+target

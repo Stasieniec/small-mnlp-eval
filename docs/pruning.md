@@ -60,10 +60,11 @@ reads the target language as if it had written it. With the prompt alone, the
 and units that matter for producing Czech, Icelandic or Chinese are judged only
 on how they respond to reading English.
 
-The variant also roughly doubles the calibration tokens, a second change, so
-`slimgpt-20-multi-256` calibrates on prompts alone at 256 segments per
-direction as the control. Both hold about twice the cached activations of a
-128-segment SlimGPT run; queue them with `PARTITION=gpu_h100`.
+The variant also sees about 1.7 times the calibration tokens (134k against 78k
+on multi-10dir), a second change, so `slimgpt-20-multi-256` calibrates on
+prompts alone at 256 segments per direction as the control (156k tokens; its
+first 128 per direction are exactly multi-10dir's). SlimGPT's peak memory for
+either is about 21 GB on ALMA-7B, so both fit a 40 GB A100.
 
 ## Budget
 
