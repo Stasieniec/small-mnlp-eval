@@ -89,3 +89,40 @@ The report is queued once the last score job id is known.
 | alma-7b-slimgpt20-multi-256 | 27370279 | | 27370280 | 27370281 |
 | alma-7b-flap20-multi | 27370282 | | 27370283 | 27370284 |
 | alma-7b-flap20-de | 27370285 | | 27370286 | 27370287 |
+
+The final report was queued at 19:28 as job 27370301, `afterany` on the
+fifteen real score jobs, so it runs even if one system fails.
+
+### Phase 1: smoke test, passed (19:28-19:46)
+
+- Prune 27370221 (1 min): achieved unit sparsity 0.1999 against 0.2
+  requested; FFN 0.19999, heads 0.179 (Qwen2.5-0.5B has 14 query heads in 2
+  key/value groups, so heads go in pairs).
+- Repair 27370222 (50 s): 30 optimizer steps, loss lines every step, about
+  450 target tokens/s (a 0.5B model on micro-batches of 4, so not a guide to
+  ALMA-7B), held-out loss 2.671 before and 1.936 after, peak 2.75 GB.
+  `repair.json` is beside the merged checkpoint.
+- Generate 27370224 and 27370226: 32 de-en hypotheses each, English, on
+  topic, no loops. The unrepaired model ran to the 128-token budget on every
+  segment (budget hit rate 1.0); after repair it stopped on its own every
+  time (0.0).
+- Score 27370225 and 27370227: both wrote `scores.surface.json` and
+  `scores.neural.json`. **COMET works on a GPU node.** Smoke numbers, for the
+  record only: BLEU 11.5 to 14.6, COMET 0.676 to 0.696.
+- Smoke run directories moved to `runs-smoke/`.
+
+### Phase 2, first results (19:30-19:46)
+
+- Dense baseline 27370229/27370230: BLEU 30.3511, chrF++ 51.139, identical
+  to Jan's pilot on his account (30.35, 51.14), so generation reproduces
+  across accounts. COMET 0.8474.
+- SlimGPT prune jobs take 12-13 min each, not the hour the docs estimate.
+  Every finished one hit its sparsity exactly (0.2000 or 0.5000, heads and
+  channels separately).
+- 19:55 Commit 4fc7193: `load_calibration_prompts` and `load_repair_data`
+  now refuse a set whose own `calibration.json` records test collisions.
+  Before it, the calibration CLI's non-zero exit was the only guard, and the
+  set was already on disk under the name the repair configs read. Checked
+  against the real sets: the seven clean ones load, the quarantined
+  repair-multi is refused. Committed after every prune job had started, so
+  no running job imported a changed module.
