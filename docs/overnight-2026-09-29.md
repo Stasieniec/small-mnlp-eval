@@ -169,6 +169,18 @@ ten, 1,280 in all):
 | slimgpt20-ru | 0.7361 | 0.8206 | -0.0846 | 0.6313 | 0.8133 | -0.1820 | -6.1 | -10.7 |
 | slimgpt20-zh | 0.7480 | 0.7851 | -0.0371 | 0.7305 | 0.8222 | -0.0917 | -2.4 | -5.0 |
 
+Per direction, COMET minus slimgpt20-multi's (own pair in brackets; BLEU
+differences follow the same pattern and are in the per-direction BLEU table
+above):
+
+| system | cs-en | de-en | is-en | ru-en | zh-en | en-cs | en-de | en-is | en-ru | en-zh |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| slimgpt20-cs | [-0.064] | -0.085 | -0.237 | -0.095 | -0.147 | [-0.073] | -0.090 | -0.256 | -0.088 | -0.169 |
+| slimgpt20-de | -0.161 | [-0.059] | -0.284 | -0.118 | -0.165 | -0.207 | [-0.067] | -0.264 | -0.127 | -0.214 |
+| slimgpt20-is | -0.137 | -0.069 | [-0.077] | -0.080 | -0.125 | -0.164 | -0.072 | [-0.049] | -0.099 | -0.171 |
+| slimgpt20-ru | -0.147 | -0.109 | -0.265 | [-0.087] | -0.156 | -0.173 | -0.114 | -0.314 | [-0.082] | -0.178 |
+| slimgpt20-zh | -0.039 | -0.018 | -0.080 | -0.026 | [-0.020] | -0.165 | -0.078 | -0.245 | -0.083 | [-0.054] |
+
 Every one is significantly below the multi subnetwork overall (COMET -0.08
 to -0.17, p=0.001 each) and on its own pair (-0.037 to -0.085, p=0.001
 each). Each is specialised: it loses two to three times as much on the
