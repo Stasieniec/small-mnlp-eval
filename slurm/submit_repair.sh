@@ -28,7 +28,9 @@ fi
 REPAIR_OUT=${REPAIR_OUT:-/scratch-shared/${USER}/checkpoints}
 DEPENDENCY=()
 if [[ -n "${AFTER:-}" ]]; then
-    DEPENDENCY=(--dependency "afterok:${AFTER}")
+    # Without the kill flag a failed upstream job leaves this one pending
+    # forever with reason DependencyNeverSatisfied.
+    DEPENDENCY=(--dependency "afterok:${AFTER}" --kill-on-invalid-dep=yes)
 fi
 
 for CONFIG in "$@"; do

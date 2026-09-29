@@ -142,7 +142,7 @@ recipe:
 | batch | 128 sequences per step: 8 per micro-batch, 16 accumulation steps |
 | text | prompt with the reference appended directly, then eos, at most 511 tokens |
 | loss | on the reference and eos only, token-averaged over the whole step |
-| data | every segment of ALMA-Human-Parallel within the source-length filter |
+| data | every segment of ALMA-Human-Parallel, both directions of every pair |
 
 ALMA reaches its batch with eight processes; one GPU reaches the same batch by
 accumulating. Gradient checkpointing is on to fit one A100, which changes

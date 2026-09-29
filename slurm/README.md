@@ -129,7 +129,7 @@ being comparable. See [docs/pruning.md](../docs/pruning.md).
 ## Repair
 
 LoRA repair trains on the repair set, which is built like a calibration set
-but takes every eligible segment. On a login node:
+but takes every segment. On a login node:
 
 ```bash
 ./.venv/bin/mnlp-eval calibration --spec configs/calibration/repair-multi.yaml
@@ -157,7 +157,7 @@ neither needs the model config to exist yet when it is given. So a whole chain
 can be queued at once:
 
 ```bash
-bash slurm/submit_prune.sh configs/prune/slimgpt-20-multi.yaml   # prints job P
+bash slurm/submit_prune.sh configs/prune/slimgpt-20-multi.yaml   # stdout: "<name> P"
 AFTER=P bash slurm/submit_repair.sh configs/repair/slimgpt-20-multi-lora.yaml   # job R
 AFTER=R REPORT=0 BASELINE=alma-7b bash slurm/submit_pilot.sh \
     configs/suites/alma10-greedy-300.yaml configs/models/alma-7b-slimgpt20-multi-lora.yaml

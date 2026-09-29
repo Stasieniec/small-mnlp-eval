@@ -58,7 +58,9 @@ echo "suite ${SUITE_CONFIG}: ${#PAIRS[@]} direction(s) [${PAIRS[*]}]"
 
 DEPENDENCY=()
 if [[ -n "${AFTER:-}" ]]; then
-    DEPENDENCY=(--dependency "afterok:${AFTER}")
+    # Without the kill flag a failed upstream job leaves this one pending
+    # forever with reason DependencyNeverSatisfied.
+    DEPENDENCY=(--dependency "afterok:${AFTER}" --kill-on-invalid-dep=yes)
 fi
 
 SCORE_JOBS=()
@@ -85,7 +87,7 @@ for MODEL_CONFIG in "$@"; do
     SCORE_JOB=$(
         sbatch --parsable \
             --job-name "score-$(basename "${MODEL_CONFIG}" .yaml)" \
-            --dependency "afterok:${GENERATE_JOB}" \
+            --dependency "afterok:${GENERATE_JOB}" --kill-on-invalid-dep=yes \
             --export "ALL,MODEL_CONFIG=${MODEL_CONFIG},SUITE_CONFIG=${SUITE_CONFIG}" \
             slurm/score.sbatch
     )
@@ -102,7 +104,7 @@ fi
 DEPENDENCY=$(IFS=:; echo "afterok:${SCORE_JOBS[*]}")
 REPORT_JOB=$(
     sbatch --parsable \
-        --dependency "${DEPENDENCY}" \
+        --dependency "${DEPENDENCY}" --kill-on-invalid-dep=yes \
         --export "ALL,BASELINE=${BASELINE}" \
         slurm/report.sbatch
 )
