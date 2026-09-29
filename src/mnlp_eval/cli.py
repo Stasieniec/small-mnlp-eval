@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -489,11 +490,12 @@ def command_repair(args: argparse.Namespace) -> int:
     print(json.dumps(manifest, indent=2, sort_keys=True))
     before = manifest.get("held_out_loss_before")
     after = manifest.get("held_out_loss_after")
-    if before is not None and after is not None and after >= before:
+    improved = before is not None and after is not None and math.isfinite(after) and after < before
+    if spec.fail_without_improvement and before is not None and not improved:
         # Written anyway, since the numbers are worth seeing, but the job fails
         # so nothing chained behind it spends GPU time evaluating it.
         return _fail(
-            f"held-out loss did not fall ({before:.4f} before, {after:.4f} after). "
+            f"held-out loss did not fall ({before:.4f} before, {after} after). "
             "The checkpoint was written but repair did not help; see repair.json."
         )
     return 0

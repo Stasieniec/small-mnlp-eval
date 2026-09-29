@@ -31,6 +31,7 @@ from mnlp_eval.prune.repair import (
     length_grouped_batches,
     resolve_source,
     run_repair,
+    split_held_out,
     train_lora,
 )
 from stubs import tiny_llama
@@ -120,6 +121,48 @@ def test_length_grouping_uses_every_segment_exactly_once() -> None:
     assert flat == list(range(37))
     assert batches == length_grouped_batches(examples, 4, seed=3, window=2)
     assert batches != length_grouped_batches(examples, 4, seed=4, window=2)
+
+
+def test_held_out_takes_an_english_sentence_with_all_its_translations() -> None:
+    """A split by record leaks: ALMA's data is multi-way parallel both ways."""
+    records = []
+    for index in range(40):
+        english = f"english {index}"
+        records.append(("de-en", f"p de {index}", english, english))
+        records.append(("en-de", f"p en {index}", f"deutsch {index}", english))
+        if index % 2 == 0:
+            records.append(("cs-en", f"p cs {index}", english, english))
+
+    train, held = split_held_out(records, 10, seed=3)
+
+    assert len(held) >= 10
+    assert len(train) + len(held) == len(records)
+    assert not {record[3] for record in held} & {record[3] for record in train}
+    assert split_held_out(records, 10, seed=3) == (train, held)
+
+
+def test_a_non_finite_gradient_stops_training_before_anything_is_saved() -> None:
+    import torch
+
+    tokenizer = word_tokenizer()
+    model = tiny_llama()
+    examples = [
+        example
+        for record in records("de-en", 8)
+        if (example := encode_example(tokenizer, record["prompt"], record["target"], max_length=64))
+    ]
+    original = torch.nn.utils.clip_grad_norm_
+
+    def poisoned(*args: Any, **kwargs: Any) -> Any:
+        original(*args, **kwargs)
+        return torch.tensor(float("nan"))
+
+    torch.nn.utils.clip_grad_norm_ = poisoned  # type: ignore[assignment]
+    try:
+        with pytest.raises(PruneError, match="gradient norm"):
+            train_lora(model, examples, [], small_spec(epochs=1), pad_id=1, device="cpu")
+    finally:
+        torch.nn.utils.clip_grad_norm_ = original
 
 
 def small_spec(**overrides: Any) -> RepairSpec:
@@ -246,6 +289,7 @@ def test_a_repair_run_writes_a_loadable_checkpoint_and_a_paired_config(
 
     target = Path(manifest["checkpoint"])
     assert manifest["segments"] == {"train": 20, "held_out": 4, "dropped": 0}
+    assert manifest["spec"]["fail_without_improvement"] is True
     assert manifest["directions"] == ["de-en", "en-de"]
     assert json.loads((target / "repair.json").read_text())["name"] == "tiny-pruned-lora"
 

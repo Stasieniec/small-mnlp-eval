@@ -1,11 +1,13 @@
 # Plumbing check for the repair stage, on the smoke-qwen-slimgpt20 checkpoint.
-# Trains on the de calibration set, which carries references too, capped at
-# 64 segments so it finishes in a minute or two. Its numbers mean nothing.
+# Trains on the de calibration set, which carries references too: about 240
+# segments, 30 optimizer steps, a minute or two. Its numbers mean nothing, so
+# the held-out gate is off; a few steps of noise must not cancel the smoke
+# evaluation chained behind it.
 name: smoke-qwen-slimgpt20-lora
 source: configs/models/smoke-qwen-slimgpt20.yaml
 data: data/calibration/pair-de
 held_out: 16
-max_examples: 64
 batch_size: 4
 gradient_accumulation: 2
 log_every: 1
+fail_without_improvement: false

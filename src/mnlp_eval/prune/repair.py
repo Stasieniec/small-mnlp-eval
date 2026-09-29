@@ -17,14 +17,25 @@ The recipe is ALMA's own LoRA stage (``runs/parallel_ft_lora.sh`` and
 - the training text is the prompt with the reference appended directly, no
   space, then eos, and the loss is taken on the reference and eos only.
 
-Two departures, both forced by one GPU. ALMA reached 128 sequences per step
-with 8 processes of 4 and 4 accumulation steps; here it is 8 per micro-batch
-and 16 accumulation steps, which is the same optimizer step. Gradient
-checkpointing is on, which changes memory and speed but not the result.
+Departures from ALMA, for the write-up:
 
-A held-out slice of the repair data is scored before and after training. The
-before figure is the pruned model as it is; the pair of numbers says whether
-training did anything before a GPU-hour of generation is spent finding out.
+- 128 sequences per step come from 8 per micro-batch and 16 accumulation
+  steps on one GPU, where ALMA used 8 processes of 4 and 4 steps. Gradient
+  checkpointing is on, which changes memory and speed but not the result.
+- The loss is a per-token mean over the whole step; ALMA's Trainer averaged
+  per-micro-batch means.
+- The final adapter is kept. ALMA evaluated every 5 percent of training and
+  kept the best checkpoint.
+- ALMA left the prompt's final token as a label and put eos after 511 tokens;
+  here the prompt is fully masked and eos is inside the 511.
+
+A held-out slice is scored before and after training, so whether training did
+anything is known before a GPU-hour of generation is spent finding out. The
+slice is split by English sentence: ALMA's data is partly multi-way parallel
+and every pair appears in both directions, so a split by record would leave
+most held-out sentences in training in another direction. Even so the slice
+comes from the training distribution; it is a sanity check, not a measure of
+generalisation.
 
 Every torch, transformers and peft import is function-local, like the rest of
 the package.
@@ -54,6 +65,7 @@ __all__ = [
     "encode_example",
     "length_grouped_batches",
     "run_repair",
+    "split_held_out",
     "train_lora",
 ]
 
@@ -106,6 +118,9 @@ class RepairSpec:
     gradient_checkpointing: bool = True
     #: Optimizer steps between progress lines.
     log_every: int = 10
+    #: Exit non-zero when held-out loss did not fall. Off only for smoke tests,
+    #: whose few steps make the comparison noise.
+    fail_without_improvement: bool = True
     seed: int = 1234
 
     @classmethod
@@ -338,6 +353,15 @@ def train_lora(
     peft_model: Any = get_peft_model(model, lora)
     trainable = [parameter for parameter in peft_model.parameters() if parameter.requires_grad]
     n_trainable = sum(parameter.numel() for parameter in trainable)
+    low_precision = sorted({str(p.dtype) for p in trainable if p.dtype != torch.float32})
+    if low_precision:
+        # peft before 0.12 casts adapters to the base dtype, and a bfloat16
+        # adapter with bfloat16 optimizer state trains measurably worse.
+        msg = (
+            f"LoRA parameters are {', '.join(low_precision)}, expected float32. "
+            "Upgrade peft to 0.12 or later."
+        )
+        raise PruneError(msg)
 
     batches = length_grouped_batches(train, spec.batch_size, seed=spec.seed)
     steps_per_epoch = math.ceil(len(batches) / spec.gradient_accumulation)
@@ -390,6 +414,12 @@ def train_lora(
                 )
                 raise PruneError(msg)
             norm = torch.nn.utils.clip_grad_norm_(trainable, spec.max_grad_norm)
+            if not torch.isfinite(norm):
+                msg = (
+                    f"repair: gradient norm became {float(norm)} at step {step + 1}. Nothing "
+                    "was saved. Lower learning_rate or check the data."
+                )
+                raise PruneError(msg)
             optimizer.step()
             scheduler.step()
             optimizer.zero_grad(set_to_none=True)
@@ -439,8 +469,13 @@ def train_lora(
 
 def load_repair_data(
     directory: str | Path, *, directions: Sequence[str] | None = None
-) -> list[tuple[str, str, str]]:
-    """Read ``(direction, prompt, target)`` from a set ``mnlp-eval calibration`` wrote."""
+) -> list[tuple[str, str, str, str]]:
+    """Read ``(direction, prompt, target, english)`` from a ``mnlp-eval calibration`` set.
+
+    ``english`` is the English side of the segment, the source for ``en-xx``
+    and the target for ``xx-en``, which is what ties a segment to its
+    translations in the other directions.
+    """
     from mnlp_eval.artifacts import read_jsonl_dicts
 
     root = Path(directory).expanduser()
@@ -458,14 +493,40 @@ def load_repair_data(
             "mnlp-eval calibration --spec configs/calibration/repair-multi.yaml"
         )
         raise PruneError(msg)
-    records: list[tuple[str, str, str]] = []
+    records: list[tuple[str, str, str, str]] = []
     for path in files:
+        english_side = "source" if path.stem.startswith("en-") else "target"
         for record in read_jsonl_dicts(path):
             if not record.get("prompt") or not record.get("target"):
                 msg = f"{path}: a record lacks 'prompt' or 'target', so it cannot train anything"
                 raise PruneError(msg)
-            records.append((path.stem, str(record["prompt"]), str(record["target"])))
+            english = str(record.get(english_side) or "").strip()
+            records.append((path.stem, str(record["prompt"]), str(record["target"]), english))
     return records
+
+
+def split_held_out(
+    records: Sequence[tuple[str, str, str, str]], held_out: int, *, seed: int
+) -> tuple[list[tuple[str, str, str, str]], list[tuple[str, str, str, str]]]:
+    """Hold out whole English sentences, with every translation of each.
+
+    ALMA's data is partly multi-way parallel and every pair appears in both
+    directions, so holding out single records leaves most of them in training
+    under another direction. Returns ``(train, held)``; ``held`` has at least
+    ``held_out`` records unless there are fewer in total.
+    """
+    groups: dict[str, list[tuple[str, str, str, str]]] = {}
+    for record in records:
+        groups.setdefault(record[3], []).append(record)
+    keys = sorted(groups)
+    random.Random(seed).shuffle(keys)
+    held: list[tuple[str, str, str, str]] = []
+    train: list[tuple[str, str, str, str]] = []
+    for key in keys:
+        (held if len(held) < held_out else train).extend(groups[key])
+    rng = random.Random(seed + 1)
+    rng.shuffle(train)
+    return train, held
 
 
 def resolve_source(path: str | Path) -> dict[str, Any]:
@@ -500,7 +561,7 @@ def run_repair(spec: RepairSpec, out_dir: Path, *, config_dir: Path) -> dict[str
     from transformers import AutoTokenizer
 
     from mnlp_eval.artifacts import atomic_write_json
-    from mnlp_eval.models.loading import default_device
+    from mnlp_eval.models.loading import default_device, resolve_dtype
     from mnlp_eval.seeding import seed_everything
 
     source = resolve_source(spec.source)
@@ -508,10 +569,7 @@ def run_repair(spec: RepairSpec, out_dir: Path, *, config_dir: Path) -> dict[str
     seed_everything(spec.seed)
 
     records = load_repair_data(spec.data, directions=spec.directions)
-    rng = random.Random(spec.seed)
-    rng.shuffle(records)
-    held_records = records[: spec.held_out]
-    train_records = records[spec.held_out :]
+    train_records, held_records = split_held_out(records, spec.held_out, seed=spec.seed)
     if spec.max_examples is not None:
         train_records = train_records[: spec.max_examples]
 
@@ -520,10 +578,10 @@ def run_repair(spec: RepairSpec, out_dir: Path, *, config_dir: Path) -> dict[str
         tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id
     )
 
-    def encode(items: Sequence[tuple[str, str, str]]) -> list[Example]:
+    def encode(items: Sequence[tuple[str, str, str, str]]) -> list[Example]:
         encoded = (
             encode_example(tokenizer, prompt, target, max_length=spec.max_length, direction=name)
-            for name, prompt, target in items
+            for name, prompt, target, _english in items
         )
         return [example for example in encoded if example is not None]
 
@@ -537,7 +595,15 @@ def run_repair(spec: RepairSpec, out_dir: Path, *, config_dir: Path) -> dict[str
     )
 
     load_model = _pruned_loader()
-    model, _subnetwork = load_model(checkpoint, spec.dtype)
+    # Load as saved, then cast parameters only. Casting the whole module would
+    # also put the rotary inv_freq buffer in bfloat16, which evaluation, loading
+    # with dtype auto, never does.
+    model, _subnetwork = load_model(checkpoint, "auto")
+    if spec.dtype != "auto":
+        target_dtype = resolve_dtype(spec.dtype)
+        for parameter in model.parameters():
+            if parameter.is_floating_point() and parameter.dtype != target_dtype:
+                parameter.data = parameter.data.to(target_dtype)
     device = default_device()
     model = model.to(device)
     if device == "cuda":

@@ -152,9 +152,18 @@ The repair data is unbalanced on purpose, unlike calibration. Repair tries to
 restore what ALMA-7B could do, and ALMA-7B was fine-tuned on this data at these
 proportions.
 
-500 segments are held out and scored before and after training.
-`repair.json` beside the checkpoint records both, with the loss curve, and the
-command fails, after writing everything, if the held-out loss did not fall.
+Other departures from ALMA: the final adapter is kept where ALMA kept the best
+of evaluations every 5 percent, and the prompt is fully masked where ALMA left
+its last token as a label. The module docstring lists them all.
+
+At least 500 segments are held out and scored before and after training. They
+are chosen by English sentence, with every translation of each, because ALMA's
+data is partly multi-way parallel and every pair appears in both directions; a
+split by record would leave most held-out sentences in training under another
+direction. It is still the training distribution, so treat the pair of numbers
+as a check that training worked rather than as generalisation. `repair.json`
+beside the checkpoint records both, with the loss curve, and the command fails,
+after writing everything, if the held-out loss did not fall or is not finite.
 
 ## Transformers version
 
