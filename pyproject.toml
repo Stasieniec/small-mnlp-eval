@@ -67,6 +67,8 @@ prune = [
   "transformers>=4.48,<5",
   "accelerate>=0.30",
   "safetensors>=0.4",
+  # LoRA repair of a pruned checkpoint, mnlp-eval repair.
+  "peft>=0.11",
 ]
 vllm = ["vllm>=0.6"]
 report = ["matplotlib>=3.8"]
@@ -135,6 +137,7 @@ module = [
   "mnlp_eval.metrics.metricx",
   "mnlp_eval.env_capture",
   "mnlp_eval.prune.spec",
+  "mnlp_eval.prune.repair",
 ]
 disable_error_code = ["no-untyped-call", "arg-type"]
 

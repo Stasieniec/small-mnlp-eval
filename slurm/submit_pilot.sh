@@ -19,6 +19,14 @@
 # Scoring reuses slurm/score.sbatch unchanged, which scopes itself to one run
 # with --run. That guard matters here: `score` with no --run reaches every run
 # directory on disk, including ones still generating.
+#
+# Two optional settings for chaining behind pruning and repair:
+#
+#   AFTER=<job id>  every generation job waits for that job to succeed. The
+#                   model config may then not exist yet: prune and repair
+#                   write it, and the generation job reads it when it starts.
+#   REPORT=0        queue no report job, for when several calls feed one
+#                   report submitted separately at the end.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -48,14 +56,27 @@ fi
 mapfile -t PAIRS < <("${CLI}" suite-directions --suite "${SUITE_CONFIG}")
 echo "suite ${SUITE_CONFIG}: ${#PAIRS[@]} direction(s) [${PAIRS[*]}]"
 
+DEPENDENCY=()
+if [[ -n "${AFTER:-}" ]]; then
+    DEPENDENCY=(--dependency "afterok:${AFTER}")
+fi
+
 SCORE_JOBS=()
 for MODEL_CONFIG in "$@"; do
-    RUN_DIR=$("${CLI}" run-dir --model "${MODEL_CONFIG}" --suite "${SUITE_CONFIG}")
-    echo "  ${MODEL_CONFIG} -> ${RUN_DIR}"
+    if [[ -f "${MODEL_CONFIG}" ]]; then
+        RUN_DIR=$("${CLI}" run-dir --model "${MODEL_CONFIG}" --suite "${SUITE_CONFIG}")
+        echo "  ${MODEL_CONFIG} -> ${RUN_DIR}"
+    elif [[ -n "${AFTER:-}" ]]; then
+        echo "  ${MODEL_CONFIG} (written by job ${AFTER}, which this waits for)"
+    else
+        echo "${MODEL_CONFIG} does not exist, and no AFTER job was given to write it." >&2
+        exit 1
+    fi
 
     GENERATE_JOB=$(
         sbatch --parsable \
             --job-name "pilot-$(basename "${MODEL_CONFIG}" .yaml)" \
+            "${DEPENDENCY[@]}" \
             --export "ALL,MODEL_CONFIG=${MODEL_CONFIG},SUITE_CONFIG=${SUITE_CONFIG}" \
             slurm/pilot.sbatch
     )
@@ -71,6 +92,12 @@ for MODEL_CONFIG in "$@"; do
     echo "    score    ${SCORE_JOB}"
     SCORE_JOBS+=("${SCORE_JOB}")
 done
+
+if [[ "${REPORT:-1}" == "0" ]]; then
+    echo
+    echo "No report queued (REPORT=0). Score jobs: ${SCORE_JOBS[*]}"
+    exit 0
+fi
 
 DEPENDENCY=$(IFS=:; echo "afterok:${SCORE_JOBS[*]}")
 REPORT_JOB=$(

@@ -1,0 +1,7 @@
+# LoRA repair of SlimGPT at 50 percent, multi-directional calibration.
+#
+# Without repair every 50 percent system in the pilot was unusable, so this is
+# the run that says whether 50 percent is a compression level or a failure.
+extends: slimgpt-20-multi-lora.yaml
+name: alma-7b-slimgpt50-multi-lora
+source: configs/models/alma-7b-slimgpt50-multi.yaml

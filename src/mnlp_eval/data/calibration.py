@@ -22,6 +22,10 @@ and the instruction prefix is a substantial fraction of a short segment.
 number of segments. Icelandic has 2,009 training pairs against Russian's
 15,000, so anything proportional would make the multi-directional calibration
 set almost free of the language the experiment cares about most.
+
+The one exception is a repair set. ``segments_per_direction: null`` takes every
+eligible segment, which is what ALMA's own LoRA recipe trains on, so a repaired
+model is fine-tuned on the distribution the dense model was.
 """
 
 from __future__ import annotations
@@ -56,7 +60,8 @@ class CalibrationSpec:
     directions: list[str] = field(default_factory=list)
     dataset: str = DEFAULT_CALIBRATION_DATASET
     split: str = "train"
-    segments_per_direction: int = 128
+    #: None takes every eligible segment, unbalanced. For repair sets only.
+    segments_per_direction: int | None = 128
     seed: int = 1234
     #: Segments outside this source-character range are skipped before
     #: sampling. Very short lines are titles and boilerplate, and very long
@@ -84,7 +89,7 @@ class CalibrationSpec:
         return spec
 
     def validate(self) -> None:
-        if self.segments_per_direction < 1:
+        if self.segments_per_direction is not None and self.segments_per_direction < 1:
             msg = "calibration spec: segments_per_direction must be at least 1"
             raise ConfigError(msg)
         if self.min_source_chars < 0 or self.max_source_chars <= self.min_source_chars:
@@ -107,7 +112,10 @@ class CalibrationSpec:
         return parse_directions(self.directions)
 
     @property
-    def total_segments(self) -> int:
+    def total_segments(self) -> int | None:
+        """Known in advance only for a balanced set."""
+        if self.segments_per_direction is None:
+            return None
         return self.segments_per_direction * len(self.directions)
 
 
@@ -140,7 +148,10 @@ def build_calibration_set(
             for source, target_text in pairs
             if spec.min_source_chars <= len(source) <= spec.max_source_chars
         ]
-        if len(eligible) < spec.segments_per_direction:
+        wanted = (
+            len(eligible) if spec.segments_per_direction is None else spec.segments_per_direction
+        )
+        if len(eligible) < wanted:
             msg = (
                 f"{direction}: only {len(eligible)} of {len(pairs)} segments fall within "
                 f"[{spec.min_source_chars}, {spec.max_source_chars}] source characters, "
@@ -154,7 +165,7 @@ def build_calibration_set(
         # Seeded per direction, so adding a direction to a suite does not
         # change which segments the others drew.
         rng = random.Random(f"{spec.seed}:{direction}")
-        chosen = sorted(rng.sample(range(len(eligible)), spec.segments_per_direction))
+        chosen = sorted(rng.sample(range(len(eligible)), wanted))
         records = [
             {
                 "id": position,
@@ -195,7 +206,7 @@ def build_calibration_set(
         },
         "prompt_fingerprint": prompt_hash(template),
         "fingerprint": digest.hexdigest()[:16],
-        "total_segments": spec.total_segments,
+        "total_segments": sum(entry["n_segments"] for entry in directions.values()),
         "directions": directions,
     }
     if contamination_check:

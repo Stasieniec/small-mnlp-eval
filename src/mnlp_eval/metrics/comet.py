@@ -65,7 +65,22 @@ def _load(model_name: str) -> Any:
 
     # download_model resolves from the local cache when HF_HUB_OFFLINE is set,
     # which is how this runs on compute nodes without network access.
-    checkpoint = download_model(model_name)
+    try:
+        checkpoint = download_model(model_name)
+    except KeyError as exc:
+        # COMET raises "Model ... not supported by COMET" for ANY failure to
+        # fetch the checkpoint, including the usual one: a compute node with no
+        # network and a cache that does not hold it.
+        import os
+
+        msg = (
+            f"COMET could not fetch {model_name}. Despite COMET's wording this is almost "
+            "always a missing cache entry, not an unsupported model: HF_HUB_OFFLINE="
+            f"{os.environ.get('HF_HUB_OFFLINE', 'unset')}, HF_HOME="
+            f"{os.environ.get('HF_HOME', 'unset')}. Prefetch it on a login node with the "
+            "same HF_HOME: .venv-comet/bin/mnlp-eval prefetch --metrics <metrics.yaml>"
+        )
+        raise RuntimeError(msg) from exc
     model = load_from_checkpoint(checkpoint)
     model.eval()
     _MODEL_CACHE[model_name] = model

@@ -54,11 +54,11 @@ BLEU per direction at 20% sparsity:
 | FLAP checkpoint failed to load | **fixed** | FLAP adds a bias only where units were dropped; the loader assumed all or none. `reshape_model` takes a per-projection predicate read from the saved tensors. |
 | Every GPU job died at the first kernel (`Python.h` missing) | **fixed** | Venvs built on system Python, whose headers are absent on GPU nodes. Build with `uv venv --managed-python`; module is now `Python/3.13.1-GCCcore-14.2.0`. |
 | LLM-Pruner OOM on A100-40GB and H100-94GB | open | A float32 `W * dL/dW` accumulator for every prunable weight (about 26 GB) plus activations. Proposed: reduce to per-head and per-channel sums after each backward (exact, sums are linear), and enable gradient checkpointing. |
-| COMET: `Model 'Unbabel/wmt22-comet-da' not supported` | open | In `.venv-comet`; version of `unbabel-comet` to be checked. No neural scores yet. |
+| COMET: `Model 'Unbabel/wmt22-comet-da' not supported` | fix in, not yet verified on Snellius | COMET raises this for any failure to fetch the checkpoint, and compute nodes are offline, so the checkpoint was most likely never in `HF_HOME`. Run `.venv-comet/bin/mnlp-eval prefetch --metrics configs/metrics/default.yaml` on a login node. Prefetch now also caches the XLM-R encoder files COMET loads next, and the error now names the cache. |
 | Report job is always cancelled | open | `submit_pilot.sh` chains the report `afterok` on scoring, and scoring exits 1 on the COMET error after writing `scores.surface.json`. Fixing COMET fixes this; until then read `runs/*/scores.surface.json`. |
-| SlimGPT's global budget cuts layer 0 hard | open | Per-layer standardisation makes heavy-tailed layers lose most. The paper protects early layers with a schedule not implemented here. Worth a `uniform` comparison run. |
-| Pruned models stop short at 20% | observation | Length ratio 0.81-0.91. Read hypotheses for dropped clauses; a LoRA repair stage is the intended remedy. |
-| Custom pruning mask for speciffic directions | open | Finding the best pruning per language... |
+| SlimGPT's global budget cuts layer 0 hard | implemented, not yet run | Per-layer standardisation makes heavy-tailed layers lose most. `allocation: log-increase` is the paper's Incremental Pruning Ratio, layer 0 whole rising to 1.36 times the target at layer 31. Comparison runs: `slimgpt-20-multi-log`, `slimgpt-20-multi-uniform`, `slimgpt-50-multi-log`. See [docs/pruning.md](docs/pruning.md#budget). |
+| Pruned models stop short at 20% | repair implemented, not yet run | Length ratio 0.81-0.91. `mnlp-eval repair` trains LoRA with ALMA's own recipe on a pruned checkpoint and merges it; configs in `configs/repair/`. See [docs/pruning.md](docs/pruning.md#repair). |
+| Pruning masks for specific directions | configs in, not yet run | SlimGPT at 20% calibrated on one pair at a time (`slimgpt-20-{cs,de,is,ru,zh}`), each evaluated on all ten directions for the transfer matrix, and compared with `mnlp-eval overlap`. |
 
 ## What this branch contains
 
@@ -69,6 +69,7 @@ stack:
 
 ```
 prune     (GPU, .venv)        ->  checkpoints/<name>/, subnetworks/<name>.json, configs/models/<name>.yaml
+repair    (GPU, .venv)        ->  checkpoints/<name>-lora/, configs/models/<name>-lora.yaml (optional)
 generate  (GPU, .venv)        ->  runs/<slug>/hyps/<direction>.{jsonl,txt}
 bench     (GPU, .venv)        ->  runs/<slug>/bench.json
 score     (GPU, .venv-comet)  ->  runs/<slug>/scores.<group>.json
@@ -79,12 +80,15 @@ report    (CPU, any env)      ->  reports/
 src/mnlp_eval/prune/     shared pipeline: groups, collect, budget, compact, spec
 src/mnlp_eval/prune/methods/
                          flap.py, llm_pruner.py, slimgpt.py (swappable criteria)
+src/mnlp_eval/prune/repair.py
+                         LoRA repair of a pruned checkpoint, merged
 recipes/pruned.py        loads a compacted checkpoint (dense config + descriptor)
 configs/prune/           one YAML per pruning run: method, sparsity, calibration
+configs/repair/          one YAML per repair run: the pruned system and the data
 configs/suites/          alma10-greedy (sweep), alma10-beam5 (headline),
                          alma10-greedy-300 (pilot, this branch)
-slurm/                   job scripts; submit_prune.sh, submit_pilot.sh,
-                         submit_sweep.sh
+slurm/                   job scripts; submit_prune.sh, submit_repair.sh,
+                         submit_pilot.sh, submit_sweep.sh
 docs/                    experiment, protocol, pruning, subnetworks, environments
 tests/                   no GPU, no network, no weights
 ```

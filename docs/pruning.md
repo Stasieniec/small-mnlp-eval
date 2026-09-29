@@ -45,10 +45,10 @@ What each criterion measures, and why, is in its module docstring under
 `prune/methods/`; what it means for a reported number is in
 [protocol.md](protocol.md).
 
-Two departures from the SlimGPT paper: the per-layer sparsity schedule that
-prunes early layers less is not implemented, and column scores are taken once
-from the dense weights rather than recomputed as the block loop advances. The
-compensation itself is exact.
+One departure from the SlimGPT paper: column scores are taken once from the
+dense weights rather than recomputed as the block loop advances. The
+compensation itself is exact. The paper's per-layer schedule is the
+`log-increase` budget below.
 
 ## Budget
 
@@ -62,6 +62,17 @@ allocation responds to the *shape* of a layer's score distribution rather than
 its level. Every layer comes out zero-mean, so a layer whose units all score
 badly does not thereby lose more of them; a layer loses more when it has units
 clearly worse than the rest of its own.
+
+`log-increase` is SlimGPT's Incremental Pruning Ratio (Ling et al., NeurIPS
+2024, equation 6): layer `i` of `n` loses
+`r_0 + (r_last - r_0) * log(i + 1) / log(n)` of its units. The paper does not
+state `r_0`; here it is 0, so layer 0 is left whole, and `r_last` is solved so
+the mean over layers is the requested sparsity. On ALMA-7B that is 0 at layer
+0 rising to 0.27 at layer 31 for 20 percent, and to 0.68 for 50. The reasoning
+is error accumulation: every later layer inherits an early layer's error, and
+the paper's ablation (its Table 6) has this beating uniform, and uniform
+beating the decreasing schedules. Scores still decide which units a layer
+loses; the schedule decides only how many.
 
 Heads and channels are budgeted separately, each to the requested sparsity.
 FLAP pools the two into one ranking, which trades an attention head against an
@@ -106,6 +117,44 @@ error if got wrong:
   that nothing else is, which is the strictness that matters.
 - `assign=True` is required to populate a meta-device model, and it breaks the
   embedding tie, so `tie_weights()` is called afterwards.
+
+## Repair
+
+`mnlp-eval repair` trains a LoRA adapter on a pruned checkpoint and merges it
+back in. The result has the pruned shapes, loads through `recipes/pruned.py`
+and is evaluated like any other system. Its model config extends the pruned
+one and sets `compression.repair`, so the report pairs the two.
+
+```bash
+mnlp-eval calibration --spec configs/calibration/repair-multi.yaml
+mnlp-eval repair --spec configs/repair/slimgpt-20-multi-lora.yaml
+```
+
+The recipe is ALMA's own LoRA stage (`runs/parallel_ft_lora.sh` and
+`utils/utils.py` in `fe1ixxu/ALMA`), and the defaults in `RepairSpec` are that
+recipe:
+
+| | |
+| --- | --- |
+| adapter | rank 16, alpha 32, dropout 0.05, every linear layer but the output head |
+| optimiser | AdamW, lr 2e-3, weight decay 0.01, gradient clipping at 1.0 |
+| schedule | inverse square root after 1 percent warmup, one epoch |
+| batch | 128 sequences per step: 8 per micro-batch, 16 accumulation steps |
+| text | prompt with the reference appended directly, then eos, at most 511 tokens |
+| loss | on the reference and eos only, token-averaged over the whole step |
+| data | every segment of ALMA-Human-Parallel within the source-length filter |
+
+ALMA reaches its batch with eight processes; one GPU reaches the same batch by
+accumulating. Gradient checkpointing is on to fit one A100, which changes
+memory and speed but not the result.
+
+The repair data is unbalanced on purpose, unlike calibration. Repair tries to
+restore what ALMA-7B could do, and ALMA-7B was fine-tuned on this data at these
+proportions.
+
+500 segments are held out and scored before and after training.
+`repair.json` beside the checkpoint records both, with the loss curve, and the
+command fails, after writing everything, if the held-out loss did not fall.
 
 ## Transformers version
 
