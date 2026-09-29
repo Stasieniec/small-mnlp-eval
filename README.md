@@ -8,9 +8,60 @@ results. Study design: [docs/experiment.md](docs/experiment.md).
 
 ## Results so far
 
-Pilot suite `alma10-greedy-300`: first 300 segments of each WMT22 direction,
-greedy decoding, no repair fine-tuning. BLEU and chrF++ only (COMET is
-blocked, see below). No significance testing yet.
+Suite `alma10-greedy-300`: first 300 segments of each WMT22 direction,
+greedy decoding, no repair fine-tuning. Macro means over the ten
+directions; COMET is `Unbabel/wmt22-comet-da`. These are the runs of
+2026-09-29 on scur0560; per-direction tables, significance tests and the
+overlap analysis are in
+[docs/overnight-2026-09-29.md](docs/overnight-2026-09-29.md). All are
+SlimGPT with a global budget unless the name says otherwise.
+
+| system | sparsity | calibration | BLEU | chrF++ | COMET | length ratio | truncated |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| ALMA-7B dense | 0 | | 30.35 | 51.14 | 0.8474 | 0.96 | 0.0% |
+| slimgpt20-multi | 20% | 1,280 prompts | 20.65 | 41.71 | 0.8148 | 0.91 | 0.1% |
+| slimgpt20-multi-uniform | 20% | 1,280 prompts | 23.01 | 43.81 | 0.8222 | 0.89 | 0.0% |
+| slimgpt20-multi-log | 20% | 1,280 prompts | 21.92 | 42.92 | 0.8223 | 0.90 | 0.1% |
+| **slimgpt20-multi-target** | 20% | 1,280 prompt+reference | **28.33** | **49.33** | **0.8367** | 0.95 | 0.0% |
+| slimgpt20-multi-256 | 20% | 2,560 prompts | 21.22 | 42.28 | 0.8195 | 0.90 | 0.2% |
+| slimgpt20-cs | 20% | 256 prompts, cs | 12.28 | 31.73 | 0.6845 | 0.96 | 2.1% |
+| slimgpt20-de | 20% | 256 prompts, de | 10.37 | 29.08 | 0.6482 | 1.00 | 1.8% |
+| slimgpt20-is | 20% | 256 prompts, is | 13.05 | 33.36 | 0.7105 | 0.97 | 1.3% |
+| slimgpt20-ru | 20% | 256 prompts, ru | 10.86 | 30.18 | 0.6523 | 0.95 | 0.6% |
+| slimgpt20-zh | 20% | 256 prompts, zh | 16.15 | 36.25 | 0.7340 | 0.96 | 1.6% |
+| flap20-multi | 20% | 1,280 prompts | 19.02 | 38.22 | 0.8031 | 0.82 | 0.3% |
+| flap20-de | 20% | 256 prompts, de | 19.62 | 39.30 | 0.8043 | 0.86 | 0.4% |
+| slimgpt50-multi | 50% | 1,280 prompts | 4.91 | 19.08 | 0.5567 | 0.65 | 0.8% |
+| slimgpt50-multi-log | 50% | 1,280 prompts | 3.82 | 17.26 | 0.5645 | 0.61 | 0.0% |
+
+- **Calibrating on prompt plus reference recovers most of the 20% loss:**
+  28.33 BLEU and 0.8367 COMET, against 20.65 and 0.8148 for prompts alone.
+  The 2,560-prompt control, which sees more tokens, gains only +0.57 BLEU,
+  so the gain comes from the target side. It is still below dense overall
+  (COMET -0.0107, p=0.001), and it helps into English more than out of it.
+- **Per-layer schedules beat the global budget at 20%:** uniform +2.4 BLEU,
+  log-increase +1.3, both +0.007 COMET (p=0.001), the gain being into
+  English. Uniform and log-increase tie on COMET.
+- **Pair-specific SlimGPT subnetworks collapse:** 10.4-16.2 BLEU, below the
+  multi subnetwork on every direction including their own pair, worst on
+  Icelandic. This is confounded with calibration size (256 against 1,280
+  segments); FLAP at 256 segments ties FLAP at 1,280 (COMET +0.0012,
+  p=0.441).
+- **50% without repair is unusable** with either schedule. SlimGPT writes
+  short, fluent, loosely related English (length ratio 0.61-0.65), where
+  FLAP ran on without stopping.
+- **SlimGPT beats FLAP** at 20% with multi calibration: +1.6 BLEU, COMET
+  +0.0116 (p=0.001).
+- Every pruned system is significantly below dense in every direction on
+  BLEU, chrF++ and COMET, except five cells of slimgpt20-multi-target.
+- **No repair has run:** the repair set failed its contamination check (see
+  below).
+
+### Pilot, on Jan's account
+
+Run before COMET worked: BLEU and chrF++ only, no significance testing.
+Tonight's re-runs of dense, SlimGPT multi and both FLAP 20% systems
+reproduce these numbers exactly.
 
 | system | sparsity | BLEU | chrF++ | length ratio | truncated |
 | --- | --- | --- | --- | --- | --- |
@@ -43,7 +94,7 @@ BLEU per direction at 20% sparsity:
   English for cs, is and zh.
 - **German-only calibration is not worse than all-ten** despite 256 against
   1,280 segments, and helps Czech most. Treat as a tie until significance is
-  tested.
+  tested. (Tested on 2026-09-29: a tie, COMET +0.0012, p=0.441.)
 
 ## Problems and solutions
 
@@ -54,12 +105,14 @@ BLEU per direction at 20% sparsity:
 | FLAP checkpoint failed to load | **fixed** | FLAP adds a bias only where units were dropped; the loader assumed all or none. `reshape_model` takes a per-projection predicate read from the saved tensors. |
 | Every GPU job died at the first kernel (`Python.h` missing) | **fixed** | Venvs built on system Python, whose headers are absent on GPU nodes. Build with `uv venv --managed-python`; module is now `Python/3.13.1-GCCcore-14.2.0`. |
 | LLM-Pruner OOM on A100-40GB and H100-94GB | open | A float32 `W * dL/dW` accumulator for every prunable weight (about 26 GB) plus activations. Proposed: reduce to per-head and per-channel sums after each backward (exact, sums are linear), and enable gradient checkpointing. |
-| COMET: `Model 'Unbabel/wmt22-comet-da' not supported` | fix in, not yet verified on Snellius | COMET raises this for any failure to fetch the checkpoint, and compute nodes are offline, so the checkpoint was most likely never in `HF_HOME`. Run `.venv-comet/bin/mnlp-eval prefetch --metrics configs/metrics/default.yaml` on a login node. Prefetch now also caches the XLM-R encoder files COMET loads next, and the error now names the cache. |
-| Report job is always cancelled | open | `submit_pilot.sh` chains the report `afterok` on scoring, and scoring exits 1 on the COMET error after writing `scores.surface.json`. Fixing COMET fixes this; until then read `runs/*/scores.surface.json`. |
-| SlimGPT's global budget cuts layer 0 hard | implemented, not yet run | Per-layer standardisation makes heavy-tailed layers lose most. `allocation: log-increase` is the paper's Incremental Pruning Ratio, layer 0 whole rising to 1.36 times the target at layer 31. Comparison runs: `slimgpt-20-multi-log`, `slimgpt-20-multi-uniform`, `slimgpt-50-multi-log`. See [docs/pruning.md](docs/pruning.md#budget). |
-| Pruned models stop short at 20% | repair implemented, not yet run | Length ratio 0.81-0.91. `mnlp-eval repair` trains LoRA with ALMA's own recipe on a pruned checkpoint and merges it; configs in `configs/repair/`. See [docs/pruning.md](docs/pruning.md#repair). |
-| Out of English loses more than into English (cs, is, zh) | hypothesis, configs in, not yet run | Calibration reads only the prompt, so en-xx calibration never puts target-language text through the model. `calibration_text: prompt+target` (`slimgpt-20-multi-target`) calibrates on the reference too; `slimgpt-20-multi-256` controls for its doubled token count. See [docs/pruning.md](docs/pruning.md#calibration-text). |
-| Pruning masks for specific directions | configs in, not yet run | SlimGPT at 20% calibrated on one pair at a time (`slimgpt-20-{cs,de,is,ru,zh}`), each evaluated on all ten directions for the transfer matrix, and compared with `mnlp-eval overlap`. |
+| COMET: `Model 'Unbabel/wmt22-comet-da' not supported` | **fixed, verified on Snellius** | COMET raises this for any failure to fetch the checkpoint, and compute nodes are offline, so the checkpoint was most likely never in `HF_HOME`. Run `.venv-comet/bin/mnlp-eval prefetch --metrics configs/metrics/default.yaml` on a login node. Prefetch now also caches the XLM-R encoder files COMET loads next, and the error now names the cache. On 2026-09-29 every score job on a GPU node wrote `scores.neural.json`. |
+| Report job is always cancelled | **fixed** | `submit_pilot.sh` chains the report `afterok` on scoring, and scoring exited 1 on the COMET error after writing `scores.surface.json`. With COMET working, scoring succeeds and the 2026-09-29 report ran. |
+| SlimGPT's global budget cuts layer 0 hard | **run** | Per-layer standardisation makes heavy-tailed layers lose most. `allocation: log-increase` is the paper's Incremental Pruning Ratio, layer 0 whole rising to 1.36 times the target at layer 31. At 20% both uniform (+2.4 BLEU) and log-increase (+1.3) beat global, +0.007 COMET each (p=0.001), and tie with each other on COMET. At 50% all three are unusable without repair. See [docs/pruning.md](docs/pruning.md#budget). |
+| Pruned models stop short at 20% | **blocked**: repair not run | Length ratio 0.81-0.91. `mnlp-eval repair` trains LoRA with ALMA's own recipe on a pruned checkpoint and merges it; configs in `configs/repair/`. The smoke run on Qwen2.5-0.5B works end to end. The ALMA-7B runs wait on the repair-set decision in the next row. See [docs/pruning.md](docs/pruning.md#repair). |
+| Repair set overlaps the test set | **open, needs a decision** | `repair-multi` has 2 exact-source collisions with WMT22-Test in 117,404 segments: en-cs `Amazing.` and ru-en `Ну и что?`, test segments 1356 and 311, both outside the 300-segment pilot slice. A hard failure by design, so the set is quarantined as `data/calibration/repair-multi.CONTAMINATED` and no repair ran. |
+| A failed calibration build left a usable set on disk | **fixed** | `mnlp-eval calibration` writes the set before exiting 1 on a collision, under the name the configs read. `load_calibration_prompts` and `load_repair_data` now refuse a set whose `calibration.json` records collisions. |
+| Out of English loses more than into English (cs, is, zh) | **tested** | Calibration reads only the prompt, so en-xx calibration never puts target-language text through the model. `calibration_text: prompt+target` (`slimgpt-20-multi-target`) gains +7.7 BLEU and +0.022 COMET over prompts alone, and beats the token-count control `slimgpt-20-multi-256` by +7.1 BLEU. It helps into English more than out of it, so it does not specifically close an out-of-English gap. On this suite the prompt-only macro loss is not larger out of English. See [docs/pruning.md](docs/pruning.md#calibration-text). |
+| Pruning masks for specific directions | **run, confounded** | SlimGPT at 20% calibrated on one pair at a time (`slimgpt-20-{cs,de,is,ru,zh}`), each evaluated on all ten directions and compared with `mnlp-eval overlap`. Each loses to the multi subnetwork on every direction, its own pair included, and loses two to three times as much elsewhere. The 256 against 1,280 calibration segments look like the larger effect. |
 
 ## What this branch contains
 
