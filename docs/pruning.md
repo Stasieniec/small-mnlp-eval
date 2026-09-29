@@ -50,6 +50,21 @@ dense weights rather than recomputed as the block loop advances. The
 compensation itself is exact. The paper's per-layer schedule is the
 `log-increase` budget below.
 
+## Calibration text
+
+By default the criteria read each calibration prompt alone, which ends at the
+cue for the translation. `calibration_text: prompt+target` appends the
+reference translation, joined as ALMA's training joins them, so the model also
+reads the target language as if it had written it. With the prompt alone, the
+`en-xx` directions never put a word of the target language through the model,
+and units that matter for producing Czech, Icelandic or Chinese are judged only
+on how they respond to reading English.
+
+The variant also roughly doubles the calibration tokens, a second change, so
+`slimgpt-20-multi-256` calibrates on prompts alone at 256 segments per
+direction as the control. Both hold about twice the cached activations of a
+128-segment SlimGPT run; queue them with `PARTITION=gpu_h100`.
+
 ## Budget
 
 `uniform` gives every layer the same fraction. `global` standardises each

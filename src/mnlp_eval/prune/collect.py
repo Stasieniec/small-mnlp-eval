@@ -71,12 +71,22 @@ class InputStats:
 
 
 def load_calibration_prompts(
-    directory: str | Path, *, directions: Sequence[str] | None = None
+    directory: str | Path,
+    *,
+    directions: Sequence[str] | None = None,
+    with_target: bool = False,
 ) -> list[str]:
     """Read the rendered prompts from a calibration set, in a stable order.
 
     ``directions`` restricts it, which is how a pair-specific subnetwork is
     calibrated from a set holding all ten.
+
+    ``with_target`` appends each record's reference translation to its prompt,
+    joined as ALMA's training joins them, with no space. The model then reads
+    the target language as it would have written it, so the criterion sees the
+    activations of producing the output as well as of reading the source.
+    Without it, ``en-xx`` calibration never puts a word of the target language
+    through the model.
     """
     from mnlp_eval.artifacts import read_jsonl_dicts
 
@@ -103,7 +113,14 @@ def load_calibration_prompts(
             if not prompt:
                 msg = f"{path}: a record has no 'prompt' field"
                 raise PruneError(msg)
-            prompts.append(str(prompt))
+            if with_target:
+                target = record.get("target")
+                if not target:
+                    msg = f"{path}: a record has no 'target' field to calibrate on"
+                    raise PruneError(msg)
+                prompts.append(str(prompt) + str(target))
+            else:
+                prompts.append(str(prompt))
     return prompts
 
 

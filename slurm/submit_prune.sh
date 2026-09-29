@@ -8,6 +8,9 @@
 #   JOB=$(bash slurm/submit_prune.sh configs/prune/x.yaml | awk '{print $2}')
 # gives the job id to chain repair or evaluation on with AFTER=.
 #
+# PARTITION=gpu_h100 overrides the partition in prune.sbatch, for runs whose
+# cached calibration activations do not fit on a 40 GB A100.
+#
 # The jobs are independent: each reads the dense checkpoint and writes its own
 # subnetwork, so they run in parallel rather than in a chain.
 #
@@ -64,6 +67,7 @@ for CONFIG in "${CONFIGS[@]}"; do
     JOB=$(
         sbatch --parsable \
             --job-name "prune-${NAME}" \
+            ${PARTITION:+--partition "${PARTITION}"} \
             --export "ALL,PRUNE_CONFIG=${CONFIG},PRUNE_OUT=${PRUNE_OUT}" \
             slurm/prune.sbatch
     )

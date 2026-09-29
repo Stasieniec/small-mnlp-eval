@@ -9,7 +9,7 @@
 #   AFTER=12345 bash slurm/submit_repair.sh configs/repair/slimgpt-20-multi-lora.yaml
 #
 # Prints one line per job, "<name> <job id>", after the human-readable ones,
-# so a caller can chain on it.
+# so a caller can chain on it. PARTITION=gpu_h100 overrides the partition.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -53,6 +53,7 @@ for CONFIG in "$@"; do
         sbatch --parsable \
             --job-name "repair-${NAME}" \
             "${DEPENDENCY[@]}" \
+            ${PARTITION:+--partition "${PARTITION}"} \
             --export "ALL,REPAIR_CONFIG=${CONFIG},REPAIR_OUT=${REPAIR_OUT}" \
             slurm/repair.sbatch
     )
