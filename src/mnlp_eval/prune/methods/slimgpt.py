@@ -13,10 +13,10 @@ Layers are pruned in order, each on activations the already-pruned layers
 before it produce. Compensation solves for the error a layer makes given its
 actual input, which after the first layer is no longer the dense model's.
 
-Two departures from the paper: the per-layer schedule that prunes early layers
-less is not implemented, and column scores are taken once from the dense
+One departure from the paper: column scores are taken once from the dense
 weights rather than recomputed as the block loop advances. The compensation
-itself is exact.
+itself is exact. The paper's per-layer schedule, which prunes early layers
+less, is the ``log-increase`` allocation in ``prune/budget.py``.
 
 Reference: Ling et al., NeurIPS 2024, after Frantar and Alistarh's SparseGPT.
 """

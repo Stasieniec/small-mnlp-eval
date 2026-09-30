@@ -1,0 +1,8 @@
+# SlimGPT at 20 percent with the paper's Incremental Pruning Ratio: the
+# fraction removed rises logarithmically with depth, from 0 at layer 0 to 0.27
+# at layer 31, averaging 0.2. See log_increase_ratios in prune/budget.py.
+#
+# Read against slimgpt-20-multi (global) and slimgpt-20-multi-uniform.
+extends: slimgpt-20-multi.yaml
+name: alma-7b-slimgpt20-multi-log
+allocation: log-increase

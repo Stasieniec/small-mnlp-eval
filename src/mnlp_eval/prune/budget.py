@@ -3,6 +3,9 @@
 ``uniform`` gives every layer the same fraction, and is the only allocation
 that leaves every layer a width a stock ``LlamaConfig`` can describe.
 ``global`` standardises within each layer, pools, and takes the best overall.
+``log-increase`` is SlimGPT's Incremental Pruning Ratio: the fraction removed
+rises logarithmically with depth, so early layers, whose errors every later
+layer inherits, lose the least.
 
 Standardising before pooling is not optional: raw importance scales with
 activation magnitude, which grows with depth. It also means the allocation
@@ -18,6 +21,7 @@ Pure Python over floats, so this is testable without torch.
 
 from __future__ import annotations
 
+import math
 import statistics
 from collections.abc import Sequence
 
@@ -25,10 +29,10 @@ from mnlp_eval.prune import PruneError
 from mnlp_eval.prune.compact import LayerPlan
 from mnlp_eval.prune.groups import LayerGroups
 
-__all__ = ["ALLOCATIONS", "allocate"]
+__all__ = ["ALLOCATIONS", "allocate", "log_increase_ratios"]
 
 #: How a sparsity budget is spread over the layers.
-ALLOCATIONS = ("uniform", "global")
+ALLOCATIONS = ("uniform", "global", "log-increase")
 
 
 def allocate(
@@ -48,7 +52,7 @@ def allocate(
         groups: The dense model's per-layer unit counts, from
             :func:`mnlp_eval.prune.groups.describe_layers`.
         sparsity: Fraction of units to remove, in [0, 1).
-        allocation: ``uniform`` or ``global``.
+        allocation: ``uniform``, ``global`` or ``log-increase``.
 
     Returns:
         One :class:`LayerPlan` per layer, holding indices into the dense model.
@@ -86,6 +90,9 @@ def _counts(
     sizes = [len(layer) for layer in scores]
     if allocation == "uniform":
         raw = [size - round(size * sparsity) for size in sizes]
+    elif allocation == "log-increase":
+        ratios = log_increase_ratios(len(sizes), sparsity)
+        raw = [size - round(size * ratio) for size, ratio in zip(sizes, ratios, strict=True)]
     else:
         raw = _global_counts(scores, sparsity)
     # A layer that keeps nothing is a removed layer, a different experiment.
@@ -93,6 +100,33 @@ def _counts(
         min(size, max(step, count if step == 1 else round(count / step) * step))
         for count, size, step in zip(raw, sizes, steps, strict=True)
     ]
+
+
+def log_increase_ratios(layers: int, sparsity: float) -> list[float]:
+    """Per-layer fractions removed under SlimGPT's Incremental Pruning Ratio.
+
+    Equation 6 of Ling et al. (NeurIPS 2024):
+    ``r_i = r_0 + (r_last - r_0) * log(i + 1) / log(n)``. The paper does not
+    state ``r_0``. Here it is 0, so the first layer is left whole, and
+    ``r_last`` is solved so the mean over layers equals ``sparsity``. Every
+    layer holds the same number of units in a dense Llama, so the mean ratio is
+    the overall unit sparsity. On ALMA-7B's 32 layers ``r_last`` comes out at
+    1.36 times the target: 0.27 at 20 percent, 0.68 at 50.
+    """
+    if layers < 1:
+        msg = "log-increase needs at least one layer"
+        raise PruneError(msg)
+    if layers == 1:
+        return [sparsity]
+    shape = [math.log(index + 1) / math.log(layers) for index in range(layers)]
+    last = sparsity / statistics.fmean(shape)
+    if last >= 1.0:
+        msg = (
+            f"log-increase at sparsity {sparsity} would remove {last:.2f} of the last "
+            "layer, which is all of it. Use a lower sparsity or another allocation."
+        )
+        raise PruneError(msg)
+    return [last * value for value in shape]
 
 
 def _global_counts(scores: Sequence[Sequence[float]], sparsity: float) -> list[int]:

@@ -8,8 +8,8 @@
 # stop the sweep being comparable.
 #
 # The per-layer schedule the paper proposes, which prunes early layers less,
-# is not implemented; uniform and global are used instead. See the module
-# docstring in src/mnlp_eval/prune/methods/slimgpt.py.
+# is allocation: log-increase; see slimgpt-50-multi-log.yaml. This run uses
+# the global budget.
 name: alma-7b-slimgpt50-multi
 method: slimgpt
 model_name_or_path: haoranxu/ALMA-7B
