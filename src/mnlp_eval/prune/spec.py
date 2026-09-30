@@ -7,14 +7,14 @@ interpretable without the config that produced it.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 from mnlp_eval.config import MULTI_DIRECTIONAL, ConfigError, _reject_unknown
 from mnlp_eval.languages import parse_directions
 from mnlp_eval.prune import PruneError
-from mnlp_eval.prune.budget import ALLOCATIONS
+from mnlp_eval.prune.budget import ALLOCATIONS, protected_indices
 
 __all__ = ["CALIBRATION_TEXTS", "METHODS", "METHOD_NAMES", "PruneSpec", "run_pruning"]
 
@@ -39,6 +39,8 @@ class PruneSpec:
     calibration: str
     sparsity: float = 0.5
     allocation: str = "uniform"
+    protect_first_n: int = 0
+    protect_last_n: int = 0
     #: Which directions to use. Empty means all, a multi-directional subnetwork.
     directions: list[str] | None = None
     #: ``prompt`` or ``prompt+target``; see load_calibration_prompts.
@@ -65,6 +67,10 @@ class PruneSpec:
         return spec
 
     def validate(self) -> None:
+        for field in ("protect_first_n", "protect_last_n"):
+            value = getattr(self, field)
+            if type(value) is not int or value < 0:
+                raise ConfigError(f"prune spec: {field} must be a non-negative integer")
         if self.method not in METHODS:
             msg = f"prune spec: method {self.method!r} is not one of {', '.join(METHODS)}"
             raise ConfigError(msg)
@@ -95,6 +101,8 @@ class PruneSpec:
         label = f"{METHOD_NAMES[self.method]}, {self.allocation} budget"
         if self.calibration_text != "prompt":
             label += f", {self.calibration_text} calibration"
+        if self.protect_first_n or self.protect_last_n:
+            label += f", protected first {self.protect_first_n}/last {self.protect_last_n}"
         return label
 
     @property
@@ -140,6 +148,8 @@ def run_pruning(
         with_target=spec.calibration_text == "prompt+target",
     )
     groups = describe_layers(model)
+    protected = sorted(protected_indices(len(groups), spec.protect_first_n, spec.protect_last_n))
+    parameters_before = sum(parameter.numel() for parameter in model.parameters())
 
     def batches() -> list[dict[str, Any]]:
         return list(
@@ -165,8 +175,9 @@ def run_pruning(
         "pruned_for": spec.pruned_for,
         "notes": (
             f"{spec.allocation} budget over {len(prompts)} calibration segments, "
-            f"{spec.calibration_text} text"
+            f"{spec.calibration_text} text; protected layers (zero-based): {protected}"
         ),
+        "protected_layers": tuple(protected),
     }
     # Beside the weights, so the checkpoint carries its own shapes, and under
     # subnetworks/, where the overlap analysis reads it.
@@ -174,7 +185,7 @@ def run_pruning(
         descriptor = write_descriptor(path, plan, groups, **provenance)
 
     config_path = _write_model_config(spec, target, subnetwork_dir, config_dir)
-    return {
+    manifest = {
         "name": spec.name,
         "method": METHOD_NAMES[spec.method],
         "checkpoint": str(target),
@@ -184,7 +195,22 @@ def run_pruning(
         "requested_sparsity": spec.sparsity,
         "unit_sparsity": round(descriptor.overall_sparsity, 6),
         "components": descriptor.summary()["components"],
+        "spec": asdict(spec),
+        "protected_layers": protected,
+        "parameters_before": parameters_before,
+        "parameters_after": sum(parameter.numel() for parameter in model.parameters()),
+        "removed_heads": sum(
+            group.num_heads - len(item.heads) for group, item in zip(groups, plan, strict=True)
+        ),
+        "removed_channels": sum(
+            group.intermediate - len(item.channels)
+            for group, item in zip(groups, plan, strict=True)
+        ),
     }
+    from mnlp_eval.artifacts import atomic_write_json
+
+    atomic_write_json(target / "prune.json", manifest)
+    return manifest
 
 
 def _select(spec: PruneSpec, model: Any, groups: Any, batches: Any) -> Any:
@@ -193,21 +219,26 @@ def _select(spec: PruneSpec, model: Any, groups: Any, batches: Any) -> Any:
     from mnlp_eval.prune.compact import compact_model
     from mnlp_eval.prune.methods import flap, llm_pruner, slimgpt
 
+    budget: dict[str, Any] = {
+        "sparsity": spec.sparsity,
+        "allocation": spec.allocation,
+        "protect_first_n": spec.protect_first_n,
+        "protect_last_n": spec.protect_last_n,
+    }
+
     if spec.method == "slimgpt":
         # SlimGPT compacts as it goes; see its module docstring.
-        return slimgpt.prune(
-            model, batches(), groups, sparsity=spec.sparsity, allocation=spec.allocation
-        )
+        return slimgpt.prune(model, batches(), groups, **budget)
 
     if spec.method == "flap":
         stats = collect_input_stats(model, iter(batches()))
         heads, channels = flap.score(model, stats, groups)
-        plan = allocate(heads, channels, groups, sparsity=spec.sparsity, allocation=spec.allocation)
+        plan = allocate(heads, channels, groups, **budget)
         # Before compaction, while the dense channel indices still line up.
         flap.compensate(model, stats, groups, plan)
     elif spec.method == "llm-pruner":
         heads, channels = llm_pruner.score(model, batches(), groups)
-        plan = allocate(heads, channels, groups, sparsity=spec.sparsity, allocation=spec.allocation)
+        plan = allocate(heads, channels, groups, **budget)
     else:  # pragma: no cover - guarded by PruneSpec.validate
         msg = f"no implementation for method {spec.method!r}"
         raise PruneError(msg)
@@ -239,7 +270,7 @@ def _write_model_config(
         "baseline": "alma-7b",
         "loader": "custom",
         "entrypoint": "recipes.pruned:load",
-        "kwargs": {"checkpoint": str(checkpoint)},
+        "kwargs": {"checkpoint": str(checkpoint), "pruning_spec": asdict(spec)},
         "compression": {
             "family": "pruning",
             "method": spec.method_label,

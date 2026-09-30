@@ -27,7 +27,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from mnlp_eval.prune import PruneError
-from mnlp_eval.prune.budget import allocate
+from mnlp_eval.prune.budget import allocate, protected_indices
 from mnlp_eval.prune.compact import LayerPlan, compact_layer
 from mnlp_eval.prune.groups import LayerGroups, decoder_layers
 from mnlp_eval.prune.methods import pool_heads
@@ -46,6 +46,8 @@ def prune(
     *,
     sparsity: float,
     allocation: str = "uniform",
+    protect_first_n: int = 0,
+    protect_last_n: int = 0,
 ) -> tuple[LayerPlan, ...]:
     """Score, allocate, compensate and compact, and return what was kept.
 
@@ -53,6 +55,19 @@ def prune(
     to be applied before the next layer sees its input.
     """
     layers = decoder_layers(model)
+    protected = protected_indices(len(groups), protect_first_n, protect_last_n)
+    # Validate the protected budget before collecting expensive Hessians.
+    # Global allocation needs real scores, so its capacity is checked below.
+    if protected and allocation != "global":
+        allocate(
+            [[0.0] * group.num_heads for group in groups],
+            [[0.0] * group.intermediate for group in groups],
+            groups,
+            sparsity=sparsity,
+            allocation=allocation,
+            protect_first_n=protect_first_n,
+            protect_last_n=protect_last_n,
+        )
     inputs = _layer_inputs(model, batches)
 
     # Pass one: unit worth on the dense model. A global budget compares layers
@@ -63,6 +78,12 @@ def prune(
     channel_scores: list[list[float]] = []
     dense = inputs
     for position, (layer, group) in enumerate(zip(layers, groups, strict=True)):
+        if position in protected and allocation != "global":
+            head_scores.append([0.0] * group.num_heads)
+            channel_scores.append([0.0] * group.intermediate)
+            if position + 1 < len(layers):
+                dense = _advance(layer, dense)
+            continue
         hessians = _hessians(layer, dense)
         attention = _column_costs(layer.self_attn.o_proj, hessians["o_proj"])
         head_scores.append(pool_heads(attention, group))
@@ -73,10 +94,22 @@ def prune(
             dense = _advance(layer, dense)
     del dense
 
-    plan = allocate(head_scores, channel_scores, groups, sparsity=sparsity, allocation=allocation)
+    plan = allocate(
+        head_scores,
+        channel_scores,
+        groups,
+        sparsity=sparsity,
+        allocation=allocation,
+        protect_first_n=protect_first_n,
+        protect_last_n=protect_last_n,
+    )
 
     # Pass two: prune in order, each layer seeing what the pruned ones produce.
     for position, (layer, group, layer_plan) in enumerate(zip(layers, groups, plan, strict=True)):
+        if position in protected:
+            if position + 1 < len(layers):
+                inputs = _advance(layer, inputs)
+            continue
         hessians = _hessians(layer, inputs)
         _compensate(
             layer.self_attn.o_proj, hessians["o_proj"], set(group.head_rows(layer_plan.heads))

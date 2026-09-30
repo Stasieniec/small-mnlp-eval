@@ -108,6 +108,15 @@ def compact_layer(
     kv_rows = group.kv_rows(plan.heads)
     channels = group.validate_channels(plan.channels)
 
+    if (
+        select
+        and len(plan.heads) == group.num_heads
+        and len(channels) == group.intermediate
+        and not _wants_bias(output_bias, group.index, "o_proj")
+        and not _wants_bias(output_bias, group.index, "down_proj")
+    ):
+        return
+
     attention, mlp = layer.self_attn, layer.mlp
     _resize(attention, "q_proj", rows=head_rows, select=select)
     _resize(attention, "k_proj", rows=kv_rows, select=select)
@@ -193,6 +202,7 @@ def write_descriptor(
     method: str,
     pruned_for: str = "multi",
     notes: str = "",
+    protected_layers: tuple[int, ...] = (),
 ) -> Subnetwork:
     """Write the kept-unit descriptor and return it parsed back.
 
@@ -221,6 +231,7 @@ def write_descriptor(
         "pruned_for": pruned_for,
         "method": method,
         "notes": notes,
+        "protected_layers": list(protected_layers),
         "components": {
             "attention_heads": {
                 "total": heads_total.pop(),

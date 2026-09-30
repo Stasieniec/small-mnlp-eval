@@ -1,7 +1,8 @@
 """Turning importance scores into a selection under a sparsity budget.
 
-``uniform`` gives every layer the same fraction, and is the only allocation
-that leaves every layer a width a stock ``LlamaConfig`` can describe.
+``uniform`` gives every layer the same fraction when none are protected.
+Protection redistributes its realised removal budget over eligible layers;
+whole-unit rounding can then leave adjacent widths one unit apart.
 ``global`` standardises within each layer, pools, and takes the best overall.
 ``log-increase`` is SlimGPT's Incremental Pruning Ratio: the fraction removed
 rises logarithmically with depth, so early layers, whose errors every later
@@ -21,6 +22,7 @@ Pure Python over floats, so this is testable without torch.
 
 from __future__ import annotations
 
+import heapq
 import math
 import statistics
 from collections.abc import Sequence
@@ -29,10 +31,19 @@ from mnlp_eval.prune import PruneError
 from mnlp_eval.prune.compact import LayerPlan
 from mnlp_eval.prune.groups import LayerGroups
 
-__all__ = ["ALLOCATIONS", "allocate", "log_increase_ratios"]
+__all__ = ["ALLOCATIONS", "allocate", "log_increase_ratios", "protected_indices"]
 
 #: How a sparsity budget is spread over the layers.
 ALLOCATIONS = ("uniform", "global", "log-increase")
+
+
+def protected_indices(layers: int, first: int = 0, last: int = 0) -> frozenset[int]:
+    """Resolve boundary counts to zero-based positions, rejecting overlap."""
+    if any(type(value) is not int or value < 0 for value in (first, last)):
+        raise PruneError("protected layer counts must be non-negative integers")
+    if first + last > layers:
+        raise PruneError("protected first/last layers overlap or exceed the model depth")
+    return frozenset([*range(first), *range(layers - last, layers)])
 
 
 def allocate(
@@ -42,6 +53,8 @@ def allocate(
     *,
     sparsity: float,
     allocation: str = "uniform",
+    protect_first_n: int = 0,
+    protect_last_n: int = 0,
 ) -> tuple[LayerPlan, ...]:
     """Choose which heads and channels to keep, at ``sparsity`` overall.
 
@@ -53,6 +66,9 @@ def allocate(
             :func:`mnlp_eval.prune.groups.describe_layers`.
         sparsity: Fraction of units to remove, in [0, 1).
         allocation: ``uniform``, ``global`` or ``log-increase``.
+        protect_first_n: Keep this many initial layers intact.
+        protect_last_n: Keep this many final layers intact. Protection
+            redistributes the original allocator's realised removal budget.
 
     Returns:
         One :class:`LayerPlan` per layer, holding indices into the dense model.
@@ -66,11 +82,17 @@ def allocate(
 
     _check_shapes(head_scores, groups, "head", "num_heads")
     _check_shapes(channel_scores, groups, "channel", "intermediate")
+    protected = protected_indices(len(groups), protect_first_n, protect_last_n)
 
     # Grouped-query keeps the same number per group, so counts move in steps.
     head_steps = [group.num_kv_heads if group.is_grouped_query else 1 for group in groups]
     head_counts = _counts(head_scores, sparsity, allocation, steps=head_steps)
     channel_counts = _counts(channel_scores, sparsity, allocation, steps=[1] * len(groups))
+    if protected:
+        head_counts = _protected_counts(head_scores, head_counts, head_steps, protected, allocation)
+        channel_counts = _protected_counts(
+            channel_scores, channel_counts, [1] * len(groups), protected, allocation
+        )
 
     return tuple(
         LayerPlan(
@@ -81,6 +103,67 @@ def allocate(
             head_scores, channel_scores, groups, head_counts, channel_counts, strict=True
         )
     )
+
+
+def _protected_counts(
+    scores: Sequence[Sequence[float]],
+    reference: Sequence[int],
+    steps: Sequence[int],
+    protected: frozenset[int],
+    allocation: str,
+) -> list[int]:
+    """Redistribute the unprotected allocator's *realised* removal budget.
+
+    This preserves legacy rounding, including ALMA's six heads per layer at
+    20% uniform pruning. Protected and control models thus remove exactly the
+    same number of heads/channels, instead of benefiting from extra capacity.
+    Uniform removal is apportioned by minimum squared deviation from the ideal
+    fractional removal. Ties go to earlier eligible layers, deterministically.
+    Log-increase uses original depth (not renumbered eligible layers).
+    """
+    sizes = [len(layer) for layer in scores]
+    eligible = [i for i in range(len(scores)) if i not in protected]
+    target = sum(size - keep for size, keep in zip(sizes, reference, strict=True))
+    if target == 0:
+        return sizes
+    if not eligible or target > sum(sizes[i] - steps[i] for i in eligible):
+        raise PruneError("protected layers leave insufficient capacity for the pruning budget")
+    # Dense Llama and Qwen have a constant head grouping. Mixed group steps
+    # require a knapsack allocator; do not silently miss the matched budget.
+    if len({steps[i] for i in eligible}) != 1:
+        raise PruneError("protected allocation requires a common group step across layers")
+    step = steps[eligible[0]]
+    if target % step:
+        raise PruneError("the matched pruning budget is not divisible by the head group step")
+
+    if allocation == "global":
+        local = _global_counts(
+            [scores[i] for i in eligible], target / sum(sizes[i] for i in eligible)
+        )
+        ideal = {i: float(sizes[i] - keep) for i, keep in zip(eligible, local, strict=True)}
+    else:
+        weights = {
+            i: sizes[i] * (math.log(i + 1) if allocation == "log-increase" else 1.0)
+            for i in eligible
+        }
+        total = sum(weights.values())
+        if total == 0:
+            raise PruneError("protected log-increase allocation has no eligible nonzero depth")
+        ideal = {i: target * weights[i] / total for i in eligible}
+        if any(ideal[i] > sizes[i] - steps[i] + 1e-9 for i in eligible):
+            raise PruneError("protected allocation would empty an eligible layer; lower sparsity")
+
+    removed = [0] * len(scores)
+    heap = [(step * step - 2 * step * ideal[i], i) for i in eligible if sizes[i] - steps[i] >= step]
+    heapq.heapify(heap)
+    for _ in range(target // step):
+        if not heap:
+            raise PruneError("cannot satisfy the matched pruning budget")
+        _, i = heapq.heappop(heap)
+        removed[i] += step
+        if removed[i] + step <= sizes[i] - steps[i]:
+            heapq.heappush(heap, (2 * step * (removed[i] - ideal[i]) + step * step, i))
+    return [size - count for size, count in zip(sizes, removed, strict=True)]
 
 
 def _counts(

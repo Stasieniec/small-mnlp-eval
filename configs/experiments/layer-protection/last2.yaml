@@ -1,0 +1,6 @@
+# Matched to the unprotected uniform control's realised unit-removal budget.
+extends: ../../prune/slimgpt-20-multi-target.yaml
+name: alma-7b-boundary-last2
+allocation: uniform
+protect_first_n: 0
+protect_last_n: 2
