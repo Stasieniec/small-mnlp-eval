@@ -1,0 +1,14 @@
+# SlimGPT at 20 percent, calibrated on each prompt with its reference
+# translation appended, instead of the prompt alone.
+#
+# With prompt-only calibration the en-xx directions never put a word of the
+# target language through the model, so units that matter for writing Czech,
+# Icelandic or Chinese are judged only on reading English. The pilot's
+# out-of-English directions lost more than into-English ones for cs, is and
+# zh. Read against slimgpt-20-multi, which differs only in calibration_text.
+#
+# It also sees about 1.7 times the calibration tokens, a second change;
+# slimgpt-20-multi-256 is the control for that. Both fit a 40 GB A100.
+extends: slimgpt-20-multi.yaml
+name: alma-7b-slimgpt20-multi-target
+calibration_text: prompt+target

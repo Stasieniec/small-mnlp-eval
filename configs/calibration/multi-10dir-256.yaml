@@ -1,0 +1,7 @@
+# multi-10dir at twice the size, 256 segments per direction. Only for the
+# token-count control of the prompt+target calibration run
+# (configs/prune/slimgpt-20-multi-256.yaml); every other run uses 128. The
+# same seed makes its first 128 per direction exactly multi-10dir's.
+extends: multi-10dir.yaml
+name: multi-10dir-256
+segments_per_direction: 256

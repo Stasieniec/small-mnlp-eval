@@ -1,0 +1,10 @@
+# Pair-specific SlimGPT at 20 percent: calibrated on the is-en pair only, both
+# directions, at the same 128 segments per direction as the multi run. The
+# comparison is scope at a fixed per-direction budget.
+#
+# Evaluated on all ten directions regardless, so the report's transfer matrix
+# shows what a is-calibrated subnetwork does to the other four languages.
+extends: slimgpt-20-multi.yaml
+name: alma-7b-slimgpt20-is
+calibration: data/calibration/pair-is
+directions: [is-en, en-is]

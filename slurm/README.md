@@ -28,21 +28,144 @@ mkdir -p "$HF_HOME"
 echo "export HF_HOME=$HF_HOME" >> ~/.bashrc
 
 module load 2025
-module load Python/3.12.3-GCCcore-13.3.0
+module load Python/3.13.1-GCCcore-14.2.0
 
 pip install --user uv
-uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -e ".[gen,quant,surface,report]"
+uv venv --managed-python --python 3.11 .venv
+uv pip install --python .venv/bin/python -e ".[gen,prune,quant,surface,report]"
 
-uv venv --python 3.11 .venv-comet
+uv venv --managed-python --python 3.11 .venv-comet
 uv pip install --python .venv-comet/bin/python -r envs/comet-requirements.txt
 
 # Optional, for the final report. Not a pip install; see docs/environments.md.
 bash scripts/setup_metricx_env.sh
 ```
 
+`--managed-python` is load bearing. Without it `uv` builds the venv on the
+system `python3.11` under `/usr/bin`, whose headers live in
+`/usr/include/python3.11`. That directory exists on the login nodes and not on
+the GPU node image, and triton JIT-compiles a CUDA helper against `Python.h` at
+the first kernel launch, so the venv passes every CPU test and then fails two
+minutes into every GPU job. A managed interpreter carries its own headers under
+`$HOME`, which every node can see.
+
+The module Python only bootstraps `uv`; what runs is the 3.11 interpreter in
+`.venv`. Its version still has to be one the loaded stack actually provides,
+and the stacks do not share versions: `Python/3.12.3-GCCcore-13.3.0` is in
+`2024`, not `2025`. A mismatch fails the module load, and every batch script
+runs under `set -euo pipefail`, so the job dies before it reaches the CLI.
+
 The `2025` stack is deliberate. `2023` is marked deprecated in SURF's software
 documentation and provided as-is without support.
+
+## Calibration and pruning
+
+Both happen before any generation, and the order matters: the calibration set
+fixes what every pruning criterion optimises for, so a change to it invalidates
+every subnetwork selected on the old one.
+
+`mnlp-eval calibration` downloads ALMA's training data and checks the drawn
+segments against the test set, so it runs on a **login node**:
+
+```bash
+./.venv/bin/mnlp-eval calibration --spec configs/calibration/multi-10dir.yaml
+./.venv/bin/mnlp-eval calibration --spec configs/calibration/pair-de.yaml
+```
+
+It hard-fails on any test-set collision. Do not work around it: a subnetwork
+selected on contaminated data makes every quality number downstream of it
+indefensible.
+
+Then queue the pruning jobs:
+
+```bash
+bash slurm/submit_prune.sh              # every config in configs/prune
+bash slurm/submit_prune.sh configs/prune/flap-50-multi.yaml
+```
+
+One job per config, run in parallel rather than chained: each reads the dense
+checkpoint and writes its own subnetwork. Each prints a manifest with the
+sparsity it actually achieved, which will differ slightly from the request
+because heads and channels are whole units.
+
+Checkpoints go to `/scratch-shared/$USER/checkpoints`, overridable with
+`PRUNE_OUT`. They are 13.5 GB each at bfloat16 and the home quota is small.
+The descriptors go to `subnetworks/` in the repository, because they are small,
+they are the only record of which positions a run chose, and they cannot be
+recovered from a checkpoint afterwards.
+
+The pruning stage also writes `configs/models/<name>.yaml`, so a pruned system
+is ready to hand to `submit_sweep.sh` with no further editing. It goes beside
+the other model configs rather than next to the weights because `extends`
+resolves relative to the file that declares it.
+
+Deliberately not chained into the evaluation sweep. That sweep is well over a
+hundred GPU-hours, and two things are worth checking first: the achieved
+sparsity in each manifest, and
+
+```bash
+./.venv/bin/mnlp-eval overlap --subnetwork-dir subnetworks/
+```
+
+which should show the three criteria agreeing above chance but not perfectly.
+Near-zero excess over chance would mean the descriptors are being written
+against different index conventions; near-total overlap would mean the three
+criteria are not distinguishable on this data and the comparison has nothing
+to say.
+
+**Cost per method.** FLAP is minutes: one forward pass and two vectors per
+projection. LLM-Pruner runs a backward pass, so budget under an hour and lower
+`batch_size` if it does not fit. SlimGPT is the expensive one, 12 to 15
+minutes on an A100 in the pilot, with two passes over the calibration set, a
+Hessian and Cholesky inverse per projection, and a per-column compensation
+sweep. `prune.sbatch` asks for four hours, which leaves room for larger
+calibration sets and the checkpoint write.
+
+One 40 GB A100 is enough but not spacious for SlimGPT: the dense model is
+13.5 GB, and `down_proj`'s Hessian alone is 11008 squared in float32. If it
+does not fit, lower `segments_per_direction` in the calibration config. Do not
+lower `max_length`: it changes what the Hessian measures and the methods stop
+being comparable. See [docs/pruning.md](../docs/pruning.md).
+
+## Repair
+
+LoRA repair trains on the repair set, which is built like a calibration set
+but takes every segment. On a login node:
+
+```bash
+./.venv/bin/mnlp-eval calibration --spec configs/calibration/repair-multi.yaml
+```
+
+A repair config names the model config its prune job wrote as `source`, so it
+queues behind that job:
+
+```bash
+AFTER=<prune job id> bash slurm/submit_repair.sh configs/repair/slimgpt-20-multi-lora.yaml
+```
+
+It writes the merged checkpoint beside the pruned ones, `repair.json` with the
+training log and the held-out loss before and after, and
+`configs/models/<name>.yaml`, which extends the pruned system's config and
+changes only the checkpoint and `compression.repair`. The job fails if
+held-out loss did not fall, after writing everything, so nothing chained
+behind it evaluates a repair that did nothing. See
+[docs/pruning.md](../docs/pruning.md#repair).
+
+## Chaining prune, repair and evaluation
+
+`submit_repair.sh` and `submit_pilot.sh` both take `AFTER=<job id>`, and
+neither needs the model config to exist yet when it is given. So a whole chain
+can be queued at once:
+
+```bash
+bash slurm/submit_prune.sh configs/prune/slimgpt-20-multi.yaml   # stdout: "<name> P"
+AFTER=P bash slurm/submit_repair.sh configs/repair/slimgpt-20-multi-lora.yaml   # job R
+AFTER=R REPORT=0 BASELINE=alma-7b bash slurm/submit_pilot.sh \
+    configs/suites/alma10-greedy-300.yaml configs/models/alma-7b-slimgpt20-multi-lora.yaml
+```
+
+`REPORT=0` skips the per-call report job; queue one report at the end that
+waits on every scoring job, or run `slurm/report.sbatch` once they are done.
 
 ## Prefetch, on a login node
 
@@ -63,9 +186,13 @@ surprise hours later inside a GPU job.
 BASELINE=alma-7b bash slurm/submit_sweep.sh \
     configs/suites/alma10-greedy.yaml \
     configs/models/alma-7b.yaml \
-    configs/models/alma-7b-prune50-multi.yaml \
-    configs/models/alma-7b-prune50-multi-lora.yaml
+    configs/models/alma-7b-flap50-multi.yaml \
+    configs/models/alma-7b-llm-pruner50-multi.yaml \
+    configs/models/alma-7b-slimgpt50-multi.yaml
 ```
+
+`submit_prune.sh` prints this command with the configs its jobs emitted, so it
+does not have to be assembled by hand.
 
 Per model the chain is: a generation array with one task per direction, then
 efficiency, then scoring. The report waits on every scoring job. `BASELINE` is

@@ -55,8 +55,10 @@ descriptor = {
 }
 ```
 
-Commit it, and point the model config at it with `compression.subnetwork`. The
-overlap numbers cannot be reproduced without it.
+Keep it with the run, and point the model config at it with
+`compression.subnetwork`. The overlap numbers cannot be reproduced without it.
+The ALMA-7B descriptors are about 1 MB each, too large to commit; `subnetworks/`
+is ignored, and derived tables go in `results/`.
 
 ## Comparing
 

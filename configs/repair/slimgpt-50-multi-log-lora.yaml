@@ -1,0 +1,5 @@
+# LoRA repair of SlimGPT at 50 percent under the Incremental Pruning Ratio
+# schedule, the variant the SlimGPT paper itself repairs.
+extends: slimgpt-20-multi-lora.yaml
+name: alma-7b-slimgpt50-multi-log-lora
+source: configs/models/alma-7b-slimgpt50-multi-log.yaml

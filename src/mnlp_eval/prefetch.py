@@ -163,6 +163,21 @@ def _fetch_repo(
         return {"ok": False, "reason": f"{type(exc).__name__}: {exc}{hint}"}
 
 
+def _comet_encoder(checkpoint: str | Path) -> str | None:
+    """The Hub name of the encoder a COMET checkpoint builds on, from hparams.yaml."""
+    import yaml
+
+    hparams = Path(checkpoint).parents[1] / "hparams.yaml"
+    if not hparams.is_file():
+        return None
+    try:
+        loaded = yaml.safe_load(hparams.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return None
+    encoder = loaded.get("pretrained_model") if isinstance(loaded, dict) else None
+    return str(encoder) if encoder else None
+
+
 def _fetch_metrics(metrics: MetricsSpec) -> dict[str, Any]:
     report: dict[str, Any] = {}
 
@@ -185,6 +200,16 @@ def _fetch_metrics(metrics: MetricsSpec) -> dict[str, Any]:
                     path = download_model(model_name)
                     _log(f"  comet {model_name}: cached")
                     report[f"comet:{model_name}"] = {"ok": True, "path": str(path)}
+                    encoder = _comet_encoder(path)
+                    if encoder:
+                        # load_from_checkpoint builds the encoder from its Hub
+                        # name, so its config and tokenizer must be cached too
+                        # or scoring fails offline one step later.
+                        report[f"comet-encoder:{encoder}"] = _fetch_repo(
+                            encoder,
+                            None,
+                            allow_patterns=["*.json", "*.model", "*.txt"],
+                        )
                 except Exception as exc:
                     hint = ""
                     if "gated" in str(exc).lower() or "401" in str(exc):
