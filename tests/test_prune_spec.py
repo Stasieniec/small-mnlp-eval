@@ -142,6 +142,58 @@ def test_a_run_writes_a_checkpoint_a_descriptor_and_a_model_config(
     assert beside.components["ffn_channels"].kept == alongside.components["ffn_channels"].kept
 
 
+def test_target_calibration_reads_the_reference_after_the_prompt(calibration: Path) -> None:
+    from mnlp_eval.prune.collect import load_calibration_prompts
+
+    plain = load_calibration_prompts(calibration, directions=["de-en"])
+    with_target = load_calibration_prompts(calibration, directions=["de-en"], with_target=True)
+
+    # ALMA joins prompt and reference with no space; the fixture's target is "t".
+    assert with_target == [prompt + "t" for prompt in plain]
+
+
+@pytest.mark.parametrize("method", ["flap", "slimgpt"])
+def test_target_calibration_is_recorded_where_the_report_reads_it(
+    method: str, calibration: Path, tmp_path: Path, model_config_dir: Path, stub_hub: None
+) -> None:
+    import yaml
+
+    def run(calibration_text: str) -> dict[str, Any]:
+        spec = PruneSpec.from_dict(
+            {
+                "name": f"stub-{method}-{calibration_text.replace('+', '-')}",
+                "method": method,
+                "model_name_or_path": "stub/model",
+                "calibration": str(calibration),
+                "calibration_text": calibration_text,
+                "sparsity": 0.5,
+                "allocation": "global",
+                "dtype": "float32",
+                "batch_size": 3,
+                "max_length": 16,
+            }
+        )
+        return run_pruning(
+            spec,
+            tmp_path / "out",
+            subnetwork_dir=tmp_path / "subnetworks",
+            config_dir=model_config_dir,
+        )
+
+    plain = run("prompt")
+    target = run("prompt+target")
+
+    # The descriptor is what the overlap analysis reads, so it must say which.
+    assert "prompt+target text" in json.loads(Path(target["subnetwork"]).read_text())["notes"]
+    assert "prompt text" in json.loads(Path(plain["subnetwork"]).read_text())["notes"]
+    emitted = yaml.safe_load(Path(target["model_config"]).read_text())
+    assert emitted["compression"]["method"].endswith("prompt+target calibration")
+    assert (
+        "calibration"
+        not in yaml.safe_load(Path(plain["model_config"]).read_text())["compression"]["method"]
+    )
+
+
 def test_the_emitted_model_config_is_one_the_harness_accepts(
     calibration: Path, tmp_path: Path, model_config_dir: Path, stub_hub: None
 ) -> None:
@@ -194,6 +246,7 @@ def test_the_shipped_configs_all_parse() -> None:
         ({"sparsity": 1.0}, "fraction removed"),
         ({"name": ""}, "'name' is required"),
         ({"batch_size": 0}, "at least 1"),
+        ({"calibration_text": "reference"}, "is not one of"),
     ],
 )
 def test_a_bad_spec_is_refused(payload: dict[str, Any], expected: str) -> None:

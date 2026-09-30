@@ -58,6 +58,20 @@ def test_a_pair_specific_run_reads_only_its_own_directions(calibration_set: Path
         load_calibration_prompts(calibration_set, directions=["is-en"])
 
 
+def test_a_set_whose_manifest_records_test_collisions_is_refused(calibration_set: Path) -> None:
+    manifest = calibration_set / "calibration.json"
+    manifest.write_text(
+        json.dumps({"contamination": {"dataset": "wmt", "total_collisions": 0}}), encoding="utf-8"
+    )
+    assert len(load_calibration_prompts(calibration_set)) == 8
+
+    manifest.write_text(
+        json.dumps({"contamination": {"dataset": "wmt", "total_collisions": 2}}), encoding="utf-8"
+    )
+    with pytest.raises(PruneError, match="2 segment"):
+        load_calibration_prompts(calibration_set)
+
+
 def test_an_empty_calibration_directory_says_how_to_build_one(tmp_path: Path) -> None:
     with pytest.raises(PruneError, match="mnlp-eval calibration"):
         load_calibration_prompts(tmp_path)
