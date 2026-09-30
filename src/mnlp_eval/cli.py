@@ -6,8 +6,9 @@ before any of them. Then ``info`` to see what the current environment can do,
 ``verify-testset`` to check test-set provenance against ALMA's own files, and
 ``suite-directions`` and ``run-dir`` so a batch script can resolve what it
 needs without parsing configs itself, ``calibration`` to build the pruning and
-repair data, ``prune`` to select and compact a subnetwork, and ``overlap`` to
-compare subnetworks with each other.
+repair data, ``prune`` to select and compact a subnetwork, ``repair`` to train
+and merge a LoRA adapter on a pruned checkpoint, and ``overlap`` to compare
+subnetworks with each other.
 
 Configuration comes from YAML files. ``--set`` applies dotted-path overrides on
 top, which change the run identity as they should: an override is a different
@@ -18,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -428,7 +430,7 @@ def command_calibration(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
     print(
-        f"{spec.total_segments} segments across {len(spec.directions)} direction(s), "
+        f"{manifest['total_segments']} segments across {len(spec.directions)} direction(s), "
         f"fingerprint {manifest['fingerprint']}",
         file=sys.stderr,
     )
@@ -468,6 +470,42 @@ def command_prune_spec(args: argparse.Namespace) -> int:
     from mnlp_eval.prune.spec import PruneSpec
 
     spec = PruneSpec.from_dict(load_yaml_config(args.spec))
+    if not args.field:
+        print(json.dumps(asdict(spec), indent=2, sort_keys=True))
+        return 0
+    value = getattr(spec, args.field)
+    print(value if not isinstance(value, list) else ",".join(value))
+    return 0
+
+
+def command_repair(args: argparse.Namespace) -> int:
+    """Train LoRA on a pruned checkpoint, merge it, and write the repaired system."""
+    from mnlp_eval.prune.repair import RepairSpec, run_repair
+
+    payload = load_yaml_config(args.spec)
+    _apply_overrides(payload, list(getattr(args, "set", None) or []))
+    spec = RepairSpec.from_dict(payload)
+    manifest = run_repair(spec, Path(args.out), config_dir=Path(args.model_config_dir))
+    manifest.pop("history", None)
+    print(json.dumps(manifest, indent=2, sort_keys=True))
+    before = manifest.get("held_out_loss_before")
+    after = manifest.get("held_out_loss_after")
+    improved = before is not None and after is not None and math.isfinite(after) and after < before
+    if spec.fail_without_improvement and before is not None and not improved:
+        # Written anyway, since the numbers are worth seeing, but the job fails
+        # so nothing chained behind it spends GPU time evaluating it.
+        return _fail(
+            f"held-out loss did not fall ({before:.4f} before, {after} after). "
+            "The checkpoint was written but repair did not help; see repair.json."
+        )
+    return 0
+
+
+def command_repair_spec(args: argparse.Namespace) -> int:
+    """Print one field of a repair config, for a batch script to resolve."""
+    from mnlp_eval.prune.repair import RepairSpec
+
+    spec = RepairSpec.from_dict(load_yaml_config(args.spec))
     if not args.field:
         print(json.dumps(asdict(spec), indent=2, sort_keys=True))
         return 0
@@ -722,6 +760,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="print just this field; omit for the whole spec as JSON",
     )
     prune_spec.set_defaults(handler=command_prune_spec)
+
+    repair = subparsers.add_parser(
+        "repair", help="LoRA-repair a pruned checkpoint and merge the adapter into it"
+    )
+    repair.add_argument("--spec", required=True, help="path to a repair YAML config")
+    repair.add_argument(
+        "--out", default="checkpoints", help="directory to write the repaired checkpoint into"
+    )
+    repair.add_argument(
+        "--model-config-dir",
+        default="configs/models",
+        help="where to write the model config, next to the pruned one it extends",
+    )
+    repair.add_argument(
+        "--set",
+        action="append",
+        metavar="KEY=VALUE",
+        help="override, for example --set max_examples=64",
+    )
+    repair.set_defaults(handler=command_repair)
+
+    repair_spec = subparsers.add_parser(
+        "repair-spec", help="print a repair config's fields, one at a time"
+    )
+    repair_spec.add_argument("--spec", required=True, help="path to a repair YAML config")
+    repair_spec.add_argument(
+        "--field",
+        choices=("name", "source", "data", "directions"),
+        help="print just this field; omit for the whole spec as JSON",
+    )
+    repair_spec.set_defaults(handler=command_repair_spec)
 
     overlap = subparsers.add_parser(
         "overlap", help="compare subnetwork descriptors against each other and against chance"

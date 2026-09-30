@@ -1,0 +1,16 @@
+# Plumbing check, not an experiment. Prunes Qwen2.5-0.5B-Instruct with SlimGPT
+# under the log-increase schedule in a few minutes, so the prune, repair,
+# generate and score chain can be exercised end to end before any ALMA-7B job
+# is queued. Grouped-query and tied embeddings also make it the harder case
+# for the loader. Its numbers mean nothing.
+name: smoke-qwen-slimgpt20
+method: slimgpt
+model_name_or_path: Qwen/Qwen2.5-0.5B-Instruct
+calibration: data/calibration/pair-de
+directions: [de-en, en-de]
+sparsity: 0.2
+allocation: log-increase
+dtype: bfloat16
+batch_size: 4
+max_length: 512
+seed: 1234
