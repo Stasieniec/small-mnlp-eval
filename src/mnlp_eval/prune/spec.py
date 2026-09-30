@@ -16,7 +16,11 @@ from mnlp_eval.languages import parse_directions
 from mnlp_eval.prune import PruneError
 from mnlp_eval.prune.budget import ALLOCATIONS
 
-__all__ = ["METHODS", "METHOD_NAMES", "PruneSpec", "run_pruning"]
+__all__ = ["CALIBRATION_TEXTS", "METHODS", "METHOD_NAMES", "PruneSpec", "run_pruning"]
+
+#: What of each calibration record goes through the model: the prompt alone,
+#: or the prompt with its reference translation appended.
+CALIBRATION_TEXTS = ("prompt", "prompt+target")
 
 #: The implemented criteria, by the name a config uses, and their display names.
 METHOD_NAMES = {"flap": "FLAP", "llm-pruner": "LLM-Pruner", "slimgpt": "SlimGPT"}
@@ -37,6 +41,8 @@ class PruneSpec:
     allocation: str = "uniform"
     #: Which directions to use. Empty means all, a multi-directional subnetwork.
     directions: list[str] | None = None
+    #: ``prompt`` or ``prompt+target``; see load_calibration_prompts.
+    calibration_text: str = "prompt"
     dtype: str = "bfloat16"
     batch_size: int = 4
     max_length: int = 512
@@ -73,9 +79,23 @@ class PruneSpec:
                 "It is the fraction removed, not the fraction kept."
             )
             raise ConfigError(msg)
+        if self.calibration_text not in CALIBRATION_TEXTS:
+            msg = (
+                f"prune spec: calibration_text {self.calibration_text!r} is not one of "
+                f"{', '.join(CALIBRATION_TEXTS)}"
+            )
+            raise ConfigError(msg)
         if self.batch_size < 1 or self.max_length < 1:
             msg = "prune spec: batch_size and max_length must both be at least 1"
             raise ConfigError(msg)
+
+    @property
+    def method_label(self) -> str:
+        """How the report names the method; the default calibration text is implied."""
+        label = f"{METHOD_NAMES[self.method]}, {self.allocation} budget"
+        if self.calibration_text != "prompt":
+            label += f", {self.calibration_text} calibration"
+        return label
 
     @property
     def pruned_for(self) -> str:
@@ -114,7 +134,11 @@ def run_pruning(
     model.eval()
     model = model.to(default_device())
 
-    prompts = load_calibration_prompts(spec.calibration, directions=spec.directions)
+    prompts = load_calibration_prompts(
+        spec.calibration,
+        directions=spec.directions,
+        with_target=spec.calibration_text == "prompt+target",
+    )
     groups = describe_layers(model)
 
     def batches() -> list[dict[str, Any]]:
@@ -139,7 +163,10 @@ def run_pruning(
         "base_model": spec.model_name_or_path,
         "method": METHOD_NAMES[spec.method],
         "pruned_for": spec.pruned_for,
-        "notes": f"{spec.allocation} budget over {len(prompts)} calibration segments",
+        "notes": (
+            f"{spec.allocation} budget over {len(prompts)} calibration segments, "
+            f"{spec.calibration_text} text"
+        ),
     }
     # Beside the weights, so the checkpoint carries its own shapes, and under
     # subnetworks/, where the overlap analysis reads it.
@@ -215,7 +242,7 @@ def _write_model_config(
         "kwargs": {"checkpoint": str(checkpoint)},
         "compression": {
             "family": "pruning",
-            "method": f"{METHOD_NAMES[spec.method]}, {spec.allocation} budget",
+            "method": spec.method_label,
             "nominal_sparsity": spec.sparsity,
             "pruned_for": spec.pruned_for,
             "subnetwork": str(subnetwork_dir / f"{spec.name}.json"),

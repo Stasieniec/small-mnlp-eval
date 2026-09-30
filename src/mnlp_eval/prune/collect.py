@@ -24,16 +24,21 @@ if TYPE_CHECKING:
     from torch import Tensor
 
 __all__ = [
+    "CALIBRATION_MANIFEST",
     "PRUNABLE_INPUTS",
     "InputStats",
     "collect_input_stats",
     "load_calibration_prompts",
+    "refuse_contaminated",
     "tokenized_batches",
 ]
 
 #: The projections whose *input* channels index a prunable group, which is why
 #: every activation-based criterion hooks exactly these two.
 PRUNABLE_INPUTS = ("o_proj", "down_proj")
+
+#: What ``mnlp-eval calibration`` writes beside the per-direction files.
+CALIBRATION_MANIFEST = "calibration.json"
 
 
 @dataclass
@@ -70,17 +75,52 @@ class InputStats:
         self.count = total
 
 
+def refuse_contaminated(root: Path) -> None:
+    """Refuse a set whose own manifest records test-set collisions.
+
+    ``mnlp-eval calibration`` exits non-zero on a collision, but only after
+    writing the set under the name every config reads, so the exit code alone
+    does not stop a later prune or repair job from using it. A set with no
+    manifest predates the check and is let through.
+    """
+    import json
+
+    manifest = root / CALIBRATION_MANIFEST
+    if not manifest.is_file():
+        return
+    contamination = json.loads(manifest.read_text(encoding="utf-8")).get("contamination") or {}
+    collisions = contamination.get("total_collisions")
+    if collisions:
+        msg = (
+            f"{root}: its {CALIBRATION_MANIFEST} records {collisions} segment(s) that also "
+            f"appear in {contamination.get('dataset')}. A set that overlaps the test set "
+            "must not be used."
+        )
+        raise PruneError(msg)
+
+
 def load_calibration_prompts(
-    directory: str | Path, *, directions: Sequence[str] | None = None
+    directory: str | Path,
+    *,
+    directions: Sequence[str] | None = None,
+    with_target: bool = False,
 ) -> list[str]:
     """Read the rendered prompts from a calibration set, in a stable order.
 
     ``directions`` restricts it, which is how a pair-specific subnetwork is
     calibrated from a set holding all ten.
+
+    ``with_target`` appends each record's reference translation to its prompt,
+    joined as ALMA's training joins them, with no space. The model then reads
+    the target language as it would have written it, so the criterion sees the
+    activations of producing the output as well as of reading the source.
+    Without it, ``en-xx`` calibration never puts a word of the target language
+    through the model.
     """
     from mnlp_eval.artifacts import read_jsonl_dicts
 
     root = Path(directory).expanduser()
+    refuse_contaminated(root)
     files = sorted(root.glob("*.jsonl"))
     if directions is not None:
         wanted = {str(direction) for direction in directions}
@@ -103,7 +143,14 @@ def load_calibration_prompts(
             if not prompt:
                 msg = f"{path}: a record has no 'prompt' field"
                 raise PruneError(msg)
-            prompts.append(str(prompt))
+            if with_target:
+                target = record.get("target")
+                if not target:
+                    msg = f"{path}: a record has no 'target' field to calibrate on"
+                    raise PruneError(msg)
+                prompts.append(str(prompt) + str(target))
+            else:
+                prompts.append(str(prompt))
     return prompts
 
 
