@@ -1,0 +1,12 @@
+# LoRA repair of SlimGPT at 20 percent, multi-directional calibration.
+#
+# ALMA's own LoRA recipe, one epoch over every eligible segment of its human
+# parallel data; the defaults in RepairSpec (src/mnlp_eval/prune/repair.py)
+# are that recipe and are not repeated here. The source is the model config
+# `mnlp-eval prune` wrote, so the prune job must have finished first.
+#
+# Read against its unrepaired parent: the pair answers how much of the pruning
+# loss lightweight repair recovers, and neither number answers it alone.
+name: alma-7b-slimgpt20-multi-lora
+source: configs/models/alma-7b-slimgpt20-multi.yaml
+data: data/calibration/repair-multi
