@@ -1,0 +1,3 @@
+direction,train_record,source,train_target,test_segment,test_reference
+en-cs,5463,Amazing.,Nádherný.,1356,Úžasné.
+ru-en,614,Ну и что?,So what?,311,So what?

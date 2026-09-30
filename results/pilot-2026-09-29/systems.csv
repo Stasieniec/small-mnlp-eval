@@ -1,0 +1,16 @@
+system,sparsity,calibration,bleu,chrf,comet,length_ratio,truncated_pct
+alma-7b,0.0,,30.35,51.14,0.8474,0.964,0.0
+alma-7b-slimgpt20-multi,0.2,"1,280 prompts",20.65,41.71,0.8148,0.909,0.1
+alma-7b-slimgpt20-multi-uniform,0.2,"1,280 prompts",23.01,43.81,0.8222,0.890,0.0
+alma-7b-slimgpt20-multi-log,0.2,"1,280 prompts",21.92,42.92,0.8223,0.902,0.1
+alma-7b-slimgpt20-multi-target,0.2,"1,280 prompt+ref",28.33,49.33,0.8367,0.949,0.0
+alma-7b-slimgpt20-multi-256,0.2,"2,560 prompts",21.22,42.28,0.8195,0.904,0.2
+alma-7b-slimgpt20-cs,0.2,"256 prompts, cs",12.28,31.73,0.6845,0.962,2.1
+alma-7b-slimgpt20-de,0.2,"256 prompts, de",10.37,29.08,0.6482,0.999,1.8
+alma-7b-slimgpt20-is,0.2,"256 prompts, is",13.05,33.36,0.7105,0.968,1.3
+alma-7b-slimgpt20-ru,0.2,"256 prompts, ru",10.86,30.18,0.6523,0.949,0.6
+alma-7b-slimgpt20-zh,0.2,"256 prompts, zh",16.15,36.25,0.7340,0.955,1.6
+alma-7b-flap20-multi,0.2,"1,280 prompts",19.02,38.22,0.8031,0.815,0.3
+alma-7b-flap20-de,0.2,"256 prompts, de",19.62,39.30,0.8043,0.864,0.4
+alma-7b-slimgpt50-multi,0.5,"1,280 prompts",4.91,19.08,0.5567,0.645,0.8
+alma-7b-slimgpt50-multi-log,0.5,"1,280 prompts",3.82,17.26,0.5645,0.612,0.0
