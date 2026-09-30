@@ -56,3 +56,7 @@ third_party/
 .vscode/
 *.swp
 .DS_Store
+
+# Subnetwork descriptors: every kept index of every layer, about 1 MB each for
+# ALMA-7B. Derived tables are committed under results/ instead.
+/subnetworks/
