@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 
 from mnlp_eval.prune import PruneError
-from mnlp_eval.prune.budget import allocate
+from mnlp_eval.prune.budget import allocate, log_increase_ratios
 from mnlp_eval.prune.groups import LayerGroups
 
 
@@ -103,6 +103,48 @@ def test_a_layer_never_loses_everything() -> None:
     # An empty layer is a removed layer, which this is not.
     assert all(layer.heads for layer in plan)
     assert all(layer.channels for layer in plan)
+
+
+class TestLogIncrease:
+    def test_the_ratios_average_to_the_target_and_rise_with_depth(self) -> None:
+        ratios = log_increase_ratios(32, 0.2)
+
+        assert ratios[0] == 0.0
+        assert ratios == sorted(ratios)
+        assert sum(ratios) / len(ratios) == pytest.approx(0.2)
+        # The figure quoted in the docstring and in docs/pruning.md.
+        assert ratios[-1] == pytest.approx(0.272, abs=1e-3)
+
+    def test_it_follows_the_papers_logarithmic_shape(self) -> None:
+        import math
+
+        ratios = log_increase_ratios(8, 0.3)
+
+        for index, ratio in enumerate(ratios):
+            assert ratio == pytest.approx(ratios[-1] * math.log(index + 1) / math.log(8))
+
+    def test_the_first_layer_keeps_everything_and_the_last_loses_most(self) -> None:
+        groups = [mha(index, num_heads=8, intermediate=16) for index in range(4)]
+
+        plan = allocate(flat(4, 8), flat(4, 16), groups, sparsity=0.25, allocation="log-increase")
+
+        kept = [len(layer.channels) for layer in plan]
+        assert kept[0] == 16
+        assert kept == sorted(kept, reverse=True)
+        assert sum(kept) == pytest.approx(48, abs=2)
+
+    def test_scores_decide_which_units_go_but_not_how_many(self) -> None:
+        groups = [mha(0), mha(1)]
+        heads = [[1.0, 2.0, 3.0, 4.0], [100.0, 200.0, 300.0, 400.0]]
+
+        plan = allocate(heads, flat(2, 8), groups, sparsity=0.25, allocation="log-increase")
+
+        assert plan[0].heads == (0, 1, 2, 3)
+        assert plan[1].heads == (2, 3)
+
+    def test_a_budget_that_would_empty_the_last_layer_is_refused(self) -> None:
+        with pytest.raises(PruneError, match="all of it"):
+            log_increase_ratios(32, 0.8)
 
 
 class TestGroupedQueryAttention:

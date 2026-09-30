@@ -1,0 +1,7 @@
+# SlimGPT at 20 percent with every layer pruned by the same fraction.
+#
+# The comparison run for the global budget, which lets per-layer cuts range
+# from nothing to 40 percent.
+extends: slimgpt-20-multi.yaml
+name: alma-7b-slimgpt20-multi-uniform
+allocation: uniform

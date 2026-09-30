@@ -1,0 +1,6 @@
+# SlimGPT at 50 percent with the Incremental Pruning Ratio, 0 at layer 0 rising
+# to 0.68 at layer 31. The paper's own ablation is at 50 percent, where the
+# gap between schedules is largest.
+extends: slimgpt-50-multi.yaml
+name: alma-7b-slimgpt50-multi-log
+allocation: log-increase
