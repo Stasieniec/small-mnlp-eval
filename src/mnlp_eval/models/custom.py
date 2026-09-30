@@ -152,7 +152,10 @@ def load_custom(spec: ModelSpec, prompt: PromptTemplate | None = None) -> Transl
 
     kind = kind or _infer_kind(model)
     translator_class = Seq2SeqTranslator if kind == "seq2seq" else CausalTranslator
-    checkpoint = spec.model_name_or_path or spec.kwargs.get("checkpoint")
+    # kwargs.checkpoint first: a pruned or repaired system extends the dense
+    # config and so inherits its model_name_or_path, and measuring that would
+    # report the dense model's disk size for every compressed one.
+    checkpoint = spec.kwargs.get("checkpoint") or spec.model_name_or_path
     return translator_class(
         spec=spec,
         prompt=prompt,
