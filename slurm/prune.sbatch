@@ -11,7 +11,7 @@
 #
 # One GPU, not an exclusive node: nothing here is a timing measurement, so
 # sharing the node costs only wall clock. SlimGPT is the expensive one, at
-# roughly an hour on ALMA-7B: two passes over the calibration set, a Hessian
+# 12 to 15 minutes on ALMA-7B: two passes over the calibration set, a Hessian
 # and a Cholesky inverse per projection, and a per-column compensation sweep.
 # FLAP finishes in minutes. The four-hour limit covers the slowest with room
 # for the 13.5 GB checkpoint write.

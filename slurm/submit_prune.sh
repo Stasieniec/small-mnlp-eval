@@ -2,7 +2,14 @@
 # Queue one pruning job per config.
 #
 #   bash slurm/submit_prune.sh configs/prune/flap-50-multi.yaml [more.yaml ...]
-#   bash slurm/submit_prune.sh                 # every config in configs/prune
+#   bash slurm/submit_prune.sh                 # every config in configs/prune but smoke-*
+#
+# Prints "<name> <job id>" per job on stdout and everything else on stderr, so
+#   JOB=$(bash slurm/submit_prune.sh configs/prune/x.yaml | awk '{print $2}')
+# gives the job id to chain repair or evaluation on with AFTER=.
+#
+# PARTITION=gpu_h100 overrides the partition in prune.sbatch, for a run that
+# ran out of memory on a 40 GB A100.
 #
 # The jobs are independent: each reads the dense checkpoint and writes its own
 # subnetwork, so they run in parallel rather than in a chain.
@@ -23,7 +30,11 @@ if [[ ! -x "${CLI}" ]]; then
 fi
 
 if [[ $# -eq 0 ]]; then
-    CONFIGS=(configs/prune/*.yaml)
+    # Every experiment config, not the smoke-* plumbing checks.
+    CONFIGS=()
+    for CONFIG in configs/prune/*.yaml; do
+        [[ "$(basename "${CONFIG}")" == smoke-* ]] || CONFIGS+=("${CONFIG}")
+    done
 else
     CONFIGS=("$@")
 fi
@@ -56,16 +67,19 @@ for CONFIG in "${CONFIGS[@]}"; do
     JOB=$(
         sbatch --parsable \
             --job-name "prune-${NAME}" \
+            ${PARTITION:+--partition "${PARTITION}"} \
             --export "ALL,PRUNE_CONFIG=${CONFIG},PRUNE_OUT=${PRUNE_OUT}" \
             slurm/prune.sbatch
     )
-    echo "  ${NAME} -> job ${JOB}, checkpoint ${PRUNE_OUT}/${NAME}"
+    echo "  ${NAME} -> job ${JOB}, checkpoint ${PRUNE_OUT}/${NAME}" >&2
+    # Alone on stdout, so a caller can chain on it: NAME JOB
+    echo "${NAME} ${JOB}"
     MODEL_CONFIGS+=("configs/models/${NAME}.yaml")
 done
 
 SWEEP_ARGS=$(printf ' \\\n      %s' "${MODEL_CONFIGS[@]}")
 
-cat <<NEXT
+cat >&2 <<NEXT
 
 Queued ${#CONFIGS[@]} pruning job(s). Watch with: squeue -u \$USER
 
