@@ -115,16 +115,57 @@ to say.
 
 **Cost per method.** FLAP is minutes: one forward pass and two vectors per
 projection. LLM-Pruner runs a backward pass, so budget under an hour and lower
-`batch_size` if it does not fit. SlimGPT is the expensive one at roughly an
-hour, with two passes over the calibration set, a Hessian and Cholesky inverse
-per projection, and a per-column compensation sweep. `prune.sbatch` asks for
-four hours, which covers the slowest with room for the checkpoint write.
+`batch_size` if it does not fit. SlimGPT is the expensive one, 12 to 15
+minutes on an A100 in the pilot, with two passes over the calibration set, a
+Hessian and Cholesky inverse per projection, and a per-column compensation
+sweep. `prune.sbatch` asks for four hours, which leaves room for larger
+calibration sets and the checkpoint write.
 
 One 40 GB A100 is enough but not spacious for SlimGPT: the dense model is
 13.5 GB, and `down_proj`'s Hessian alone is 11008 squared in float32. If it
 does not fit, lower `segments_per_direction` in the calibration config. Do not
 lower `max_length`: it changes what the Hessian measures and the methods stop
 being comparable. See [docs/pruning.md](../docs/pruning.md).
+
+## Repair
+
+LoRA repair trains on the repair set, which is built like a calibration set
+but takes every segment. On a login node:
+
+```bash
+./.venv/bin/mnlp-eval calibration --spec configs/calibration/repair-multi.yaml
+```
+
+A repair config names the model config its prune job wrote as `source`, so it
+queues behind that job:
+
+```bash
+AFTER=<prune job id> bash slurm/submit_repair.sh configs/repair/slimgpt-20-multi-lora.yaml
+```
+
+It writes the merged checkpoint beside the pruned ones, `repair.json` with the
+training log and the held-out loss before and after, and
+`configs/models/<name>.yaml`, which extends the pruned system's config and
+changes only the checkpoint and `compression.repair`. The job fails if
+held-out loss did not fall, after writing everything, so nothing chained
+behind it evaluates a repair that did nothing. See
+[docs/pruning.md](../docs/pruning.md#repair).
+
+## Chaining prune, repair and evaluation
+
+`submit_repair.sh` and `submit_pilot.sh` both take `AFTER=<job id>`, and
+neither needs the model config to exist yet when it is given. So a whole chain
+can be queued at once:
+
+```bash
+bash slurm/submit_prune.sh configs/prune/slimgpt-20-multi.yaml   # stdout: "<name> P"
+AFTER=P bash slurm/submit_repair.sh configs/repair/slimgpt-20-multi-lora.yaml   # job R
+AFTER=R REPORT=0 BASELINE=alma-7b bash slurm/submit_pilot.sh \
+    configs/suites/alma10-greedy-300.yaml configs/models/alma-7b-slimgpt20-multi-lora.yaml
+```
+
+`REPORT=0` skips the per-call report job; queue one report at the end that
+waits on every scoring job, or run `slurm/report.sbatch` once they are done.
 
 ## Prefetch, on a login node
 
