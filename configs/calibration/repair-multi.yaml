@@ -1,0 +1,21 @@
+# Repair data for LoRA: all of ALMA's human-written parallel data, all ten
+# directions.
+#
+# Deliberately unbalanced, unlike the calibration sets. Repair tries to put
+# back what pruning removed from ALMA-7B, and ALMA-7B was fine-tuned on this
+# data at its natural proportions; ALMA's own LoRA recipe trains on all of it
+# for one epoch.
+#
+# The source-length filter is effectively off, as in ALMA, which truncates long
+# segments rather than dropping them (repair does the same at 511 tokens). The
+# calibration sets' 20-character minimum would drop about a tenth of zh-en,
+# ordinary sentences that are short only because Chinese characters are dense.
+name: repair-multi
+dataset: haoranxu/ALMA-Human-Parallel
+split: train
+directions: [cs-en, de-en, is-en, ru-en, zh-en, en-cs, en-de, en-is, en-ru, en-zh]
+segments_per_direction: null
+min_source_chars: 1
+max_source_chars: 100000
+seed: 1234
+prompt: alma

@@ -1,0 +1,18 @@
+# LLM-Pruner at 50 percent, calibrated on all ten directions.
+#
+# The only one of the three that needs gradients, so it is also the one whose
+# memory budget is set by backward activations rather than by a fixed
+# statistic. Lower batch_size here than for the other two if it does not fit.
+#
+# No compensation step. The paper pairs this criterion with a LoRA repair,
+# which this project runs as its own stage and records in compression.repair.
+name: alma-7b-llm-pruner50-multi
+method: llm-pruner
+model_name_or_path: haoranxu/ALMA-7B
+calibration: data/calibration/multi-10dir
+sparsity: 0.5
+allocation: global
+dtype: bfloat16
+batch_size: 2
+max_length: 512
+seed: 1234

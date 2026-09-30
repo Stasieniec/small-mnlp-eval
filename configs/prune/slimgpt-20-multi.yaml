@@ -1,0 +1,4 @@
+# SlimGPT at 20 percent, calibrated on all ten directions.
+extends: slimgpt-50-multi.yaml
+name: alma-7b-slimgpt20-multi
+sparsity: 0.2

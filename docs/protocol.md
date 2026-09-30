@@ -158,6 +158,27 @@ config and tensors disagree is visible. Per layer: attention and FFN width, the
 head count where the head dimension is known, and the share of parameters that
 are exactly zero. Encoder and decoder stacks are kept separate.
 
+## Pruning method
+
+`compression.method` records which criterion selected the subnetwork and how
+the budget was spread, because the three differ in what they measure and two of
+the three change the surviving weights rather than only selecting among them.
+
+- **FLAP** ranks a unit by the variance of its input feature weighted by the
+  norm of the weights reading it, and adds the removed units' mean output back
+  as a bias. A FLAP checkpoint therefore carries biases on `o_proj` and
+  `down_proj` that the dense model does not have.
+- **LLM-Pruner** ranks by a first-order Taylor expansion of the calibration
+  loss and changes nothing else. Its published results assume a LoRA repair,
+  which is a separate stage and appears in `compression.repair`.
+- **SlimGPT** ranks by the optimal-brain-surgery cost and applies the
+  compensating weight update to the surviving columns. Its numbers are not
+  comparable to a run of the same criterion without that update.
+
+`uniform` and `global` name how the sparsity budget was spread over the layers.
+Only `uniform` leaves every layer the same width. See
+[pruning.md](pruning.md).
+
 A `uniform: false` result means the pruning criterion spent its budget unevenly
 across depth, which a single sparsity number hides. A high zero fraction means
 a mask was applied but the weights were never compacted, so the parameter

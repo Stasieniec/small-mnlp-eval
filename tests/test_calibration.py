@@ -93,6 +93,22 @@ def test_every_direction_contributes_the_same_number_of_segments(
     assert manifest["total_segments"] == 21
 
 
+def test_a_repair_set_takes_every_eligible_segment(
+    tmp_path: Path, stub_hub: dict[str, Any]
+) -> None:
+    manifest = build(tmp_path, directions=["de-en", "is-en"], segments_per_direction=None)
+
+    for entry in manifest["directions"].values():
+        assert entry["n_segments"] == entry["n_eligible"]
+        assert 0 < entry["n_eligible"] <= entry["n_available"]
+    assert manifest["total_segments"] == sum(
+        entry["n_segments"] for entry in manifest["directions"].values()
+    )
+    record = next(iter(read_jsonl_dicts(tmp_path / "test-set" / "de-en.jsonl")))
+    assert record["prompt"].endswith("English:")
+    assert record["target"]
+
+
 def test_the_draw_is_reproducible_from_the_config(tmp_path: Path, stub_hub: dict[str, Any]) -> None:
     first = build(tmp_path / "a")
     second = build(tmp_path / "b")

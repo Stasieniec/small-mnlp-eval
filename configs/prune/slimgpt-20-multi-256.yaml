@@ -1,0 +1,7 @@
+# Control for slimgpt-20-multi-target: prompt-only calibration on twice the
+# segments, 256 per direction, so roughly the token count prompt+target sees.
+# If -target beats this one as well as slimgpt-20-multi, the gain comes from
+# the target side rather than from more calibration tokens.
+extends: slimgpt-20-multi.yaml
+name: alma-7b-slimgpt20-multi-256
+calibration: data/calibration/multi-10dir-256

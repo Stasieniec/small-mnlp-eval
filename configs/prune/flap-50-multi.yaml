@@ -1,0 +1,20 @@
+# FLAP at 50 percent, calibrated on all ten directions.
+#
+# The cheapest of the three criteria: one forward pass, two vectors per
+# projection, no gradients and no Hessian. It is also the only one that
+# compensates without training, by adding the mean output of the channels it
+# removed back as a bias, so it is the natural first point on the sweep.
+#
+# allocation: global is FLAP's own adaptive search. Standardising each layer's
+# scores before pooling them is what makes the comparison across layers mean
+# anything; see src/mnlp_eval/prune/budget.py.
+name: alma-7b-flap50-multi
+method: flap
+model_name_or_path: haoranxu/ALMA-7B
+calibration: data/calibration/multi-10dir
+sparsity: 0.5
+allocation: global
+dtype: bfloat16
+batch_size: 4
+max_length: 512
+seed: 1234

@@ -1,0 +1,6 @@
+# LLM-Pruner at 20 percent, calibrated on all ten directions. Sparsity does not
+# change its memory, which is set by the gradient pass, so this OOMs exactly
+# where the 50 percent run did until that is fixed.
+extends: llm-pruner-50-multi.yaml
+name: alma-7b-llm-pruner20-multi
+sparsity: 0.2
