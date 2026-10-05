@@ -1,0 +1,82 @@
+{
+  "cs-en": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "cs-en",
+    "fingerprint": "d752791a195a0509",
+    "n_available": 1448,
+    "n_used": 300,
+    "split": "test"
+  },
+  "de-en": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "de-en",
+    "fingerprint": "96bf15404ccd3ff0",
+    "n_available": 1984,
+    "n_used": 300,
+    "split": "test"
+  },
+  "en-cs": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "en-cs",
+    "fingerprint": "80a4bb917e9b8380",
+    "n_available": 2037,
+    "n_used": 300,
+    "split": "test"
+  },
+  "en-de": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "en-de",
+    "fingerprint": "5683071833e0c444",
+    "n_available": 2037,
+    "n_used": 300,
+    "split": "test"
+  },
+  "en-is": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "en-is",
+    "fingerprint": "40dc441fe8e32f81",
+    "n_available": 1000,
+    "n_used": 300,
+    "split": "test"
+  },
+  "en-ru": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "en-ru",
+    "fingerprint": "288430050d802e85",
+    "n_available": 2037,
+    "n_used": 300,
+    "split": "test"
+  },
+  "en-zh": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "en-zh",
+    "fingerprint": "864e7f718fb10543",
+    "n_available": 2037,
+    "n_used": 300,
+    "split": "test"
+  },
+  "is-en": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "is-en",
+    "fingerprint": "dded5a7f54ba9387",
+    "n_available": 1000,
+    "n_used": 300,
+    "split": "test"
+  },
+  "ru-en": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "ru-en",
+    "fingerprint": "330b2ee279839729",
+    "n_available": 2016,
+    "n_used": 300,
+    "split": "test"
+  },
+  "zh-en": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "zh-en",
+    "fingerprint": "1c2ceff8ae284cfa",
+    "n_available": 1875,
+    "n_used": 300,
+    "split": "test"
+  }
+}

@@ -1,0 +1,30 @@
+extends: alma-7b.yaml
+name: alma-7b-boundary-first3-last1
+baseline: alma-7b
+loader: custom
+entrypoint: recipes.pruned:load
+kwargs:
+  checkpoint: /gpfs/scratch1/shared/scur0535/layer-protection-seed1234-retry1/checkpoints/alma-7b-boundary-first3-last1
+  pruning_spec:
+    name: alma-7b-boundary-first3-last1
+    method: slimgpt
+    model_name_or_path: /home/scur0535/.cache/huggingface/hub/models--haoranxu--ALMA-7B/snapshots/07aa2900dd0246674e7eb7f7ec240ff19666a159
+    calibration: /gpfs/scratch1/shared/scur0535/layer-protection-seed1234-retry1/data/calibration/multi-10dir
+    sparsity: 0.2
+    allocation: uniform
+    protect_first_n: 3
+    protect_last_n: 1
+    directions: null
+    calibration_text: prompt+target
+    dtype: bfloat16
+    batch_size: 4
+    max_length: 512
+    seed: 1234
+compression:
+  family: pruning
+  method: SlimGPT, uniform budget, prompt+target calibration, protected first 3/last
+    1
+  nominal_sparsity: 0.2
+  pruned_for: multi
+  subnetwork: /gpfs/scratch1/shared/scur0535/layer-protection-seed1234-retry1/subnetworks/alma-7b-boundary-first3-last1.json
+  calibration: /gpfs/scratch1/shared/scur0535/layer-protection-seed1234-retry1/data/calibration/multi-10dir

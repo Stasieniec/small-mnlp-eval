@@ -1,0 +1,14 @@
+name: alma-7b-boundary-first4-last2
+method: slimgpt
+model_name_or_path: /home/scur0535/.cache/huggingface/hub/models--haoranxu--ALMA-7B/snapshots/07aa2900dd0246674e7eb7f7ec240ff19666a159
+calibration: /gpfs/scratch1/shared/scur0535/layer-protection-seed1234-retry1/data/calibration/multi-10dir
+sparsity: 0.2
+allocation: uniform
+protect_first_n: 4
+protect_last_n: 2
+directions: null
+calibration_text: prompt+target
+dtype: bfloat16
+batch_size: 4
+max_length: 512
+seed: 1234

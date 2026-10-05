@@ -1,0 +1,21 @@
+name: alma10-greedy-300
+data:
+  dataset: local:text:/gpfs/scratch1/shared/scur0535/layer-protection-seed1234-retry1/data/evaluation
+  directions:
+  - cs-en
+  - de-en
+  - is-en
+  - ru-en
+  - zh-en
+  - en-cs
+  - en-de
+  - en-is
+  - en-ru
+  - en-zh
+  limit: 300
+decode:
+  num_beams: 1
+  max_new_tokens: 256
+  max_source_length: 256
+  batch_size: 16
+  seed: 42
