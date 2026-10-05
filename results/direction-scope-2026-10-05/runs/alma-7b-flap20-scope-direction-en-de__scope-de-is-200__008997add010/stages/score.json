@@ -1,0 +1,21 @@
+{
+  "groups": {
+    "neural": {
+      "aggregate": {
+        "n_directions": 4,
+        "wmt22_comet_da": 0.5692
+      },
+      "path": "/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/runs/alma-7b-flap20-scope-direction-en-de__scope-de-is-200__008997add010/scores.neural.json",
+      "status": "completed"
+    }
+  },
+  "partial": false,
+  "recorded_at": "2026-10-05T17:02:23+00:00",
+  "scored_directions": [
+    "de-en",
+    "en-de",
+    "en-is",
+    "is-en"
+  ],
+  "status": "completed"
+}

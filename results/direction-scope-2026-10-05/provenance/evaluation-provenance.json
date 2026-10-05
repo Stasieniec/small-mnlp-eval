@@ -1,0 +1,34 @@
+{
+  "de-en": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "de-en",
+    "fingerprint": "3fde7743a9294aef",
+    "n_available": 1984,
+    "n_used": 200,
+    "split": "test"
+  },
+  "en-de": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "en-de",
+    "fingerprint": "70827a88e0e4b332",
+    "n_available": 2037,
+    "n_used": 200,
+    "split": "test"
+  },
+  "en-is": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "en-is",
+    "fingerprint": "9870329979f8f033",
+    "n_available": 1000,
+    "n_used": 200,
+    "split": "test"
+  },
+  "is-en": {
+    "dataset": "haoranxu/WMT22-Test",
+    "direction": "is-en",
+    "fingerprint": "3b6a0557f81c9b20",
+    "n_available": 1000,
+    "n_used": 200,
+    "split": "test"
+  }
+}

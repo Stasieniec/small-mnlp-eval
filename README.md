@@ -7,6 +7,14 @@ evaluates the result: quality, behaviour and efficiency. Study design in
 
 ## Results
 
+Direction-specific pruning pilot of 5 October 2026 is complete:
+[results and archived scores](results/direction-scope-2026-10-05/README.md).
+English to Icelandic benefits from direction-only calibration versus multilingual
+calibration, while Icelandic to English gets worse; German contrasts are not
+significant after correction. All pruned models have poor absolute quality and
+high repetition/truncation rates, so no general scope recommendation is justified.
+
+
 Pilot of 29 September 2026: the first 300 segments of each WMT22 direction, greedy
 decoding, no fine-tuning after pruning. Plots, per-direction tables and the overlap
 analysis are in [notebooks/pilot_results.ipynb](notebooks/pilot_results.ipynb), the data
@@ -35,8 +43,8 @@ Open:
 
 - LoRA repair (`mnlp-eval repair`) is implemented and tested on Qwen2.5-0.5B but not
   run on ALMA-7B: the repair set shares two source segments with the WMT22 test set.
-- Direction / pair / multilingual comparison at equal calibration size: implemented in
-  [docs/direction-scope.md](docs/direction-scope.md); not yet run.
+- Direction / pair / multilingual comparison: [pilot completed](results/direction-scope-2026-10-05/README.md)
+  at equal segment budgets; investigate generation failures and repeat across seeds.
 - LLM-Pruner runs out of memory; its gradient accumulator needs reducing to
   per-unit sums.
 

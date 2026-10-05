@@ -1,0 +1,24 @@
+name: alma-7b-flap20-scope-multi
+method: flap
+model_name_or_path: /home/scur0535/.cache/huggingface/hub/models--haoranxu--ALMA-7B/snapshots/07aa2900dd0246674e7eb7f7ec240ff19666a159
+calibration: /gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/calibration/multi
+sparsity: 0.2
+allocation: uniform
+protect_first_n: 0
+protect_last_n: 0
+directions:
+- cs-en
+- de-en
+- en-cs
+- en-de
+- en-is
+- en-ru
+- en-zh
+- is-en
+- ru-en
+- zh-en
+calibration_text: prompt+target
+dtype: bfloat16
+batch_size: 4
+max_length: 512
+seed: 1234

@@ -1,0 +1,151 @@
+{
+  "created_at": "2026-10-05T17:05:03+00:00",
+  "decode_summary": "greedy, max_new_tokens=256",
+  "identity": {
+    "data": {
+      "dataset": "local:text:/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/evaluation",
+      "directions": [
+        "de-en",
+        "en-de",
+        "en-is",
+        "is-en"
+      ],
+      "limit": 200,
+      "split": "test"
+    },
+    "decode": {
+      "batch_size": 16,
+      "do_sample": false,
+      "early_stopping": false,
+      "length_penalty": 1.0,
+      "max_new_tokens": 256,
+      "max_source_length": 256,
+      "no_repeat_ngram_size": 0,
+      "num_beams": 1,
+      "repetition_penalty": 1.0,
+      "respect_alma_source_length_override": true,
+      "seed": 42,
+      "sort_by_length": true,
+      "temperature": null,
+      "top_k": null,
+      "top_p": null
+    },
+    "model": {
+      "adapter": null,
+      "attn_implementation": null,
+      "dtype": "bfloat16",
+      "entrypoint": "recipes.pruned:load",
+      "kwargs": {
+        "checkpoint": "/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/checkpoints/alma-7b-flap20-scope-direction-is-en",
+        "pruning_spec": {
+          "allocation": "uniform",
+          "batch_size": 4,
+          "calibration": "/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/calibration/direction-is-en",
+          "calibration_text": "prompt+target",
+          "directions": [
+            "is-en"
+          ],
+          "dtype": "bfloat16",
+          "max_length": 512,
+          "method": "flap",
+          "model_name_or_path": "/home/scur0535/.cache/huggingface/hub/models--haoranxu--ALMA-7B/snapshots/07aa2900dd0246674e7eb7f7ec240ff19666a159",
+          "name": "alma-7b-flap20-scope-direction-is-en",
+          "protect_first_n": 0,
+          "protect_last_n": 0,
+          "seed": 1234,
+          "sparsity": 0.2
+        }
+      },
+      "loader": "custom",
+      "model_name_or_path": "/home/scur0535/.cache/huggingface/hub/models--haoranxu--ALMA-7B/snapshots/07aa2900dd0246674e7eb7f7ec240ff19666a159",
+      "prompt": "alma",
+      "prompt_fingerprint": "86cfde8078d97b78",
+      "quantization": null,
+      "revision": null,
+      "tokenizer_name_or_path": null,
+      "trust_remote_code": false
+    }
+  },
+  "model": {
+    "adapter": null,
+    "attn_implementation": null,
+    "baseline": "alma-7b",
+    "compression": {
+      "calibration": "/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/calibration/direction-is-en",
+      "family": "pruning",
+      "method": "FLAP, uniform budget, prompt+target calibration",
+      "nominal_sparsity": 0.2,
+      "pruned_for": "is-en",
+      "repair": "",
+      "subnetwork": "/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/subnetworks/alma-7b-flap20-scope-direction-is-en.json"
+    },
+    "device_map": null,
+    "dtype": "bfloat16",
+    "entrypoint": "recipes.pruned:load",
+    "kwargs": {
+      "checkpoint": "/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/checkpoints/alma-7b-flap20-scope-direction-is-en",
+      "pruning_spec": {
+        "allocation": "uniform",
+        "batch_size": 4,
+        "calibration": "/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/calibration/direction-is-en",
+        "calibration_text": "prompt+target",
+        "directions": [
+          "is-en"
+        ],
+        "dtype": "bfloat16",
+        "max_length": 512,
+        "method": "flap",
+        "model_name_or_path": "/home/scur0535/.cache/huggingface/hub/models--haoranxu--ALMA-7B/snapshots/07aa2900dd0246674e7eb7f7ec240ff19666a159",
+        "name": "alma-7b-flap20-scope-direction-is-en",
+        "protect_first_n": 0,
+        "protect_last_n": 0,
+        "seed": 1234,
+        "sparsity": 0.2
+      }
+    },
+    "loader": "custom",
+    "model_name_or_path": "/home/scur0535/.cache/huggingface/hub/models--haoranxu--ALMA-7B/snapshots/07aa2900dd0246674e7eb7f7ec240ff19666a159",
+    "name": "alma-7b-flap20-scope-direction-is-en",
+    "notes": "Reference system. Every pruned or quantized variant should declare baseline: alma-7b so the report can compute ratios and p-values against it.\n",
+    "prompt": "alma",
+    "quantization": null,
+    "revision": null,
+    "tokenizer_name_or_path": null,
+    "trust_remote_code": false
+  },
+  "prompt_fingerprint": "86cfde8078d97b78",
+  "run_id": "83047e4bd14e",
+  "schema_version": 1,
+  "slug": "alma-7b-flap20-scope-direction-is-en__scope-de-is-200__83047e4bd14e",
+  "suite": {
+    "data": {
+      "dataset": "local:text:/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/evaluation",
+      "directions": [
+        "de-en",
+        "en-de",
+        "en-is",
+        "is-en"
+      ],
+      "limit": 200,
+      "split": "test"
+    },
+    "decode": {
+      "batch_size": 16,
+      "do_sample": false,
+      "early_stopping": false,
+      "length_penalty": 1.0,
+      "max_new_tokens": 256,
+      "max_source_length": 256,
+      "no_repeat_ngram_size": 0,
+      "num_beams": 1,
+      "repetition_penalty": 1.0,
+      "respect_alma_source_length_override": true,
+      "seed": 42,
+      "sort_by_length": true,
+      "temperature": null,
+      "top_k": null,
+      "top_p": null
+    },
+    "name": "scope-de-is-200"
+  }
+}

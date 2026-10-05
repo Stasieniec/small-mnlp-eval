@@ -1,0 +1,15 @@
+name: scope-de-is-200
+data:
+  dataset: local:text:/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/evaluation
+  directions:
+  - de-en
+  - en-de
+  - is-en
+  - en-is
+  limit: 200
+decode:
+  num_beams: 1
+  max_new_tokens: 256
+  max_source_length: 256
+  batch_size: 16
+  seed: 42

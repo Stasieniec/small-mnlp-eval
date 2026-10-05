@@ -1,0 +1,115 @@
+{
+  "completed_at": "2026-10-05T16:45:59+00:00",
+  "deterministic_check": null,
+  "directions": {
+    "de-en": {
+      "data": {
+        "dataset": "local:text:/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/evaluation",
+        "direction": "de-en",
+        "fingerprint": "8ae3839d5d8f8401",
+        "n_available": 200,
+        "n_used": 200,
+        "split": "test"
+      },
+      "empty": 0,
+      "generated_tokens": 4422,
+      "hit_token_budget": 0,
+      "max_source_length": 256,
+      "n_segments": 200,
+      "parse_flags": {},
+      "seconds": 25.48,
+      "source_truncated": 0,
+      "tokens_per_second": 173.55,
+      "truncated": 0,
+      "wasted_token_fraction": 0.0077,
+      "wasted_tokens": 34
+    },
+    "en-de": {
+      "data": {
+        "dataset": "local:text:/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/evaluation",
+        "direction": "en-de",
+        "fingerprint": "00a8fb99722a18a8",
+        "n_available": 200,
+        "n_used": 200,
+        "split": "test"
+      },
+      "empty": 0,
+      "generated_tokens": 7162,
+      "hit_token_budget": 0,
+      "max_source_length": 256,
+      "n_segments": 200,
+      "parse_flags": {},
+      "seconds": 18.9,
+      "source_truncated": 0,
+      "tokens_per_second": 378.94,
+      "truncated": 0,
+      "wasted_token_fraction": 0.0119,
+      "wasted_tokens": 85
+    },
+    "en-is": {
+      "data": {
+        "dataset": "local:text:/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/evaluation",
+        "direction": "en-is",
+        "fingerprint": "1774678a4b6f1f1d",
+        "n_available": 200,
+        "n_used": 200,
+        "split": "test"
+      },
+      "empty": 0,
+      "generated_tokens": 13619,
+      "hit_token_budget": 0,
+      "max_source_length": 256,
+      "n_segments": 200,
+      "parse_flags": {},
+      "seconds": 32.7,
+      "source_truncated": 0,
+      "tokens_per_second": 416.48,
+      "truncated": 0,
+      "wasted_token_fraction": 0.0046,
+      "wasted_tokens": 62
+    },
+    "is-en": {
+      "data": {
+        "dataset": "local:text:/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/evaluation",
+        "direction": "is-en",
+        "fingerprint": "a444a947b4b06f06",
+        "n_available": 200,
+        "n_used": 200,
+        "split": "test"
+      },
+      "empty": 0,
+      "generated_tokens": 5286,
+      "hit_token_budget": 0,
+      "max_source_length": 256,
+      "n_segments": 200,
+      "parse_flags": {},
+      "seconds": 11.71,
+      "source_truncated": 0,
+      "tokens_per_second": 451.41,
+      "truncated": 0,
+      "wasted_token_fraction": 0.0062,
+      "wasted_tokens": 33
+    }
+  },
+  "model_info": {
+    "checkpoint_dir": "/gpfs/home3/scur0535/.cache/huggingface/hub/models--haoranxu--ALMA-7B/snapshots/07aa2900dd0246674e7eb7f7ec240ff19666a159",
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "extra": null,
+    "kind": "causal",
+    "load_seconds": 19.494,
+    "non_embedding_parameters": 6607343616,
+    "total_parameters": 6738415616,
+    "unpinned_generation_settings": {
+      "bos_token_id": 1,
+      "eos_token_id": 2,
+      "max_length": 512,
+      "pad_token_id": 0
+    }
+  },
+  "recorded_at": "2026-10-05T16:45:59+00:00",
+  "run_id": "06c0c77b88dd",
+  "seconds": 110.26,
+  "skipped_directions": [],
+  "status": "completed"
+}

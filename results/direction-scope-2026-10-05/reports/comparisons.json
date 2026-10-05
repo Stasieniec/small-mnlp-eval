@@ -1,0 +1,170 @@
+{
+  "de-en:direction-minus-multi": {
+    "baseline_score": 0.609092,
+    "bootstrap_ci_95": [
+      -0.097217,
+      -0.008383
+    ],
+    "candidate": "alma-7b-flap20-scope-direction-de-en",
+    "control": "alma-7b-flap20-scope-multi",
+    "delta": -0.050794,
+    "direction": "de-en",
+    "higher_is_better": true,
+    "improved": false,
+    "method": "paired bootstrap resampling on per-segment scores",
+    "n_samples": 2000,
+    "n_segments": 200,
+    "p_value": 0.02099,
+    "p_value_holm": 0.10495000000000002,
+    "seed": 12345,
+    "significant_at_0.05": true,
+    "system_score": 0.558298
+  },
+  "de-en:direction-minus-pair-de": {
+    "baseline_score": 0.541276,
+    "bootstrap_ci_95": [
+      -0.040304,
+      0.07425
+    ],
+    "candidate": "alma-7b-flap20-scope-direction-de-en",
+    "control": "alma-7b-flap20-scope-pair-de",
+    "delta": 0.017022,
+    "direction": "de-en",
+    "higher_is_better": true,
+    "improved": true,
+    "method": "paired bootstrap resampling on per-segment scores",
+    "n_samples": 2000,
+    "n_segments": 200,
+    "p_value": 0.558221,
+    "p_value_holm": 1.0,
+    "seed": 12345,
+    "significant_at_0.05": false,
+    "system_score": 0.558298
+  },
+  "en-de:direction-minus-multi": {
+    "baseline_score": 0.626595,
+    "bootstrap_ci_95": [
+      -0.061924,
+      0.025429
+    ],
+    "candidate": "alma-7b-flap20-scope-direction-en-de",
+    "control": "alma-7b-flap20-scope-multi",
+    "delta": -0.016933,
+    "direction": "en-de",
+    "higher_is_better": true,
+    "improved": false,
+    "method": "paired bootstrap resampling on per-segment scores",
+    "n_samples": 2000,
+    "n_segments": 200,
+    "p_value": 0.43978,
+    "p_value_holm": 1.0,
+    "seed": 12345,
+    "significant_at_0.05": false,
+    "system_score": 0.609662
+  },
+  "en-de:direction-minus-pair-de": {
+    "baseline_score": 0.630865,
+    "bootstrap_ci_95": [
+      -0.078973,
+      0.036633
+    ],
+    "candidate": "alma-7b-flap20-scope-direction-en-de",
+    "control": "alma-7b-flap20-scope-pair-de",
+    "delta": -0.021203,
+    "direction": "en-de",
+    "higher_is_better": true,
+    "improved": false,
+    "method": "paired bootstrap resampling on per-segment scores",
+    "n_samples": 2000,
+    "n_segments": 200,
+    "p_value": 0.446777,
+    "p_value_holm": 1.0,
+    "seed": 12345,
+    "significant_at_0.05": false,
+    "system_score": 0.609662
+  },
+  "en-is:direction-minus-multi": {
+    "baseline_score": 0.458119,
+    "bootstrap_ci_95": [
+      0.015581,
+      0.097406
+    ],
+    "candidate": "alma-7b-flap20-scope-direction-en-is",
+    "control": "alma-7b-flap20-scope-multi",
+    "delta": 0.057199,
+    "direction": "en-is",
+    "higher_is_better": true,
+    "improved": true,
+    "method": "paired bootstrap resampling on per-segment scores",
+    "n_samples": 2000,
+    "n_segments": 200,
+    "p_value": 0.007996,
+    "p_value_holm": 0.047976,
+    "seed": 12345,
+    "significant_at_0.05": true,
+    "system_score": 0.515318
+  },
+  "en-is:direction-minus-pair-is": {
+    "baseline_score": 0.470132,
+    "bootstrap_ci_95": [
+      0.005655,
+      0.086197
+    ],
+    "candidate": "alma-7b-flap20-scope-direction-en-is",
+    "control": "alma-7b-flap20-scope-pair-is",
+    "delta": 0.045186,
+    "direction": "en-is",
+    "higher_is_better": true,
+    "improved": true,
+    "method": "paired bootstrap resampling on per-segment scores",
+    "n_samples": 2000,
+    "n_segments": 200,
+    "p_value": 0.031484,
+    "p_value_holm": 0.125936,
+    "seed": 12345,
+    "significant_at_0.05": true,
+    "system_score": 0.515318
+  },
+  "is-en:direction-minus-multi": {
+    "baseline_score": 0.63311,
+    "bootstrap_ci_95": [
+      -0.142466,
+      -0.04815
+    ],
+    "candidate": "alma-7b-flap20-scope-direction-is-en",
+    "control": "alma-7b-flap20-scope-multi",
+    "delta": -0.09627,
+    "direction": "is-en",
+    "higher_is_better": true,
+    "improved": false,
+    "method": "paired bootstrap resampling on per-segment scores",
+    "n_samples": 2000,
+    "n_segments": 200,
+    "p_value": 0.0005,
+    "p_value_holm": 0.004,
+    "seed": 12345,
+    "significant_at_0.05": true,
+    "system_score": 0.53684
+  },
+  "is-en:direction-minus-pair-is": {
+    "baseline_score": 0.597976,
+    "bootstrap_ci_95": [
+      -0.101854,
+      -0.020345
+    ],
+    "candidate": "alma-7b-flap20-scope-direction-is-en",
+    "control": "alma-7b-flap20-scope-pair-is",
+    "delta": -0.061137,
+    "direction": "is-en",
+    "higher_is_better": true,
+    "improved": false,
+    "method": "paired bootstrap resampling on per-segment scores",
+    "n_samples": 2000,
+    "n_segments": 200,
+    "p_value": 0.004498,
+    "p_value_holm": 0.031486,
+    "seed": 12345,
+    "significant_at_0.05": true,
+    "system_score": 0.53684
+  }
+}

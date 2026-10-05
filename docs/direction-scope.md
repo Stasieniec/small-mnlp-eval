@@ -7,6 +7,15 @@ prompt+reference calibration; no repair. Uniform allocation keeps layer widths
 fixed across scopes, so calibration cannot change the compression budget.
 SlimGPT is available with `--method slimgpt` in a separate experiment directory.
 
+## Completed pilot
+
+The seed-1234 pilot finished on 5 October 2026 using H100 allocations.
+[Archived results](../results/direction-scope-2026-10-05/README.md) include all
+comparisons, behavioural metrics, sentence-level scores and provenance.
+Direction-only calibration helps en-is against multilingual calibration but
+hurts is-en; no German contrast survives correction. Severe repetition and
+truncation across pruned models limit the practical interpretation.
+
 ## Design and cost
 
 Eight systems: dense ALMA, one multilingual control, two pair controls, four

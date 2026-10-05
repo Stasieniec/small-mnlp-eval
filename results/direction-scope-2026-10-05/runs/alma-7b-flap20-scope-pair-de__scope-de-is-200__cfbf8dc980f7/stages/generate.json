@@ -1,0 +1,149 @@
+{
+  "completed_at": "2026-10-05T16:54:05+00:00",
+  "deterministic_check": null,
+  "directions": {
+    "de-en": {
+      "data": {
+        "dataset": "local:text:/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/evaluation",
+        "direction": "de-en",
+        "fingerprint": "8ae3839d5d8f8401",
+        "n_available": 200,
+        "n_used": 200,
+        "split": "test"
+      },
+      "empty": 0,
+      "generated_tokens": 24083,
+      "hit_token_budget": 85,
+      "max_source_length": 256,
+      "n_segments": 200,
+      "parse_flags": {
+        "repetition": 82
+      },
+      "seconds": 99.15,
+      "source_truncated": 0,
+      "tokens_per_second": 242.89,
+      "truncated": 85,
+      "wasted_token_fraction": 0.0016,
+      "wasted_tokens": 39
+    },
+    "en-de": {
+      "data": {
+        "dataset": "local:text:/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/evaluation",
+        "direction": "en-de",
+        "fingerprint": "00a8fb99722a18a8",
+        "n_available": 200,
+        "n_used": 200,
+        "split": "test"
+      },
+      "empty": 0,
+      "generated_tokens": 19603,
+      "hit_token_budget": 56,
+      "max_source_length": 256,
+      "n_segments": 200,
+      "parse_flags": {
+        "extra_lines": 1,
+        "repetition": 51
+      },
+      "seconds": 74.82,
+      "source_truncated": 0,
+      "tokens_per_second": 262.0,
+      "truncated": 56,
+      "wasted_token_fraction": 0.0057,
+      "wasted_tokens": 112
+    },
+    "en-is": {
+      "data": {
+        "dataset": "local:text:/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/evaluation",
+        "direction": "en-is",
+        "fingerprint": "1774678a4b6f1f1d",
+        "n_available": 200,
+        "n_used": 200,
+        "split": "test"
+      },
+      "empty": 0,
+      "generated_tokens": 35287,
+      "hit_token_budget": 119,
+      "max_source_length": 256,
+      "n_segments": 200,
+      "parse_flags": {
+        "repetition": 118
+      },
+      "seconds": 75.18,
+      "source_truncated": 0,
+      "tokens_per_second": 469.37,
+      "truncated": 119,
+      "wasted_token_fraction": 0.0012,
+      "wasted_tokens": 43
+    },
+    "is-en": {
+      "data": {
+        "dataset": "local:text:/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/evaluation",
+        "direction": "is-en",
+        "fingerprint": "a444a947b4b06f06",
+        "n_available": 200,
+        "n_used": 200,
+        "split": "test"
+      },
+      "empty": 0,
+      "generated_tokens": 21219,
+      "hit_token_budget": 69,
+      "max_source_length": 256,
+      "n_segments": 200,
+      "parse_flags": {
+        "extra_lines": 1,
+        "repetition": 68
+      },
+      "seconds": 71.86,
+      "source_truncated": 0,
+      "tokens_per_second": 295.28,
+      "truncated": 68,
+      "wasted_token_fraction": 0.0116,
+      "wasted_tokens": 246
+    }
+  },
+  "model_info": {
+    "checkpoint_dir": "/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/checkpoints/alma-7b-flap20-scope-pair-de",
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "extra": {
+      "entrypoint": "recipes.pruned:load",
+      "method": "FLAP",
+      "pruning_spec": {
+        "allocation": "uniform",
+        "batch_size": 4,
+        "calibration": "/gpfs/scratch1/shared/scur0535/direction-scope-seed1234/data/calibration/pair-de",
+        "calibration_text": "prompt+target",
+        "directions": [
+          "de-en",
+          "en-de"
+        ],
+        "dtype": "bfloat16",
+        "max_length": 512,
+        "method": "flap",
+        "model_name_or_path": "/home/scur0535/.cache/huggingface/hub/models--haoranxu--ALMA-7B/snapshots/07aa2900dd0246674e7eb7f7ec240ff19666a159",
+        "name": "alma-7b-flap20-scope-pair-de",
+        "protect_first_n": 0,
+        "protect_last_n": 0,
+        "seed": 1234,
+        "sparsity": 0.2
+      },
+      "subnetwork": "alma-7b-flap20-scope-pair-de",
+      "unit_sparsity": 0.2
+    },
+    "kind": "causal",
+    "load_seconds": 40.441,
+    "non_embedding_parameters": 5339090944,
+    "total_parameters": 5470162944,
+    "unpinned_generation_settings": {
+      "_from_model_config": true,
+      "bos_token_id": 1,
+      "eos_token_id": 2,
+      "pad_token_id": 0
+    }
+  },
+  "recorded_at": "2026-10-05T16:54:05+00:00",
+  "run_id": "cfbf8dc980f7",
+  "seconds": 362.72,
+  "skipped_directions": [],
+  "status": "completed"
+}

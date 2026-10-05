@@ -1,0 +1,47 @@
+{
+  "matched": true,
+  "systems": [
+    {
+      "parameters_after": 5470162944,
+      "removed_channels": 70464,
+      "removed_heads": 192,
+      "system": "alma-7b-flap20-scope-multi"
+    },
+    {
+      "parameters_after": 5470162944,
+      "removed_channels": 70464,
+      "removed_heads": 192,
+      "system": "alma-7b-flap20-scope-pair-de"
+    },
+    {
+      "parameters_after": 5470162944,
+      "removed_channels": 70464,
+      "removed_heads": 192,
+      "system": "alma-7b-flap20-scope-direction-de-en"
+    },
+    {
+      "parameters_after": 5470162944,
+      "removed_channels": 70464,
+      "removed_heads": 192,
+      "system": "alma-7b-flap20-scope-direction-en-de"
+    },
+    {
+      "parameters_after": 5470162944,
+      "removed_channels": 70464,
+      "removed_heads": 192,
+      "system": "alma-7b-flap20-scope-pair-is"
+    },
+    {
+      "parameters_after": 5470162944,
+      "removed_channels": 70464,
+      "removed_heads": 192,
+      "system": "alma-7b-flap20-scope-direction-is-en"
+    },
+    {
+      "parameters_after": 5470162944,
+      "removed_channels": 70464,
+      "removed_heads": 192,
+      "system": "alma-7b-flap20-scope-direction-en-is"
+    }
+  ]
+}

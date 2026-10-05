@@ -1,0 +1,11 @@
+name: alma-7b
+loader: hf_causal
+prompt: alma
+model_name_or_path: /home/scur0535/.cache/huggingface/hub/models--haoranxu--ALMA-7B/snapshots/07aa2900dd0246674e7eb7f7ec240ff19666a159
+dtype: bfloat16
+compression:
+  family: none
+notes: 'Reference system. Every pruned or quantized variant should declare baseline:
+  alma-7b so the report can compute ratios and p-values against it.
+
+  '
