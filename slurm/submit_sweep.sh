@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Submit a full sweep: one generation array per model sharded by direction,
+# Submit a full sweep: one generation job per model,
 # then efficiency, then scoring, then one report.
 #
 #   bash slurm/submit_sweep.sh <suite.yaml> <model.yaml> [model.yaml ...]
 #
-# Per model the chain is: generate array -> bench -> score. The report waits on
+# GENERATION_MODE=direction uses an array with one task per direction instead.
+# The default, model, loads each checkpoint once for all directions.
+#
+# Per model the chain is: generate -> bench -> score. The report waits on
 # every scoring job. Nothing is passed through --export that contains a comma,
 # because commas are Slurm's delimiter between assignments inside an --export
 # value and silently truncate it.
@@ -37,6 +40,18 @@ if (( N_DIRECTIONS == 0 )); then
 fi
 echo "suite ${SUITE_CONFIG}: ${N_DIRECTIONS} direction(s) [${PAIRS[*]}]"
 
+GENERATION_MODE=${GENERATION_MODE:-model}
+GENERATION_ARGS=()
+case "${GENERATION_MODE}" in
+    model) ;;
+    direction) GENERATION_ARGS=(--array "0-$((N_DIRECTIONS - 1))") ;;
+    *)
+        echo "GENERATION_MODE must be model or direction, got '${GENERATION_MODE}'" >&2
+        exit 1
+        ;;
+esac
+echo "generation mode: ${GENERATION_MODE}"
+
 BASELINE=${BASELINE:-}
 SCORE_JOBS=()
 for MODEL_CONFIG in "$@"; do
@@ -48,13 +63,17 @@ for MODEL_CONFIG in "$@"; do
     GENERATE_JOB=$(
         sbatch --parsable \
             --job-name "gen-${NAME}" \
-            --array "0-$((N_DIRECTIONS - 1))" \
+            "${GENERATION_ARGS[@]}" \
             --export "ALL,MODEL_CONFIG=${MODEL_CONFIG},SUITE_CONFIG=${SUITE_CONFIG}" \
             slurm/generate.sbatch
     )
-    echo "    generate array ${GENERATE_JOB} (${N_DIRECTIONS} tasks)"
+    if [[ "${GENERATION_MODE}" == "direction" ]]; then
+        echo "    generate array ${GENERATE_JOB} (${N_DIRECTIONS} tasks)"
+    else
+        echo "    generate ${GENERATE_JOB} (all ${N_DIRECTIONS} directions, one model load)"
+    fi
 
-    # afterok on an array job id waits for every task in the array.
+    # In direction mode, afterok waits for every task in the array.
     BENCH_JOB=$(
         sbatch --parsable \
             --job-name "bench-${NAME}" \
