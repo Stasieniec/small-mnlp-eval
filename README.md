@@ -35,7 +35,8 @@ Open:
 
 - LoRA repair (`mnlp-eval repair`) is implemented and tested on Qwen2.5-0.5B but not
   run on ALMA-7B: the repair set shares two source segments with the WMT22 test set.
-- Pair-specific runs at equal calibration size.
+- Direction / pair / multilingual comparison at equal calibration size: implemented in
+  [docs/direction-scope.md](docs/direction-scope.md); not yet run.
 - LLM-Pruner runs out of memory; its gradient accumulator needs reducing to
   per-unit sums.
 
