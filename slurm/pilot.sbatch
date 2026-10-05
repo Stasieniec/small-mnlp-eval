@@ -8,12 +8,9 @@
 #
 # Generate every direction of a suite in one job, for a reduced suite.
 #
-# generate.sbatch shards into an array, one task per direction, which is right
-# for the full suite: loading ALMA-7B takes two to three minutes, noise against
-# hours of generation, and ten tasks cut the wall clock tenfold. On a suite of
-# 300 segments per direction the trade inverts. Each task would spend longer
-# loading the model than translating, and the array pays that load ten times
-# per system.
+# The full sweep also reuses one model load across all directions, through
+# generate.sbatch with a longer time limit. Keeping the pilot in one job avoids
+# repeating the checkpoint load for each of its ten short directions.
 #
 # Run identity is untouched either way. --only-direction is what leaves it
 # alone, and this passes no direction at all, so the run id is the same one
