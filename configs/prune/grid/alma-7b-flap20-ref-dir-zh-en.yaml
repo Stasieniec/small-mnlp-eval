@@ -1,0 +1,13 @@
+# Grid: flap al-am, 20% removed, prompt+target calibration, pruned for zh-en. Written by scripts/grid.py configs.
+name: alma-7b-flap20-ref-dir-zh-en
+method: flap
+allocation: al-am
+sparsity: 0.2
+calibration: data/calibration/dir-zh-en-1280
+calibration_text: prompt+target
+directions: [zh-en]
+model_name_or_path: /scratch-shared/scur0560/models/alma-7b-bf16
+dtype: bfloat16
+batch_size: 4
+max_length: 768
+seed: 1234

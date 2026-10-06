@@ -1,0 +1,13 @@
+# Grid: slimgpt log-increase, 20% removed, prompt+target calibration, pruned for de-en,en-de. Written by scripts/grid.py configs.
+name: alma-7b-slimgpt20-ref-pair-de
+method: slimgpt
+allocation: log-increase
+sparsity: 0.2
+calibration: data/calibration/pair-de-640
+calibration_text: prompt+target
+directions: [de-en, en-de]
+model_name_or_path: /scratch-shared/scur0560/models/alma-7b-bf16
+dtype: bfloat16
+batch_size: 4
+max_length: 768
+seed: 1234
