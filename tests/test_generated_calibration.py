@@ -217,6 +217,30 @@ def test_cached_tokens_are_padded_without_retokenization() -> None:
         list(tokenized_batches([[1, 4, 2]], Tokenizer(), max_length=2))
 
 
+def test_reference_text_ends_with_eos_like_a_cached_generation() -> None:
+    class Tensor:
+        def to(self, device: str) -> Any:
+            return self
+
+    padded: list[Any] = []
+
+    class Tokenizer:
+        eos_token_id = 2
+
+        def __call__(self, text: str, *, truncation: bool, max_length: int) -> Any:
+            assert truncation
+            return {"input_ids": [1, *range(10, 10 + len(text))][:max_length]}
+
+        def pad(self, rows: Any, **kwargs: Any) -> Any:
+            padded.extend(rows)
+            return {"input_ids": Tensor(), "attention_mask": Tensor()}
+
+    list(tokenized_batches(["ab", "abcdef"], Tokenizer(), max_length=4, append_eos=True))
+
+    assert [row["input_ids"] for row in padded] == [[1, 10, 11, 2], [1, 10, 11, 2]]
+    assert all(row["attention_mask"] == [1] * 4 for row in padded)
+
+
 def test_cli_generates_cache(setup_cache: Any, capsys: pytest.CaptureFixture[str]) -> None:
     from mnlp_eval.cli import main
 

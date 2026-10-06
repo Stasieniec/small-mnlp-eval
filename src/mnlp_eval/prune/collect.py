@@ -179,8 +179,24 @@ def tokenized_batches(
     batch_size: int = 8,
     max_length: int = 512,
     device: str = "cpu",
+    append_eos: bool = False,
 ) -> Iterator[dict[str, Tensor]]:
-    """Tokenize prompts into padded batches with their attention masks."""
+    """Tokenize prompts into padded batches with their attention masks.
+
+    ``append_eos`` ends every text with the end-of-sequence token, as ALMA's
+    training text ends and as a cached generation ends. With it, a prompt with
+    its reference and a prompt with the dense model's own translation differ
+    only in the translation, not in whether the model also saw it stop.
+    """
+    if append_eos and prompts and isinstance(prompts[0], str):
+        eos = tokenizer.eos_token_id
+        if eos is None:
+            msg = "append_eos needs a tokenizer with an eos token"
+            raise PruneError(msg)
+        prompts = [
+            [*tokenizer(text, truncation=True, max_length=max_length - 1)["input_ids"], eos]
+            for text in prompts
+        ]
     for start in range(0, len(prompts), batch_size):
         chunk = list(prompts[start : start + batch_size])
         if chunk and isinstance(chunk[0], list):
