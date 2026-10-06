@@ -170,10 +170,29 @@ the paper's ablation (its Table 6) has this beating uniform, and uniform
 beating the decreasing schedules. Scores still decide which units a layer
 loses; the schedule decides only how many.
 
-Heads and channels are budgeted separately, each to the requested sparsity.
-FLAP pools the two into one ranking, which trades an attention head against an
-FFN channel; they are not the same size, so that trade is made in a unit that
-does not mean anything.
+Under `uniform`, `global` and `log-increase`, heads and channels are budgeted
+separately, each to the requested sparsity.
+
+FLAP also has its own search, `allocation: al-am` (FLAP only; refused for
+grouped-query models), replicated from the official code (CASIA-IVA-Lab/FLAP
+`lib/prune.py`, lines 336 and 368-393). Each `o_proj` column's WIFV is squared,
+a step the paper omits; columns are standardised within each layer and module;
+a head scores the mean of its standardised columns; all heads and channels are
+ranked together, a head weighing its parameter count, `4 * head_dim / 3`
+channels (512/3 on ALMA), and the ranking is cut nearest the budget. Under
+`al-am`, `sparsity` is therefore the fraction of attention and MLP weights
+removed, and heads and channels lose different fractions. The run manifest's
+`parameter_sparsity` records the fraction actually removed, comparable across
+methods; under the other budgets it equals the unit sparsity. Departures from
+the code: the head weight is exactly 512/3 (the code's integer tensor makes it
+170), the cut keeps the unit at the nearest point (the code drops it), and
+every layer keeps at least one head and channel (the code has no floor).
+
+FLAP needs an adaptive budget. Under `uniform` it cuts 20 percent from layers
+0, 1, 30 and 31, which its global budget leaves whole, and the mean-bias
+compensation cannot absorb that: the direction-scope pilot of 5 October
+(FLAP, uniform, 20 percent) fell to BLEU 3 to 5 with 30 to 40 percent of
+outputs looping.
 
 ## Output
 
