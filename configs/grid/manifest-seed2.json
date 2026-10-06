@@ -1,0 +1,962 @@
+{
+  "description": "seed-5678 replicate of SlimGPT ref",
+  "model_name_or_path": "/scratch-shared/scur0560/models/alma-7b-bf16",
+  "suite": "configs/suites/alma10-greedy-300.yaml",
+  "count": 48,
+  "models": [
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-multi",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "multi",
+      "scope_key": "multi",
+      "pruned_directions": [
+        "cs-en",
+        "de-en",
+        "is-en",
+        "ru-en",
+        "zh-en",
+        "en-cs",
+        "en-de",
+        "en-is",
+        "en-ru",
+        "en-zh"
+      ],
+      "pruned_for": "multi",
+      "calibration": "data/calibration/multi-10dir",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-multi.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-multi.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 0
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-multi",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "multi",
+      "scope_key": "multi",
+      "pruned_directions": [
+        "cs-en",
+        "de-en",
+        "is-en",
+        "ru-en",
+        "zh-en",
+        "en-cs",
+        "en-de",
+        "en-is",
+        "en-ru",
+        "en-zh"
+      ],
+      "pruned_for": "multi",
+      "calibration": "data/calibration/multi-10dir",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-multi.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-multi.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 4
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-multi",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "multi",
+      "scope_key": "multi",
+      "pruned_directions": [
+        "cs-en",
+        "de-en",
+        "is-en",
+        "ru-en",
+        "zh-en",
+        "en-cs",
+        "en-de",
+        "en-is",
+        "en-ru",
+        "en-zh"
+      ],
+      "pruned_for": "multi",
+      "calibration": "data/calibration/multi-10dir",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-multi.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-multi.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 8
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-pair-cs",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "pair",
+      "scope_key": "cs",
+      "pruned_directions": [
+        "cs-en",
+        "en-cs"
+      ],
+      "pruned_for": "cs-en,en-cs",
+      "calibration": "data/calibration/pair-cs-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-pair-cs.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-pair-cs.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 12
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-pair-de",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "pair",
+      "scope_key": "de",
+      "pruned_directions": [
+        "de-en",
+        "en-de"
+      ],
+      "pruned_for": "de-en,en-de",
+      "calibration": "data/calibration/pair-de-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-pair-de.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-pair-de.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 13
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-pair-is",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "pair",
+      "scope_key": "is",
+      "pruned_directions": [
+        "en-is",
+        "is-en"
+      ],
+      "pruned_for": "en-is,is-en",
+      "calibration": "data/calibration/pair-is-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-pair-is.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-pair-is.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 14
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-pair-ru",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "pair",
+      "scope_key": "ru",
+      "pruned_directions": [
+        "en-ru",
+        "ru-en"
+      ],
+      "pruned_for": "en-ru,ru-en",
+      "calibration": "data/calibration/pair-ru-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-pair-ru.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-pair-ru.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 15
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-pair-zh",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "pair",
+      "scope_key": "zh",
+      "pruned_directions": [
+        "en-zh",
+        "zh-en"
+      ],
+      "pruned_for": "en-zh,zh-en",
+      "calibration": "data/calibration/pair-zh-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-pair-zh.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-pair-zh.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 16
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-pair-cs",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "pair",
+      "scope_key": "cs",
+      "pruned_directions": [
+        "cs-en",
+        "en-cs"
+      ],
+      "pruned_for": "cs-en,en-cs",
+      "calibration": "data/calibration/pair-cs-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-pair-cs.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-pair-cs.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 32
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-pair-de",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "pair",
+      "scope_key": "de",
+      "pruned_directions": [
+        "de-en",
+        "en-de"
+      ],
+      "pruned_for": "de-en,en-de",
+      "calibration": "data/calibration/pair-de-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-pair-de.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-pair-de.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 33
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-pair-is",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "pair",
+      "scope_key": "is",
+      "pruned_directions": [
+        "en-is",
+        "is-en"
+      ],
+      "pruned_for": "en-is,is-en",
+      "calibration": "data/calibration/pair-is-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-pair-is.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-pair-is.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 34
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-pair-ru",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "pair",
+      "scope_key": "ru",
+      "pruned_directions": [
+        "en-ru",
+        "ru-en"
+      ],
+      "pruned_for": "en-ru,ru-en",
+      "calibration": "data/calibration/pair-ru-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-pair-ru.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-pair-ru.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 35
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-pair-zh",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "pair",
+      "scope_key": "zh",
+      "pruned_directions": [
+        "en-zh",
+        "zh-en"
+      ],
+      "pruned_for": "en-zh,zh-en",
+      "calibration": "data/calibration/pair-zh-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-pair-zh.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-pair-zh.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 36
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-pair-cs",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "pair",
+      "scope_key": "cs",
+      "pruned_directions": [
+        "cs-en",
+        "en-cs"
+      ],
+      "pruned_for": "cs-en,en-cs",
+      "calibration": "data/calibration/pair-cs-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-pair-cs.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-pair-cs.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 52
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-pair-de",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "pair",
+      "scope_key": "de",
+      "pruned_directions": [
+        "de-en",
+        "en-de"
+      ],
+      "pruned_for": "de-en,en-de",
+      "calibration": "data/calibration/pair-de-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-pair-de.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-pair-de.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 53
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-pair-is",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "pair",
+      "scope_key": "is",
+      "pruned_directions": [
+        "en-is",
+        "is-en"
+      ],
+      "pruned_for": "en-is,is-en",
+      "calibration": "data/calibration/pair-is-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-pair-is.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-pair-is.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 54
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-pair-ru",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "pair",
+      "scope_key": "ru",
+      "pruned_directions": [
+        "en-ru",
+        "ru-en"
+      ],
+      "pruned_for": "en-ru,ru-en",
+      "calibration": "data/calibration/pair-ru-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-pair-ru.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-pair-ru.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 55
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-pair-zh",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "pair",
+      "scope_key": "zh",
+      "pruned_directions": [
+        "en-zh",
+        "zh-en"
+      ],
+      "pruned_for": "en-zh,zh-en",
+      "calibration": "data/calibration/pair-zh-640",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-pair-zh.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-pair-zh.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 56
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-dir-cs-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "dir",
+      "scope_key": "cs-en",
+      "pruned_directions": [
+        "cs-en"
+      ],
+      "pruned_for": "cs-en",
+      "calibration": "data/calibration/dir-cs-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-dir-cs-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-dir-cs-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 72
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-dir-de-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "dir",
+      "scope_key": "de-en",
+      "pruned_directions": [
+        "de-en"
+      ],
+      "pruned_for": "de-en",
+      "calibration": "data/calibration/dir-de-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-dir-de-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-dir-de-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 73
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-dir-is-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "dir",
+      "scope_key": "is-en",
+      "pruned_directions": [
+        "is-en"
+      ],
+      "pruned_for": "is-en",
+      "calibration": "data/calibration/dir-is-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-dir-is-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-dir-is-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 74
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-dir-ru-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "dir",
+      "scope_key": "ru-en",
+      "pruned_directions": [
+        "ru-en"
+      ],
+      "pruned_for": "ru-en",
+      "calibration": "data/calibration/dir-ru-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-dir-ru-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-dir-ru-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 75
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-dir-zh-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "dir",
+      "scope_key": "zh-en",
+      "pruned_directions": [
+        "zh-en"
+      ],
+      "pruned_for": "zh-en",
+      "calibration": "data/calibration/dir-zh-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-dir-zh-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-dir-zh-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 76
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-dir-en-cs",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "dir",
+      "scope_key": "en-cs",
+      "pruned_directions": [
+        "en-cs"
+      ],
+      "pruned_for": "en-cs",
+      "calibration": "data/calibration/dir-en-cs-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-dir-en-cs.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-dir-en-cs.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 77
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-dir-en-de",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "dir",
+      "scope_key": "en-de",
+      "pruned_directions": [
+        "en-de"
+      ],
+      "pruned_for": "en-de",
+      "calibration": "data/calibration/dir-en-de-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-dir-en-de.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-dir-en-de.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 78
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-dir-en-is",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "dir",
+      "scope_key": "en-is",
+      "pruned_directions": [
+        "en-is"
+      ],
+      "pruned_for": "en-is",
+      "calibration": "data/calibration/dir-en-is-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-dir-en-is.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-dir-en-is.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 79
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-dir-en-ru",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "dir",
+      "scope_key": "en-ru",
+      "pruned_directions": [
+        "en-ru"
+      ],
+      "pruned_for": "en-ru",
+      "calibration": "data/calibration/dir-en-ru-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-dir-en-ru.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-dir-en-ru.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 80
+    },
+    {
+      "name": "alma-7b-s2-slimgpt20-ref-dir-en-zh",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.2,
+      "scope": "dir",
+      "scope_key": "en-zh",
+      "pruned_directions": [
+        "en-zh"
+      ],
+      "pruned_for": "en-zh",
+      "calibration": "data/calibration/dir-en-zh-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt20-ref-dir-en-zh.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt20-ref-dir-en-zh.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 81
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-dir-cs-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "dir",
+      "scope_key": "cs-en",
+      "pruned_directions": [
+        "cs-en"
+      ],
+      "pruned_for": "cs-en",
+      "calibration": "data/calibration/dir-cs-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-dir-cs-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-dir-cs-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 112
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-dir-de-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "dir",
+      "scope_key": "de-en",
+      "pruned_directions": [
+        "de-en"
+      ],
+      "pruned_for": "de-en",
+      "calibration": "data/calibration/dir-de-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-dir-de-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-dir-de-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 113
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-dir-is-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "dir",
+      "scope_key": "is-en",
+      "pruned_directions": [
+        "is-en"
+      ],
+      "pruned_for": "is-en",
+      "calibration": "data/calibration/dir-is-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-dir-is-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-dir-is-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 114
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-dir-ru-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "dir",
+      "scope_key": "ru-en",
+      "pruned_directions": [
+        "ru-en"
+      ],
+      "pruned_for": "ru-en",
+      "calibration": "data/calibration/dir-ru-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-dir-ru-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-dir-ru-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 115
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-dir-zh-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "dir",
+      "scope_key": "zh-en",
+      "pruned_directions": [
+        "zh-en"
+      ],
+      "pruned_for": "zh-en",
+      "calibration": "data/calibration/dir-zh-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-dir-zh-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-dir-zh-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 116
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-dir-en-cs",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "dir",
+      "scope_key": "en-cs",
+      "pruned_directions": [
+        "en-cs"
+      ],
+      "pruned_for": "en-cs",
+      "calibration": "data/calibration/dir-en-cs-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-dir-en-cs.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-dir-en-cs.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 117
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-dir-en-de",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "dir",
+      "scope_key": "en-de",
+      "pruned_directions": [
+        "en-de"
+      ],
+      "pruned_for": "en-de",
+      "calibration": "data/calibration/dir-en-de-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-dir-en-de.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-dir-en-de.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 118
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-dir-en-is",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "dir",
+      "scope_key": "en-is",
+      "pruned_directions": [
+        "en-is"
+      ],
+      "pruned_for": "en-is",
+      "calibration": "data/calibration/dir-en-is-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-dir-en-is.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-dir-en-is.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 119
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-dir-en-ru",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "dir",
+      "scope_key": "en-ru",
+      "pruned_directions": [
+        "en-ru"
+      ],
+      "pruned_for": "en-ru",
+      "calibration": "data/calibration/dir-en-ru-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-dir-en-ru.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-dir-en-ru.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 120
+    },
+    {
+      "name": "alma-7b-s2-slimgpt30-ref-dir-en-zh",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.3,
+      "scope": "dir",
+      "scope_key": "en-zh",
+      "pruned_directions": [
+        "en-zh"
+      ],
+      "pruned_for": "en-zh",
+      "calibration": "data/calibration/dir-en-zh-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt30-ref-dir-en-zh.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt30-ref-dir-en-zh.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 121
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-dir-cs-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "dir",
+      "scope_key": "cs-en",
+      "pruned_directions": [
+        "cs-en"
+      ],
+      "pruned_for": "cs-en",
+      "calibration": "data/calibration/dir-cs-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-dir-cs-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-dir-cs-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 152
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-dir-de-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "dir",
+      "scope_key": "de-en",
+      "pruned_directions": [
+        "de-en"
+      ],
+      "pruned_for": "de-en",
+      "calibration": "data/calibration/dir-de-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-dir-de-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-dir-de-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 153
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-dir-is-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "dir",
+      "scope_key": "is-en",
+      "pruned_directions": [
+        "is-en"
+      ],
+      "pruned_for": "is-en",
+      "calibration": "data/calibration/dir-is-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-dir-is-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-dir-is-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 154
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-dir-ru-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "dir",
+      "scope_key": "ru-en",
+      "pruned_directions": [
+        "ru-en"
+      ],
+      "pruned_for": "ru-en",
+      "calibration": "data/calibration/dir-ru-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-dir-ru-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-dir-ru-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 155
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-dir-zh-en",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "dir",
+      "scope_key": "zh-en",
+      "pruned_directions": [
+        "zh-en"
+      ],
+      "pruned_for": "zh-en",
+      "calibration": "data/calibration/dir-zh-en-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-dir-zh-en.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-dir-zh-en.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 156
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-dir-en-cs",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "dir",
+      "scope_key": "en-cs",
+      "pruned_directions": [
+        "en-cs"
+      ],
+      "pruned_for": "en-cs",
+      "calibration": "data/calibration/dir-en-cs-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-dir-en-cs.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-dir-en-cs.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 157
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-dir-en-de",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "dir",
+      "scope_key": "en-de",
+      "pruned_directions": [
+        "en-de"
+      ],
+      "pruned_for": "en-de",
+      "calibration": "data/calibration/dir-en-de-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-dir-en-de.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-dir-en-de.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 158
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-dir-en-is",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "dir",
+      "scope_key": "en-is",
+      "pruned_directions": [
+        "en-is"
+      ],
+      "pruned_for": "en-is",
+      "calibration": "data/calibration/dir-en-is-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-dir-en-is.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-dir-en-is.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 159
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-dir-en-ru",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "dir",
+      "scope_key": "en-ru",
+      "pruned_directions": [
+        "en-ru"
+      ],
+      "pruned_for": "en-ru",
+      "calibration": "data/calibration/dir-en-ru-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-dir-en-ru.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-dir-en-ru.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 160
+    },
+    {
+      "name": "alma-7b-s2-slimgpt40-ref-dir-en-zh",
+      "method": "slimgpt",
+      "allocation": "log-increase",
+      "calibration_text": "prompt+target",
+      "tag": "ref",
+      "sparsity": 0.4,
+      "scope": "dir",
+      "scope_key": "en-zh",
+      "pruned_directions": [
+        "en-zh"
+      ],
+      "pruned_for": "en-zh",
+      "calibration": "data/calibration/dir-en-zh-1280",
+      "prune_config": "configs/prune/seed2/alma-7b-s2-slimgpt40-ref-dir-en-zh.yaml",
+      "model_config": "configs/models/alma-7b-s2-slimgpt40-ref-dir-en-zh.yaml",
+      "suite": "configs/suites/alma10-greedy-300.yaml",
+      "priority": 161
+    }
+  ]
+}

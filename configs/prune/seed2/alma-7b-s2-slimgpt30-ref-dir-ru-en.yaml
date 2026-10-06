@@ -1,0 +1,14 @@
+# Seed-5678 replicate of alma-7b-slimgpt30-ref-dir-ru-en: calibration redrawn, all else equal. Written by scripts/grid_seed2.py.
+name: alma-7b-s2-slimgpt30-ref-dir-ru-en
+method: slimgpt
+allocation: log-increase
+sparsity: 0.3
+calibration: data/calibration/dir-ru-en-1280-s2
+calibration_text: prompt+target
+directions:
+- ru-en
+model_name_or_path: /scratch-shared/scur0560/models/alma-7b-bf16
+dtype: bfloat16
+batch_size: 4
+max_length: 768
+seed: 5678
