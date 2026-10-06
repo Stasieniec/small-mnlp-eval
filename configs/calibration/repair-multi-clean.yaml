@@ -1,0 +1,8 @@
+# repair-multi without the two training segments whose sources also occur in
+# WMT22-Test (en-cs "Amazing." and ru-en "Ну и что?", both outside the first
+# 300 segments the pilot evaluates). repair-multi takes every segment, so the
+# collisions cannot be avoided by sampling; they are removed and listed in the
+# manifest under excluded_test_sources.
+extends: repair-multi.yaml
+name: repair-multi-clean
+exclude_test_sources: haoranxu/WMT22-Test
