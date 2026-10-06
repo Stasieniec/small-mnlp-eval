@@ -160,6 +160,11 @@ Done tonight as prerequisites and tests of that path (not one of the choices):
 - **Mixed hardware:** models ran on mixed A100 and H100 GPUs. Each status file records which (`grid-state/status/<name>.json`).
 - **Older numbers aren't comparable:** the 29 September pilot, the layer-protection and the direction-scope numbers came from the old SlimGPT code. Calibration size or allocation also differed.
 - **Recovery figures:** the repaired models trained on ALMA's own parallel data, where held-out loss is a sanity check, not a measure of generalisation. Recovery on the test set is what the tables report.
+- **Same parameters, different units:** at the same nominal sparsity FLAP and SlimGPT remove the same share of parameters but a different mix. SlimGPT removes equal shares of heads and channels in every layer. FLAP AL-AM removes 2 to 3% of heads and 29% of FFN channels at 20%, and about 27% and 46% at 40%.
+- **Independent review:** after the run a subagent reviewed the new code against independent reimplementations and found no bugs.
+  - A naive SlimGPT that runs the full forward pass and refits by direct least squares picks identical units, and the weights agree to within 2e-5.
+  - A literal port of the official AL-AM code picks identical plans.
+  - Also checked: left padding and EOS with the real ALMA tokenizer, the duplicate-prompt record, and LoRA merging on FLAP checkpoints that carry biases.
 - **Not measured:** throughput. Earlier bench runs found no speedup from pruning under eager Hugging Face generation.
 
 ### Where things are
