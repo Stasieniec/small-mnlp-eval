@@ -1,0 +1,4 @@
+# LoRA repair of alma-7b-slimgpt30-gen-multi, ALMA's recipe (RepairSpec defaults). Written by scripts/grid.py repairs.
+name: alma-7b-slimgpt30-gen-multi-lora
+source: configs/models/alma-7b-slimgpt30-gen-multi.yaml
+data: data/calibration/repair-multi-clean

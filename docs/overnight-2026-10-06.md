@@ -56,3 +56,53 @@ prompt-only calibration, LLM-Pruner.
 - 19:39 Canary 27681152: the pre-fix SlimGPT from a worktree of main
   (`/scratch-shared/scur0560/oldcode-main`), generated and scored with this
   checkout.
+- 19:40-20:00 Implementation by four subagents, reviewed and committed:
+  exact SlimGPT compensation and greedy selection (83612a2), FLAP al-am
+  (f353226), the grid pipeline and driver (ef773fa), the aggregator (2a1a0b5).
+- 19:55 Canaries on the final code, 20 percent, multi, `alma10-greedy-300`:
+
+  | system | BLEU | chrF++ | COMET |
+  | --- | --- | --- | --- |
+  | dense ALMA-7B | 30.35 | 51.14 | 0.8474 |
+  | SlimGPT log-increase ref, pre-fix code (27681152) | 27.31 | 48.74 | 0.8354 |
+  | SlimGPT log-increase ref, fixed | 27.72 | 49.03 | 0.8374 |
+  | SlimGPT log-increase gen, fixed | 27.52 | 48.93 | 0.8360 |
+  | FLAP al-am ref | 26.81 | 47.89 | 0.8221 |
+  | FLAP al-am gen | 26.70 | 47.78 | 0.8209 |
+  | FLAP global (separate head/channel budgets) ref | 27.53 | 48.51 | 0.8321 |
+  | old pilot: FLAP global, prompt only | 19.02 | 38.22 | 0.8031 |
+
+  No looping or truncation in any. FLAP al-am removes 20.0 percent of the
+  parameters as 2.8 percent of heads and 28.5 percent of FFN channels. al-am is
+  0.010 COMET below the separate global budget at 20 percent, so before FLAP's
+  pair and direction scopes are queued, the global budget is run on the six
+  multi settings as an allocation ablation (27681394-27681398 and the 20
+  percent one above) next to al-am's six.
+- 20:08 All 96 SlimGPT grid models submitted (twins on gpu_a100 and
+  gpu_h100), multi first; the four 20 percent canaries adopted into the grid.
+- 20:28 FLAP allocation ablation, multi scope, COMET (BLEU):
+
+  | allocation | calib | 20% | 30% | 40% |
+  | --- | --- | --- | --- | --- |
+  | al-am | ref | 0.8221 (26.81) | 0.7823 (23.66) | 0.7393 (20.50) |
+  | al-am | gen | 0.8209 (26.70) | 0.7830 (23.97) | 0.7392 (20.12) |
+  | global, separate budgets | ref | 0.8321 (27.53) | 0.4281 (1.97) | 0.5683 (5.33) |
+  | global, separate budgets | gen | 0.8312 (27.81) | 0.4250 (1.94) | 0.5897 (5.60) |
+
+  The separate-budget global allocation is better at 20 percent but collapses
+  at 30 and 40 (55 and 26 percent of outputs loop to the token budget, length
+  ratios 11 and 5). al-am degrades smoothly. **Decision: FLAP stays on al-am
+  for every scope**, as planned and as in the paper; the global runs stay as an
+  ablation (`alma-7b-flap*-multi-global`, configs in `configs/prune/canary/`).
+- 20:30 Repairs queued (ALMA's LoRA recipe on repair-multi-clean, 914 steps):
+  slimgpt40-ref, slimgpt40-gen, slimgpt30-gen, slimgpt20-ref multi; 20:35
+  flap40-ref multi (FLAP's best at 40 percent; ref ties gen on COMET and leads
+  on BLEU). The SlimGPT 30 percent pick is gen (0.8229 against 0.8219).
+- 20:37 The 90 FLAP pair and direction models submitted.
+- 20:45 H100 jobs run this workload at about half the A100 speed: repair 320
+  to 440 target tokens/s against 711, generation median 712 s against 481 s.
+  The training process sits at 100 percent of one CPU core on the shared AMD
+  EPYC 9334 H100 nodes, so it is host-bound, not GPU-bound. The three repairs
+  that had landed on H100 were cancelled after 15 minutes and resubmitted to
+  gpu_a100 only (27682686-27682688); grid jobs keep both partitions, since a
+  slower GPU beats a queue.
