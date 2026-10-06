@@ -1,0 +1,6 @@
+# Direction-specific calibration for the final grid: zh-en only, 1,280 segments,
+# the same total as multi-10dir and the pair-*-640 sets.
+extends: multi-10dir.yaml
+name: dir-zh-en-1280
+directions: [zh-en]
+segments_per_direction: 1280

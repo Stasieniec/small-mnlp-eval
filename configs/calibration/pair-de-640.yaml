@@ -1,0 +1,8 @@
+# Pair-specific calibration for the final grid: de only, both directions, 640
+# segments each, so 1,280 in all, the same total as multi-10dir. The grid
+# matches total calibration size across scopes (multi, pair, direction):
+# SlimGPT's weight update is fitted to the calibration Hessian, and the 256
+# segments of pair-de left the earlier pair comparison confounded with size.
+extends: pair-de.yaml
+name: pair-de-640
+segments_per_direction: 640

@@ -29,10 +29,16 @@ from mnlp_eval.prune import PruneError
 from mnlp_eval.prune.compact import LayerPlan
 from mnlp_eval.prune.groups import LayerGroups
 
-__all__ = ["ALLOCATIONS", "allocate", "log_increase_ratios"]
+__all__ = ["ALLOCATIONS", "FIRST_LAYER_SHARE", "allocate", "keep_counts", "log_increase_ratios"]
 
 #: How a sparsity budget is spread over the layers.
 ALLOCATIONS = ("uniform", "global", "log-increase")
+
+#: ``r_0`` of the Incremental Pruning Ratio as a share of the target sparsity.
+#: The paper does not state it, but the curve plotted in its Figure 4 (LLaMA-7B
+#: at 50 percent) fits equation 6 exactly with r_0 = 0.125, a quarter of the
+#: target.
+FIRST_LAYER_SHARE = 0.25
 
 
 def allocate(
@@ -83,6 +89,44 @@ def allocate(
     )
 
 
+def keep_counts(
+    groups: Sequence[LayerGroups],
+    *,
+    sparsity: float,
+    allocation: str,
+    head_scores: Sequence[Sequence[float]] | None = None,
+    channel_scores: Sequence[Sequence[float]] | None = None,
+) -> tuple[list[int], list[int]]:
+    """How many heads and FFN channels each layer keeps, without choosing them.
+
+    For a criterion that picks units itself, layer by layer, once it knows how
+    many to keep. ``uniform`` and ``log-increase`` need no scores; ``global``
+    compares layers and so does.
+    """
+    if allocation not in ALLOCATIONS:
+        msg = f"allocation {allocation!r} is not one of {', '.join(ALLOCATIONS)}"
+        raise PruneError(msg)
+    if not 0.0 <= sparsity < 1.0:
+        msg = f"sparsity must be in [0, 1), got {sparsity}. It is the fraction removed."
+        raise PruneError(msg)
+    if allocation == "global":
+        if head_scores is None or channel_scores is None:
+            msg = "a global budget compares layers, so it needs every layer's scores"
+            raise PruneError(msg)
+        heads, channels = head_scores, channel_scores
+    else:
+        # Placeholders: these allocations read only how many units a layer has.
+        heads = [[0.0] * group.num_heads for group in groups]
+        channels = [[0.0] * group.intermediate for group in groups]
+    _check_shapes(heads, groups, "head", "num_heads")
+    _check_shapes(channels, groups, "channel", "intermediate")
+    head_steps = [group.num_kv_heads if group.is_grouped_query else 1 for group in groups]
+    return (
+        _counts(heads, sparsity, allocation, steps=head_steps),
+        _counts(channels, sparsity, allocation, steps=[1] * len(groups)),
+    )
+
+
 def _counts(
     scores: Sequence[Sequence[float]], sparsity: float, allocation: str, *, steps: Sequence[int]
 ) -> list[int]:
@@ -106,12 +150,12 @@ def log_increase_ratios(layers: int, sparsity: float) -> list[float]:
     """Per-layer fractions removed under SlimGPT's Incremental Pruning Ratio.
 
     Equation 6 of Ling et al. (NeurIPS 2024):
-    ``r_i = r_0 + (r_last - r_0) * log(i + 1) / log(n)``. The paper does not
-    state ``r_0``. Here it is 0, so the first layer is left whole, and
+    ``r_i = r_0 + (r_last - r_0) * log(i + 1) / log(n)``. ``r_0`` is
+    :data:`FIRST_LAYER_SHARE` of the target, read off the paper's Figure 4, and
     ``r_last`` is solved so the mean over layers equals ``sparsity``. Every
     layer holds the same number of units in a dense Llama, so the mean ratio is
-    the overall unit sparsity. On ALMA-7B's 32 layers ``r_last`` comes out at
-    1.36 times the target: 0.27 at 20 percent, 0.68 at 50.
+    the overall unit sparsity. On ALMA-7B's 32 layers that is 0.05 rising to
+    0.254 at 20 percent, 0.075 to 0.381 at 30, and 0.10 to 0.508 at 40.
     """
     if layers < 1:
         msg = "log-increase needs at least one layer"
@@ -119,14 +163,15 @@ def log_increase_ratios(layers: int, sparsity: float) -> list[float]:
     if layers == 1:
         return [sparsity]
     shape = [math.log(index + 1) / math.log(layers) for index in range(layers)]
-    last = sparsity / statistics.fmean(shape)
+    first = FIRST_LAYER_SHARE * sparsity
+    last = first + (sparsity - first) / statistics.fmean(shape)
     if last >= 1.0:
         msg = (
             f"log-increase at sparsity {sparsity} would remove {last:.2f} of the last "
             "layer, which is all of it. Use a lower sparsity or another allocation."
         )
         raise PruneError(msg)
-    return [last * value for value in shape]
+    return [first + (last - first) * value for value in shape]
 
 
 def _global_counts(scores: Sequence[Sequence[float]], sparsity: float) -> list[int]:
