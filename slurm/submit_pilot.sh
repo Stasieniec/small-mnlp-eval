@@ -5,16 +5,11 @@
 #       configs/suites/alma10-greedy-300.yaml \
 #       configs/models/alma-7b.yaml configs/models/alma-7b-slimgpt50-multi.yaml
 #
-# Differs from submit_sweep.sh in exactly two ways, both of which only pay off
-# on a reduced suite:
-#
-#   - one generation job per system instead of an array of ten, because at a
-#     few hundred segments per direction the model load dominates;
-#   - no bench. BenchSpec is a fixed 128-segment protocol, so its cost does not
-#     fall with the suite, and it asks for an exclusive four-GPU node, which
-#     bills at four times the rate of the one GPU it uses. On a pilot it would
-#     cost more than everything else combined. Run slurm/bench.sbatch by hand
-#     when efficiency numbers are actually wanted.
+# Like submit_sweep.sh's default, this uses one generation job per model to
+# load its checkpoint once for all directions. The pilot job has a shorter
+# time limit and skips bench. BenchSpec is a fixed 128-segment protocol, so
+# its cost does not fall with the suite, and it asks for an exclusive four-GPU
+# node. Run slurm/bench.sbatch by hand when efficiency numbers are wanted.
 #
 # Scoring reuses slurm/score.sbatch unchanged, which scopes itself to one run
 # with --run. That guard matters here: `score` with no --run reaches every run
