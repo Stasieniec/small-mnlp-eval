@@ -398,6 +398,19 @@ def command_run_dir(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_calibration_generate(args: argparse.Namespace) -> int:
+    from mnlp_eval.data.generated_calibration import generate_calibration
+
+    manifest = generate_calibration(
+        args.calibration,
+        ModelSpec.from_dict(load_yaml_config(args.model)),
+        SuiteSpec.from_dict(load_yaml_config(args.decode_suite)),
+        args.out,
+    )
+    print(json.dumps(manifest, indent=2))
+    return 0
+
+
 def command_calibration(args: argparse.Namespace) -> int:
     """Build the calibration and repair data the pruning runs share."""
     from mnlp_eval.data.calibration import CalibrationSpec, build_calibration_set
@@ -724,6 +737,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="override, for example --set segments_per_direction=256",
     )
     calibration.set_defaults(handler=command_calibration)
+
+    calibration_gen = subparsers.add_parser(
+        "calibration-generate", help="cache dense greedy translations for pruning calibration"
+    )
+    calibration_gen.add_argument(
+        "--calibration", required=True, help="existing union calibration set"
+    )
+    calibration_gen.add_argument("--model", required=True, help="dense model YAML config")
+    calibration_gen.add_argument("--decode-suite", required=True, help="greedy suite YAML config")
+    calibration_gen.add_argument("--out", required=True, help="generated cache directory")
+    calibration_gen.set_defaults(handler=command_calibration_generate)
 
     prune = subparsers.add_parser(
         "prune", help="select and compact a subnetwork from a dense checkpoint"

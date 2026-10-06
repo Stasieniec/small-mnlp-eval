@@ -258,3 +258,24 @@ table, and note that the report refuses to mix results from the two.
 72-core, 4-GPU node, which is the correct request shape. The `rome` partition
 bills in eighths of a 128-core node, so `report.sbatch` asks for 16 cores
 rather than 4 because they cost the same.
+
+
+## Generated calibration
+
+After building `data/calibration/multi-10dir` and prefetching ALMA, generate
+its shared greedy-response cache once:
+
+```bash
+mkdir -p slurm-logs
+sbatch slurm/calibration_generate.sbatch
+```
+
+The job loads the dense checkpoint once for all ten directions. Defaults use
+`configs/models/alma-7b.yaml`, `configs/suites/alma10-greedy.yaml`, and output
+`data/calibration/multi-10dir-generated`. Override `CALIBRATION_INPUT`,
+`CALIBRATION_OUT`, `DENSE_MODEL_CONFIG`, or `DECODE_SUITE` through `--export`.
+Resubmitting resumes completed directions after validation. Run one writer
+per output directory. Then set the pruning config's `calibration` to that
+cache, `calibration_text: prompt+generated`, `max_length: 768`, and optionally
+`directions: [de-en, en-de]` for a pair. Both SlimGPT and FLAP can reuse the
+same cache. See [the calibration details](../docs/pruning.md#dense-generated-translations).

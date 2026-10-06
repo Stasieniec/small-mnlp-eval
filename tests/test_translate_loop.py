@@ -338,3 +338,17 @@ def test_unpinned_generation_settings_are_disclosed() -> None:
     assert "repetition_penalty" not in disclosed
     # Not pinned, so it must be recorded for the reader.
     assert disclosed["eos_token_id"] == [EOS, ALT_EOS]
+
+
+@pytest.mark.parametrize("batch_size", [1, 3, 16])
+def test_calibration_capture_preserves_order_truncation_and_eos(batch_size: int) -> None:
+    translator = _causal(FakeModel())
+    decode = DecodeSpec(num_beams=1, batch_size=batch_size, max_source_length=2)
+    outputs = translator.translate(DE_EN, _sources(6), decode, capture_token_ids=True)
+    for index, output in enumerate(outputs):
+        assert output.input_token_ids == [PROMPT_BASE + index] * min(index % 5 + 1, 2)
+        assert output.generated_token_ids == [CONTENT_BASE + index, EOS]
+        assert output.source_truncated == (index % 5 + 1 > 2)
+    ordinary = translator.translate(DE_EN, _sources(1), decode)
+    assert ordinary[0].input_token_ids is None
+    assert ordinary[0].generated_token_ids is None

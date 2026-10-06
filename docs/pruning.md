@@ -63,8 +63,69 @@ on how they respond to reading English.
 The variant also sees about 1.7 times the calibration tokens (134k against 78k
 on multi-10dir), a second change, so `slimgpt-20-multi-256` calibrates on
 prompts alone at 256 segments per direction as the control (156k tokens; its
-first 128 per direction are exactly multi-10dir's). SlimGPT's peak memory for
-either is about 21 GB on ALMA-7B, so both fit a 40 GB A100.
+128-sample set is contained in it, though sorted row order differs). SlimGPT's
+peak memory for either is about 21 GB on ALMA-7B, so both fit a 40 GB A100.
+
+### Dense-generated translations
+
+Generate the shared `multi-10dir` pool once (1,280 prompts at 128 per direction):
+
+```bash
+mnlp-eval calibration-generate \
+  --calibration data/calibration/multi-10dir \
+  --model configs/models/alma-7b.yaml \
+  --decode-suite configs/suites/alma10-greedy.yaml \
+  --out data/calibration/multi-10dir-generated
+```
+
+Run this in the generation environment on a GPU, after prefetching the dense
+model. The matching Slurm job is `slurm/calibration_generate.sbatch`; create
+`slurm-logs` before submitting it. On offline compute nodes set
+`HF_HUB_OFFLINE=1`. It loads the dense
+model once for all missing directions and uses the same translation loop,
+length sorting, source limits (including zh-en's 512), and greedy settings as
+evaluation. This command generates calibration data only; it never loads WMT
+test examples. The input set's contamination check is carried into the cache.
+
+Point a pruning config at the cache:
+
+```yaml
+calibration: data/calibration/multi-10dir-generated
+calibration_text: prompt+generated
+directions: [de-en, en-de]  # Both directions of one pair; omit for multi.
+max_length: 768
+```
+
+Both SlimGPT and FLAP use this mode. The original `target` remains available
+for `prompt+target` comparisons on exactly the same records. Generated mode
+replays the actual input and continuation token IDs, including EOS, rather
+than retokenizing the cleaned hypothesis. This preserves prompt truncation,
+token boundaries and extra output text. Empty answers remain in the set.
+`max_length: 768` covers the 512-token source cap plus the 256-token generation
+budget; shorter caps are rejected when they would cut a cached sequence.
+For a controlled reference/generated comparison, use the same pruning cap
+and records in both arms. Token counts still differ between their responses.
+Reference mode retains its existing text tokenization; inspect the cache's
+`source_truncated` counts because generated mode replays evaluation's source
+cap, while reference mode truncates the combined text at the pruning cap.
+
+The cache stores raw text, extracted translations, diagnostic flags and token
+counts alongside the exact tokens. Its identity includes input content,
+model/tokenizer revision, prompt, decoding settings and generation code/library
+versions. Directions are written atomically; rerunning the same command
+validates and skips completed ones. Interrupted caches cannot be used for
+pruning. Changed inputs/settings require a fresh output directory; corrupted
+files are rejected. The pruning checkpoint records its calibration mode,
+directions and cache fingerprint in `calibration_provenance.json`, and the
+subnetwork descriptor carries the fingerprint too. Hub pruning loads the
+same pinned revision that generated the cache. Local checkpoints are checked
+by file sizes and modification times; keep their contents immutable.
+
+The matched 20% pilot config is `configs/prune/slimgpt-20-multi-generated.yaml`.
+It retains the global budget and 512-token pruning cap of the existing
+prompt+reference pilot. The initial generated cache's longest sequence is
+494 tokens, so it fits without clipping. Evaluate with
+`configs/suites/alma10-greedy-300.yaml` for the same 300 examples per direction.
 
 ## Budget
 
