@@ -1,0 +1,6 @@
+# Match the existing 20% global-budget reference-calibration pilot, replacing
+# references with cached greedy continuations from dense ALMA-7B.
+extends: slimgpt-20-multi.yaml
+name: alma-7b-slimgpt20-multi-generated
+calibration: data/calibration/multi-10dir-generated
+calibration_text: prompt+generated

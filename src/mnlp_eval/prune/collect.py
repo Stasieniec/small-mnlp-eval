@@ -104,7 +104,8 @@ def load_calibration_prompts(
     *,
     directions: Sequence[str] | None = None,
     with_target: bool = False,
-) -> list[str]:
+    with_generated: bool = False,
+) -> list[str] | list[list[int]]:
     """Read the rendered prompts from a calibration set, in a stable order.
 
     ``directions`` restricts it, which is how a pair-specific subnetwork is
@@ -114,12 +115,24 @@ def load_calibration_prompts(
     joined as ALMA's training joins them, with no space. The model then reads
     the target language as it would have written it, so the criterion sees the
     activations of producing the output as well as of reading the source.
-    Without it, ``en-xx`` calibration never puts a word of the target language
+    ``with_generated`` instead returns the cached input and continuation token
+    IDs (including EOS), preserving generation truncation and token boundaries.
+    Without either option, ``en-xx`` calibration never puts a word of the target language
     through the model.
     """
     from mnlp_eval.artifacts import read_jsonl_dicts
 
     root = Path(directory).expanduser()
+    if with_target and with_generated:
+        raise PruneError("choose reference or generated calibration, not both")
+    import json
+
+    manifest_path = root / CALIBRATION_MANIFEST
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
+    if with_generated or "generated_schema_version" in manifest:
+        from mnlp_eval.data.generated_calibration import validate_cache
+
+        validate_cache(root)
     refuse_contaminated(root)
     files = sorted(root.glob("*.jsonl"))
     if directions is not None:
@@ -137,13 +150,18 @@ def load_calibration_prompts(
         raise PruneError(msg)
 
     prompts: list[str] = []
+    generated_sequences: list[list[int]] = []
     for path in files:
         for record in read_jsonl_dicts(path):
             prompt = record.get("prompt")
             if not prompt:
                 msg = f"{path}: a record has no 'prompt' field"
                 raise PruneError(msg)
-            if with_target:
+            if with_generated:
+                generated_sequences.append(
+                    record["input_token_ids"] + record["generated_token_ids"]
+                )
+            elif with_target:
                 target = record.get("target")
                 if not target:
                     msg = f"{path}: a record has no 'target' field to calibrate on"
@@ -151,11 +169,11 @@ def load_calibration_prompts(
                 prompts.append(str(prompt) + str(target))
             else:
                 prompts.append(str(prompt))
-    return prompts
+    return generated_sequences if with_generated else prompts
 
 
 def tokenized_batches(
-    prompts: Sequence[str],
+    prompts: Sequence[str] | Sequence[list[int]],
     tokenizer: Any,
     *,
     batch_size: int = 8,
@@ -164,13 +182,26 @@ def tokenized_batches(
 ) -> Iterator[dict[str, Tensor]]:
     """Tokenize prompts into padded batches with their attention masks."""
     for start in range(0, len(prompts), batch_size):
-        encoded = tokenizer(
-            list(prompts[start : start + batch_size]),
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=max_length,
-        )
+        chunk = list(prompts[start : start + batch_size])
+        if chunk and isinstance(chunk[0], list):
+            if any(len(ids) > max_length for ids in chunk):
+                raise PruneError(
+                    "generated calibration exceeds max_length; increase it to preserve "
+                    "the complete prompt and continuation (up to 768 tokens for ALMA)"
+                )
+            encoded = tokenizer.pad(
+                [{"input_ids": ids, "attention_mask": [1] * len(ids)} for ids in chunk],
+                padding=True,
+                return_tensors="pt",
+            )
+        else:
+            encoded = tokenizer(
+                chunk,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=max_length,
+            )
         yield {key: value.to(device) for key, value in encoded.items()}
 
 
