@@ -1,0 +1,127 @@
+{
+  "created_at": "2026-10-06T18:45:30+00:00",
+  "decode_summary": "greedy, max_new_tokens=256",
+  "identity": {
+    "data": {
+      "dataset": "haoranxu/WMT22-Test",
+      "directions": [
+        "cs-en",
+        "de-en",
+        "en-cs",
+        "en-de",
+        "en-is",
+        "en-ru",
+        "en-zh",
+        "is-en",
+        "ru-en",
+        "zh-en"
+      ],
+      "limit": 300,
+      "split": "test"
+    },
+    "decode": {
+      "batch_size": 16,
+      "do_sample": false,
+      "early_stopping": false,
+      "length_penalty": 1.0,
+      "max_new_tokens": 256,
+      "max_source_length": 256,
+      "no_repeat_ngram_size": 0,
+      "num_beams": 1,
+      "repetition_penalty": 1.0,
+      "respect_alma_source_length_override": true,
+      "seed": 42,
+      "sort_by_length": true,
+      "temperature": null,
+      "top_k": null,
+      "top_p": null
+    },
+    "model": {
+      "adapter": null,
+      "attn_implementation": null,
+      "dtype": "bfloat16",
+      "entrypoint": "recipes.pruned:load",
+      "kwargs": {
+        "checkpoint": "/scratch-shared/scur0560/checkpoints/alma-7b-flap20-gen-dir-en-zh"
+      },
+      "loader": "custom",
+      "model_name_or_path": "haoranxu/ALMA-7B",
+      "prompt": "alma",
+      "prompt_fingerprint": "86cfde8078d97b78",
+      "quantization": null,
+      "revision": null,
+      "tokenizer_name_or_path": null,
+      "trust_remote_code": false
+    }
+  },
+  "model": {
+    "adapter": null,
+    "attn_implementation": null,
+    "baseline": "alma-7b",
+    "compression": {
+      "calibration": "data/calibration/dir-en-zh-1280-generated",
+      "family": "pruning",
+      "method": "FLAP, al-am budget, prompt+generated calibration",
+      "nominal_sparsity": 0.2,
+      "pruned_for": "en-zh",
+      "repair": "",
+      "subnetwork": "subnetworks/alma-7b-flap20-gen-dir-en-zh.json"
+    },
+    "device_map": null,
+    "dtype": "bfloat16",
+    "entrypoint": "recipes.pruned:load",
+    "kwargs": {
+      "checkpoint": "/scratch-shared/scur0560/checkpoints/alma-7b-flap20-gen-dir-en-zh"
+    },
+    "loader": "custom",
+    "model_name_or_path": "haoranxu/ALMA-7B",
+    "name": "alma-7b-flap20-gen-dir-en-zh",
+    "notes": "Reference system. Every pruned or quantized variant should declare baseline: alma-7b so the report can compute ratios and p-values against it.\n",
+    "prompt": "alma",
+    "quantization": null,
+    "revision": null,
+    "tokenizer_name_or_path": null,
+    "trust_remote_code": false
+  },
+  "prompt_fingerprint": "86cfde8078d97b78",
+  "run_id": "43e2fd282d35",
+  "schema_version": 1,
+  "slug": "alma-7b-flap20-gen-dir-en-zh__alma10-greedy-300__43e2fd282d35",
+  "suite": {
+    "data": {
+      "dataset": "haoranxu/WMT22-Test",
+      "directions": [
+        "cs-en",
+        "de-en",
+        "en-cs",
+        "en-de",
+        "en-is",
+        "en-ru",
+        "en-zh",
+        "is-en",
+        "ru-en",
+        "zh-en"
+      ],
+      "limit": 300,
+      "split": "test"
+    },
+    "decode": {
+      "batch_size": 16,
+      "do_sample": false,
+      "early_stopping": false,
+      "length_penalty": 1.0,
+      "max_new_tokens": 256,
+      "max_source_length": 256,
+      "no_repeat_ngram_size": 0,
+      "num_beams": 1,
+      "repetition_penalty": 1.0,
+      "respect_alma_source_length_override": true,
+      "seed": 42,
+      "sort_by_length": true,
+      "temperature": null,
+      "top_k": null,
+      "top_p": null
+    },
+    "name": "alma10-greedy-300"
+  }
+}

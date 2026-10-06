@@ -28,7 +28,7 @@ with the matching specialist. Dense ALMA-7B: 0.8474 (30.35).
 | FLAP | reference | 40% | 0.7393 (20.50) | 0.7552 (20.11) | 0.7552 (20.33) | 0.8112 (25.73) |
 
 Rows follow the repaired configurations; the other calibration text is within 0.0015
-COMET of each cell, and all 24 rows are in the write-up.
+COMET of each cell, and all twelve method, calibration and sparsity rows are in the write-up.
 The five SlimGPT 40 percent pair models, each LoRA-repaired on its own pair, reach
 0.8236 (26.08).
 
