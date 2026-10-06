@@ -194,10 +194,17 @@ BASELINE=alma-7b bash slurm/submit_sweep.sh \
 `submit_prune.sh` prints this command with the configs its jobs emitted, so it
 does not have to be assembled by hand.
 
-Per model the chain is: a generation array with one task per direction, then
+Per model the chain is: one generation job covering every direction, then
 efficiency, then scoring. The report waits on every scoring job. `BASELINE` is
 required, because every compression ratio, speedup and p-value is computed
 against it and the report silently drops all of them if it cannot find it.
+
+Generation loads each checkpoint once and reuses it across directions. Different
+models can still run in parallel. Set `GENERATION_MODE=direction` when submitting
+the sweep to use one array task per direction instead; this can finish an
+individual model sooner but repeats its checkpoint load for every direction.
+Both modes use the same suite and run identity and skip completed directions
+when resubmitted.
 
 Two things the scripts are careful about:
 
@@ -230,7 +237,7 @@ Run directories hold hypotheses, scores and manifests, not weights, so they are
 small.
 
 **Runs are idempotent.** A run's identity is a hash of its model, data and
-decode settings, so resubmitting an array after a partial failure skips the
+decode settings, so resubmitting generation after a partial failure skips the
 directions that already finished. Stage records are one file per direction, so
 concurrent tasks cannot overwrite one another. Add `--overwrite` to force
 regeneration. `bench` has no skip check and re-runs on resubmission.
