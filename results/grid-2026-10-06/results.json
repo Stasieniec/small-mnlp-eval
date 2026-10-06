@@ -125,8 +125,8 @@
   "coverage": {
     "complete": 192,
     "expected": 192,
-    "lora_complete": 0,
-    "lora_systems": 0,
+    "lora_complete": 10,
+    "lora_systems": 10,
     "manifest_found": true,
     "missing": 0,
     "partial": 0,
@@ -142,7 +142,7 @@
     "run": "alma-7b__alma10-greedy-300__63d55369fea1",
     "system": "alma-7b"
   },
-  "generated_at": "2026-10-06 19:17 UTC",
+  "generated_at": "2026-10-06 20:54 UTC",
   "headline": [
     {
       "calib": "ref",
@@ -2671,7 +2671,528 @@
       }
     }
   ],
-  "repair": [],
+  "repair": [
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.739284,
+        "bootstrap_ci_95": [
+          0.067132,
+          0.076772
+        ],
+        "delta": 0.071966,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.81125
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "n_directions": 10,
+          "pruned": 20.49784,
+          "recovered": 0.5309185755026236,
+          "repaired": 25.72914
+        },
+        "chrf": {
+          "dense": 51.139,
+          "n_directions": 10,
+          "pruned": 40.9386,
+          "recovered": 0.5780930159601583,
+          "repaired": 46.83538
+        },
+        "comet": {
+          "dense": 0.847379,
+          "n_directions": 10,
+          "pruned": 0.739284,
+          "recovered": 0.6657662241546789,
+          "repaired": 0.81125
+        }
+      },
+      "source": "alma-7b-flap40-ref-multi",
+      "system": "alma-7b-flap40-ref-multi-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.837352,
+        "bootstrap_ci_95": [
+          -0.001493,
+          0.002888
+        ],
+        "delta": 0.000716,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.513487,
+        "system_score": 0.838067
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "n_directions": 10,
+          "pruned": 27.71585,
+          "recovered": 0.2630754110553302,
+          "repaired": 28.40913
+        },
+        "chrf": {
+          "dense": 51.139,
+          "n_directions": 10,
+          "pruned": 49.03299,
+          "recovered": 0.1901605405482409,
+          "repaired": 49.43347
+        },
+        "comet": {
+          "dense": 0.847379,
+          "n_directions": 10,
+          "pruned": 0.837351,
+          "recovered": 0.07140007977663017,
+          "repaired": 0.838067
+        }
+      },
+      "source": "alma-7b-slimgpt20-ref-multi",
+      "system": "alma-7b-slimgpt20-ref-multi-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.822905,
+        "bootstrap_ci_95": [
+          0.006906,
+          0.012052
+        ],
+        "delta": 0.009516,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.83242
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "n_directions": 10,
+          "pruned": 25.87633,
+          "recovered": 0.3840475908474327,
+          "repaired": 27.59487
+        },
+        "chrf": {
+          "dense": 51.139,
+          "n_directions": 10,
+          "pruned": 47.57865,
+          "recovered": 0.29966716755375067,
+          "repaired": 48.64557
+        },
+        "comet": {
+          "dense": 0.847379,
+          "n_directions": 10,
+          "pruned": 0.822904,
+          "recovered": 0.3888049029622092,
+          "repaired": 0.83242
+        }
+      },
+      "source": "alma-7b-slimgpt30-gen-multi",
+      "system": "alma-7b-slimgpt30-gen-multi-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.790543,
+        "bootstrap_ci_95": [
+          0.023738,
+          0.030965
+        ],
+        "delta": 0.027388,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.81793
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "n_directions": 10,
+          "pruned": 22.91926,
+          "recovered": 0.46281829093042387,
+          "repaired": 26.35887
+        },
+        "chrf": {
+          "dense": 51.139,
+          "n_directions": 10,
+          "pruned": 44.44312,
+          "recovered": 0.4417178921963952,
+          "repaired": 47.40081
+        },
+        "comet": {
+          "dense": 0.847379,
+          "n_directions": 10,
+          "pruned": 0.790543,
+          "recovered": 0.48186008867619207,
+          "repaired": 0.81793
+        }
+      },
+      "source": "alma-7b-slimgpt40-gen-multi",
+      "system": "alma-7b-slimgpt40-gen-multi-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.73807,
+        "bootstrap_ci_95": [
+          0.010597,
+          0.017909
+        ],
+        "delta": 0.01409,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.75216
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "n_directions": 10,
+          "pruned": 20.16416,
+          "recovered": 0.07684122281579057,
+          "repaired": 20.94694
+        },
+        "chrf": {
+          "dense": 51.139,
+          "n_directions": 10,
+          "pruned": 41.57959,
+          "recovered": 0.10779744775043619,
+          "repaired": 42.61007
+        },
+        "comet": {
+          "dense": 0.847379,
+          "n_directions": 10,
+          "pruned": 0.738071,
+          "recovered": 0.1288926702528637,
+          "repaired": 0.75216
+        }
+      },
+      "source": "alma-7b-slimgpt40-gen-pair-cs",
+      "system": "alma-7b-slimgpt40-gen-pair-cs-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.71658,
+        "bootstrap_ci_95": [
+          0.011078,
+          0.02057
+        ],
+        "delta": 0.015822,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.732402
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "n_directions": 10,
+          "pruned": 19.48992,
+          "recovered": -0.0364876137303176,
+          "repaired": 19.09362
+        },
+        "chrf": {
+          "dense": 51.139,
+          "n_directions": 10,
+          "pruned": 40.37226,
+          "recovered": -0.23604637986985813,
+          "repaired": 37.83081
+        },
+        "comet": {
+          "dense": 0.847379,
+          "n_directions": 10,
+          "pruned": 0.71658,
+          "recovered": 0.12096422755525656,
+          "repaired": 0.732402
+        }
+      },
+      "source": "alma-7b-slimgpt40-gen-pair-de",
+      "system": "alma-7b-slimgpt40-gen-pair-de-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.726451,
+        "bootstrap_ci_95": [
+          0.016102,
+          0.024191
+        ],
+        "delta": 0.020078,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.746529
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "n_directions": 10,
+          "pruned": 17.76554,
+          "recovered": 0.06909404398677844,
+          "repaired": 18.63513
+        },
+        "chrf": {
+          "dense": 51.139,
+          "n_directions": 10,
+          "pruned": 39.5832,
+          "recovered": 0.08398380034268513,
+          "repaired": 40.5537
+        },
+        "comet": {
+          "dense": 0.847379,
+          "n_directions": 10,
+          "pruned": 0.726451,
+          "recovered": 0.1660326806033345,
+          "repaired": 0.746529
+        }
+      },
+      "source": "alma-7b-slimgpt40-gen-pair-is",
+      "system": "alma-7b-slimgpt40-gen-pair-is-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.721658,
+        "bootstrap_ci_95": [
+          0.020814,
+          0.028905
+        ],
+        "delta": 0.024564,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.746222
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "n_directions": 10,
+          "pruned": 19.90162,
+          "recovered": 0.16801728691844195,
+          "repaired": 21.65732
+        },
+        "chrf": {
+          "dense": 51.139,
+          "n_directions": 10,
+          "pruned": 40.50973,
+          "recovered": 0.14030784804600904,
+          "repaired": 42.0011
+        },
+        "comet": {
+          "dense": 0.847379,
+          "n_directions": 10,
+          "pruned": 0.721658,
+          "recovered": 0.19538501920920162,
+          "repaired": 0.746222
+        }
+      },
+      "source": "alma-7b-slimgpt40-gen-pair-ru",
+      "system": "alma-7b-slimgpt40-gen-pair-ru-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.69772,
+        "bootstrap_ci_95": [
+          0.009831,
+          0.01823
+        ],
+        "delta": 0.013867,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.711587
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "n_directions": 10,
+          "pruned": 17.47665,
+          "recovered": 0.02410580923982229,
+          "repaired": 17.787
+        },
+        "chrf": {
+          "dense": 51.139,
+          "n_directions": 10,
+          "pruned": 37.22611,
+          "recovered": -0.24642399961474548,
+          "repaired": 33.79764
+        },
+        "comet": {
+          "dense": 0.847379,
+          "n_directions": 10,
+          "pruned": 0.69772,
+          "recovered": 0.09265730761263916,
+          "repaired": 0.711587
+        }
+      },
+      "source": "alma-7b-slimgpt40-gen-pair-zh",
+      "system": "alma-7b-slimgpt40-gen-pair-zh-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.791399,
+        "bootstrap_ci_95": [
+          0.024453,
+          0.031185
+        ],
+        "delta": 0.027933,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.819332
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "n_directions": 10,
+          "pruned": 23.13494,
+          "recovered": 0.41494692497436336,
+          "repaired": 26.12928
+        },
+        "chrf": {
+          "dense": 51.139,
+          "n_directions": 10,
+          "pruned": 44.55743,
+          "recovered": 0.43183921161668165,
+          "repaired": 47.39961
+        },
+        "comet": {
+          "dense": 0.847379,
+          "n_directions": 10,
+          "pruned": 0.791399,
+          "recovered": 0.49898177920685904,
+          "repaired": 0.819332
+        }
+      },
+      "source": "alma-7b-slimgpt40-ref-multi",
+      "system": "alma-7b-slimgpt40-ref-multi-lora"
+    }
+  ],
   "runs": {
     "alma-7b": "alma-7b__alma10-greedy-300__63d55369fea1",
     "alma-7b-flap20-gen-dir-cs-en": "alma-7b-flap20-gen-dir-cs-en__alma10-greedy-300__35dcca872eac",
@@ -2765,6 +3286,7 @@
     "alma-7b-flap40-ref-dir-ru-en": "alma-7b-flap40-ref-dir-ru-en__alma10-greedy-300__d685430084ba",
     "alma-7b-flap40-ref-dir-zh-en": "alma-7b-flap40-ref-dir-zh-en__alma10-greedy-300__73d7a1bd28ac",
     "alma-7b-flap40-ref-multi": "alma-7b-flap40-ref-multi__alma10-greedy-300__914ab23eaa16",
+    "alma-7b-flap40-ref-multi-lora": "alma-7b-flap40-ref-multi-lora__alma10-greedy-300__988e2c945a23",
     "alma-7b-flap40-ref-pair-cs": "alma-7b-flap40-ref-pair-cs__alma10-greedy-300__c1a936c9eb78",
     "alma-7b-flap40-ref-pair-de": "alma-7b-flap40-ref-pair-de__alma10-greedy-300__31b66286d3c5",
     "alma-7b-flap40-ref-pair-is": "alma-7b-flap40-ref-pair-is__alma10-greedy-300__8d1c54105734",
@@ -2797,6 +3319,7 @@
     "alma-7b-slimgpt20-ref-dir-ru-en": "alma-7b-slimgpt20-ref-dir-ru-en__alma10-greedy-300__3015f0692320",
     "alma-7b-slimgpt20-ref-dir-zh-en": "alma-7b-slimgpt20-ref-dir-zh-en__alma10-greedy-300__df45c15ebc6a",
     "alma-7b-slimgpt20-ref-multi": "alma-7b-slimgpt20-ref-multi__alma10-greedy-300__b08030daebba",
+    "alma-7b-slimgpt20-ref-multi-lora": "alma-7b-slimgpt20-ref-multi-lora__alma10-greedy-300__3361532db411",
     "alma-7b-slimgpt20-ref-pair-cs": "alma-7b-slimgpt20-ref-pair-cs__alma10-greedy-300__334591758a48",
     "alma-7b-slimgpt20-ref-pair-de": "alma-7b-slimgpt20-ref-pair-de__alma10-greedy-300__4ce0e00de7c5",
     "alma-7b-slimgpt20-ref-pair-is": "alma-7b-slimgpt20-ref-pair-is__alma10-greedy-300__543797100547",
@@ -2813,6 +3336,7 @@
     "alma-7b-slimgpt30-gen-dir-ru-en": "alma-7b-slimgpt30-gen-dir-ru-en__alma10-greedy-300__57a2f67f3c18",
     "alma-7b-slimgpt30-gen-dir-zh-en": "alma-7b-slimgpt30-gen-dir-zh-en__alma10-greedy-300__4f614623e3fc",
     "alma-7b-slimgpt30-gen-multi": "alma-7b-slimgpt30-gen-multi__alma10-greedy-300__bc0d5fbe80b2",
+    "alma-7b-slimgpt30-gen-multi-lora": "alma-7b-slimgpt30-gen-multi-lora__alma10-greedy-300__f19ce0350424",
     "alma-7b-slimgpt30-gen-pair-cs": "alma-7b-slimgpt30-gen-pair-cs__alma10-greedy-300__bfb0209fc273",
     "alma-7b-slimgpt30-gen-pair-de": "alma-7b-slimgpt30-gen-pair-de__alma10-greedy-300__f9680be1d7e5",
     "alma-7b-slimgpt30-gen-pair-is": "alma-7b-slimgpt30-gen-pair-is__alma10-greedy-300__24c21e587282",
@@ -2845,11 +3369,17 @@
     "alma-7b-slimgpt40-gen-dir-ru-en": "alma-7b-slimgpt40-gen-dir-ru-en__alma10-greedy-300__ac1260c1dbae",
     "alma-7b-slimgpt40-gen-dir-zh-en": "alma-7b-slimgpt40-gen-dir-zh-en__alma10-greedy-300__6fb9bdcc73f4",
     "alma-7b-slimgpt40-gen-multi": "alma-7b-slimgpt40-gen-multi__alma10-greedy-300__2811a359b99b",
+    "alma-7b-slimgpt40-gen-multi-lora": "alma-7b-slimgpt40-gen-multi-lora__alma10-greedy-300__e39cd5e9968f",
     "alma-7b-slimgpt40-gen-pair-cs": "alma-7b-slimgpt40-gen-pair-cs__alma10-greedy-300__68de7bb41d2e",
+    "alma-7b-slimgpt40-gen-pair-cs-lora": "alma-7b-slimgpt40-gen-pair-cs-lora__alma10-greedy-300__e06e8ed94d79",
     "alma-7b-slimgpt40-gen-pair-de": "alma-7b-slimgpt40-gen-pair-de__alma10-greedy-300__3ffbfc2a35df",
+    "alma-7b-slimgpt40-gen-pair-de-lora": "alma-7b-slimgpt40-gen-pair-de-lora__alma10-greedy-300__aa3b357b3be0",
     "alma-7b-slimgpt40-gen-pair-is": "alma-7b-slimgpt40-gen-pair-is__alma10-greedy-300__b31ce4b12880",
+    "alma-7b-slimgpt40-gen-pair-is-lora": "alma-7b-slimgpt40-gen-pair-is-lora__alma10-greedy-300__10c58c579463",
     "alma-7b-slimgpt40-gen-pair-ru": "alma-7b-slimgpt40-gen-pair-ru__alma10-greedy-300__be73981bdd20",
+    "alma-7b-slimgpt40-gen-pair-ru-lora": "alma-7b-slimgpt40-gen-pair-ru-lora__alma10-greedy-300__662d4145a7da",
     "alma-7b-slimgpt40-gen-pair-zh": "alma-7b-slimgpt40-gen-pair-zh__alma10-greedy-300__9cf4997197e8",
+    "alma-7b-slimgpt40-gen-pair-zh-lora": "alma-7b-slimgpt40-gen-pair-zh-lora__alma10-greedy-300__f589dfd8291f",
     "alma-7b-slimgpt40-ref-dir-cs-en": "alma-7b-slimgpt40-ref-dir-cs-en__alma10-greedy-300__af8cf7b2371f",
     "alma-7b-slimgpt40-ref-dir-de-en": "alma-7b-slimgpt40-ref-dir-de-en__alma10-greedy-300__0cec5dc59e85",
     "alma-7b-slimgpt40-ref-dir-en-cs": "alma-7b-slimgpt40-ref-dir-en-cs__alma10-greedy-300__1145b8399d3d",
@@ -2861,6 +3391,7 @@
     "alma-7b-slimgpt40-ref-dir-ru-en": "alma-7b-slimgpt40-ref-dir-ru-en__alma10-greedy-300__92566b69a979",
     "alma-7b-slimgpt40-ref-dir-zh-en": "alma-7b-slimgpt40-ref-dir-zh-en__alma10-greedy-300__a609216bae42",
     "alma-7b-slimgpt40-ref-multi": "alma-7b-slimgpt40-ref-multi__alma10-greedy-300__e429d68241cf",
+    "alma-7b-slimgpt40-ref-multi-lora": "alma-7b-slimgpt40-ref-multi-lora__alma10-greedy-300__20d40c9e8ec5",
     "alma-7b-slimgpt40-ref-pair-cs": "alma-7b-slimgpt40-ref-pair-cs__alma10-greedy-300__75bb925cc839",
     "alma-7b-slimgpt40-ref-pair-de": "alma-7b-slimgpt40-ref-pair-de__alma10-greedy-300__79a5eaebb564",
     "alma-7b-slimgpt40-ref-pair-is": "alma-7b-slimgpt40-ref-pair-is__alma10-greedy-300__56e2a83438ae",
