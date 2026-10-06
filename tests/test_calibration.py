@@ -211,6 +211,37 @@ def test_contamination_against_the_test_set_is_counted(
     assert manifest["contamination"]["total_collisions"] == 2
 
 
+def test_excluded_test_sources_are_removed_before_drawing(
+    tmp_path: Path, stub_hub: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The repair set takes everything, so a collision has to be removed, not avoided."""
+    spec = CalibrationSpec.from_dict(
+        {
+            "name": "clean",
+            "directions": ["de-en"],
+            "segments_per_direction": None,
+            "min_source_chars": 1,
+            "max_source_chars": 100000,
+            "exclude_test_sources": "haoranxu/WMT22-Test",
+        }
+    )
+
+    class FakeTestSet:
+        sources = ("de sentence 3 lang lang lang ", "not in the training data")
+
+        def __len__(self) -> int:
+            return len(self.sources)
+
+    monkeypatch.setattr("mnlp_eval.data.load_testset", lambda *_a, **_k: FakeTestSet())
+    manifest = build_calibration_set(spec, tmp_path, contamination_check="haoranxu/WMT22-Test")
+
+    assert manifest["excluded_test_sources"]["total_removed"] == 1
+    removed = manifest["excluded_test_sources"]["directions"]["de-en"]["removed"]
+    assert removed[0]["source"] == "de sentence 3 lang lang lang"
+    assert manifest["directions"]["de-en"]["n_segments"] == 199
+    assert manifest["contamination"]["total_collisions"] == 0
+
+
 def test_an_unreachable_test_set_is_reported_not_swallowed(
     tmp_path: Path, stub_hub: dict[str, Any], no_contamination_check: None
 ) -> None:
