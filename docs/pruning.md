@@ -45,10 +45,27 @@ What each criterion measures, and why, is in its module docstring under
 `prune/methods/`; what it means for a reported number is in
 [protocol.md](protocol.md).
 
-One departure from the SlimGPT paper: column scores are taken once from the
-dense weights rather than recomputed as the block loop advances. The
-compensation itself is exact. The paper's per-layer schedule is the
-`log-increase` budget below.
+SlimGPT prunes layer by layer, each layer on the activations the
+already-pruned layers before it produce. For a projection with damped input
+Hessian `H` (ridge 1 percent of the mean diagonal, padding excluded), removing
+the columns `S` and refitting the rest by least squares costs
+`tr(W_S M^-1 W_S^T)` with `M = [H^-1]_SS`; the refit is
+`W <- W - W_S M^-1 [H^-1]_S,:`, and `H^-1` is downdated by the matching Schur
+complement, all in float64. That is the exact optimum over every surviving
+column, whatever its position. Units go greedily, each step re-scoring the
+survivors against the current weights and inverse: heads one per step (one
+per key/value group under grouped-query), FFN channels in batches of 128 (the
+paper shrinks its batch from 1024 to 8; its ablation puts a fixed size within
+noise). Within a layer the heads are pruned first and the FFN Hessian is taken
+on the pruned attention. How many units a layer keeps comes from the budget
+below; the paper's schedule is `log-increase`.
+
+Before 6 October 2026 this followed SparseGPT's Cholesky sweep in column
+order. That compensates a removed column only with the columns after it, so
+the last heads of `o_proj` got no compensation, and it scored columns on the
+trailing submatrix, so late units looked more important. Results from before
+that date (the 29 September pilot, the layer-protection and direction-scope
+experiments) used it.
 
 ## Calibration text
 
@@ -143,9 +160,11 @@ clearly worse than the rest of its own.
 `log-increase` is SlimGPT's Incremental Pruning Ratio (Ling et al., NeurIPS
 2024, equation 6): layer `i` of `n` loses
 `r_0 + (r_last - r_0) * log(i + 1) / log(n)` of its units. The paper does not
-state `r_0`; here it is 0, so layer 0 is left whole, and `r_last` is solved so
-the mean over layers is the requested sparsity. On ALMA-7B that is 0 at layer
-0 rising to 0.27 at layer 31 for 20 percent, and to 0.68 for 50. The reasoning
+state `r_0`, but the curve in its Figure 4 (LLaMA-7B at 50 percent) fits
+equation 6 exactly with `r_0` a quarter of the target, so that is used here,
+and `r_last` is solved so the mean over layers is the requested sparsity. On
+ALMA-7B that is 0.05 at layer 0 rising to 0.254 at layer 31 for 20 percent,
+0.075 to 0.381 for 30, and 0.10 to 0.508 for 40. The reasoning
 is error accumulation: every later layer inherits an early layer's error, and
 the paper's ablation (its Table 6) has this beating uniform, and uniform
 beating the decreasing schedules. Scores still decide which units a layer
@@ -252,10 +271,11 @@ the compaction has to patch. Before 4.48 it reshaped with an explicit
 
 ## Cost
 
-For SlimGPT on ALMA-7B at 1,280 calibration segments, peak GPU memory is about
-26 GB: weights 13.5 GB, hidden state buffers 10.7 GB, one layer's Hessians
-0.9 GB (`down_proj` alone is 11008 squared in float32), plus Cholesky
-workspace. The knob is the number of calibration segments, which the buffer is
+For SlimGPT on ALMA-7B at 1,280 calibration segments, peak GPU memory is the
+13.5 GB of weights, two copies of the hidden states (a layer's input and
+output), and about 4 GB of float64 matrices for `down_proj` (11008 squared:
+the inverse Hessian, its factor and the weights). The linear algebra takes
+under a second per layer; forward passes dominate, about five minutes in all. The knob is the number of calibration segments, which the buffer is
 linear in. Do not shrink `max_length` instead: it changes what the Hessian
 measures and the sweep stops being comparable across methods.
 
@@ -274,8 +294,9 @@ models, no GPU and no network. The checks worth knowing about:
 - a compacted checkpoint reloads to the same function, on a tied-embedding
   model with layers of differing widths;
 - FLAP's bias reproduces the dense mean output exactly;
-- SlimGPT's compensation measurably reduces the layer's reconstruction error
-  against naive truncation, which is the claim that justifies its cost;
+- SlimGPT's compensated weights equal the closed-form least-squares optimum
+  for removed columns at any position, and its selection does not change when
+  columns are permuted;
 - tokens behind the padding mask do not move any score, and for SlimGPT not
   the Hessian either, which the compensation solves against as well as ranks
   by.

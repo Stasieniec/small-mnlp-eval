@@ -115,10 +115,9 @@ to say.
 
 **Cost per method.** FLAP is minutes: one forward pass and two vectors per
 projection. LLM-Pruner runs a backward pass, so budget under an hour and lower
-`batch_size` if it does not fit. SlimGPT is the expensive one, 12 to 15
-minutes on an A100 in the pilot, with two passes over the calibration set, a
-Hessian and Cholesky inverse per projection, and a per-column compensation
-sweep. `prune.sbatch` asks for four hours, which leaves room for larger
+`batch_size` if it does not fit. SlimGPT is the expensive one: per layer,
+three forward passes over the calibration set and a greedy float64
+compensation per projection (see docs/pruning.md). `prune.sbatch` asks for four hours, which leaves room for larger
 calibration sets and the checkpoint write.
 
 One 40 GB A100 is enough but not spacious for SlimGPT: the dense model is
