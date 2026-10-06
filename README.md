@@ -7,37 +7,45 @@ evaluates the result: quality, behaviour and efficiency. Study design in
 
 ## Results
 
-Pilot of 29 September 2026: the first 300 segments of each WMT22 direction, greedy
-decoding, no fine-tuning after pruning. Plots, per-direction tables and the overlap
-analysis are in [notebooks/pilot_results.ipynb](notebooks/pilot_results.ipynb), the data
-in `results/pilot-2026-09-29/`.
+Final pilot grid of 6 October 2026: 192 pruned models (SlimGPT and FLAP; prompt +
+reference or prompt + dense-generated calibration; 20, 30 and 40 percent removed;
+one multi-directional, five pair and ten direction subnetworks, every one calibrated
+on 1,280 segments), each evaluated on the first 300 segments of all ten WMT22
+directions, greedy, plus LoRA repairs. Write-up, decisions and job log:
+[docs/overnight-2026-10-06.md](docs/overnight-2026-10-06.md). Tables, plots and
+per-segment contrasts: `results/grid-2026-10-06/`.
 
-| system | removed | calibration | BLEU | chrF++ | COMET |
-| --- | --- | --- | --- | --- | --- |
-| ALMA-7B | | | 30.35 | 51.14 | 0.8474 |
-| SlimGPT | 20% | prompts | 20.65 | 41.71 | 0.8148 |
-| SlimGPT | 20% | prompt + reference | 28.33 | 49.33 | 0.8367 |
-| SlimGPT, uniform budget | 20% | prompts | 23.01 | 43.81 | 0.8222 |
-| SlimGPT, one pair (best: zh) | 20% | prompts, 256 segments | 16.15 | 36.25 | 0.7340 |
-| FLAP | 20% | prompts | 19.02 | 38.22 | 0.8031 |
-| SlimGPT | 50% | prompts | 4.91 | 19.08 | 0.5567 |
+COMET-22 (BLEU), macro over the ten directions; pair and dir translate each direction
+with the matching specialist. Dense ALMA-7B: 0.8474 (30.35).
 
-- Calibrating on the prompt with its reference translation appended recovers 79% of
-  the BLEU lost at 20%. A control with twice the prompt-only data gains little, so the
-  effect comes from the target side.
-- Uniform and log-increase per-layer budgets both beat the global one at 20%.
-- Subnetworks calibrated on a single language pair are worse everywhere, their own
-  pair included; this is confounded with calibration size (256 against 1,280 segments).
-- 50% is unusable without repair. Pruning reduces memory (1.23x at 20%, 1.90x at 50%)
-  but not generation time with Hugging Face generation.
+| method | calibration | removed | multi | pair | dir | multi + LoRA |
+| --- | --- | --- | --- | --- | --- | --- |
+| SlimGPT | reference | 20% | 0.8374 (27.72) | 0.8369 (27.97) | 0.8371 (27.95) | 0.8381 (28.41) |
+| SlimGPT | generated | 30% | 0.8229 (25.88) | 0.8276 (26.52) | 0.8267 (26.58) | 0.8324 (27.59) |
+| SlimGPT | generated | 40% | 0.7905 (22.92) | 0.8092 (24.18) | 0.8081 (24.44) | 0.8179 (26.36) |
+| FLAP | reference | 20% | 0.8221 (26.81) | 0.8297 (27.24) | 0.8299 (27.67) | |
+| FLAP | reference | 30% | 0.7823 (23.66) | 0.8003 (24.09) | 0.8017 (24.49) | |
+| FLAP | reference | 40% | 0.7393 (20.50) | 0.7552 (20.11) | 0.7552 (20.33) | 0.8112 (25.73) |
 
-Open:
+Rows follow the repaired configurations; the other calibration text is within 0.0015
+COMET of each cell, and all 24 rows are in the write-up.
+The five SlimGPT 40 percent pair models, each LoRA-repaired on its own pair, reach
+0.8236 (26.08).
 
-- LoRA repair (`mnlp-eval repair`) is implemented and tested on Qwen2.5-0.5B but not
-  run on ALMA-7B: the repair set shares two source segments with the WMT22 test set.
-- Pair-specific runs at equal calibration size.
-- LLM-Pruner runs out of memory; its gradient accumulator needs reducing to
-  per-unit sums.
+- SlimGPT beats FLAP at every setting, by 0.015 COMET at 20 percent and 0.05 at 40.
+- Reference and dense-generated calibration are indistinguishable, so calibration
+  needs only source sentences.
+- At equal calibration size, pair and direction subnetworks beat the
+  multi-directional one from 30 percent up (+0.017 COMET at 40), and pair matches
+  direction. A second calibration draw reproduces this. They fail on other
+  directions that write a different language, and transfer to directions that
+  read one.
+- Out-of-English Icelandic and Chinese degrade most.
+- LoRA repair recovers about half of the 40 percent loss for SlimGPT and two thirds
+  for FLAP.
+
+SlimGPT's compensation was fixed on 6 October (see docs/pruning.md); the 29
+September pilot in `results/pilot-2026-09-29/` used the earlier code.
 
 ## Layout
 

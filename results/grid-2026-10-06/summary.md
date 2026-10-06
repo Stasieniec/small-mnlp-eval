@@ -1,10 +1,10 @@
 # Pruning grid report
 
-Suite `alma10-greedy-300`, generated 2026-10-06 19:17 UTC from `runs` and `configs/grid/manifest.json`. Paired bootstrap: 1000 resamples, seed 12345. Missing cells are `-`.
+Suite `alma10-greedy-300`, generated 2026-10-06 20:54 UTC from `runs` and `configs/grid/manifest.json`. Paired bootstrap: 1000 resamples, seed 12345. Missing cells are `-`.
 
 ## Coverage
 
-Grid models complete: **192/192** (BLEU, chrF++ and COMET on all 10 directions); 0 partially scored; 0 without a run. LoRA-repaired systems: 0/0 complete.
+Grid models complete: **192/192** (BLEU, chrF++ and COMET on all 10 directions); 0 partially scored; 0 without a run. LoRA-repaired systems: 10/10 complete.
 
 Dense baseline `alma-7b` (run 63d55369fea1, 10/10 directions): COMET 0.8474, BLEU 30.35, chrF++ 51.14.
 
@@ -212,7 +212,88 @@ Macro over directions of the per-direction rates (share of all segments). Hit bu
 
 ## Repair (LoRA)
 
-No `-lora` systems found yet.
+Macro over the directions all three systems have. Recovered = (repaired - pruned) / (dense - pruned): 1 means the repair closed the whole gap to dense, 0 means nothing. The COMET delta is repaired minus pruned, pooled paired bootstrap.
+
+| System | Metric | Dense | Pruned | Repaired | Repaired - pruned | Recovered |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: |
+| alma-7b-flap40-ref-multi-lora | COMET | 0.8474 | 0.7393 | 0.8113 | +0.0720 | 66.6% |
+| alma-7b-flap40-ref-multi-lora | BLEU | 30.35 | 20.50 | 25.73 | +5.23 | 53.1% |
+| alma-7b-flap40-ref-multi-lora | chrF++ | 51.14 | 40.94 | 46.84 | +5.90 | 57.8% |
+| alma-7b-slimgpt20-ref-multi-lora | COMET | 0.8474 | 0.8374 | 0.8381 | +0.0007 | 7.1% |
+| alma-7b-slimgpt20-ref-multi-lora | BLEU | 30.35 | 27.72 | 28.41 | +0.69 | 26.3% |
+| alma-7b-slimgpt20-ref-multi-lora | chrF++ | 51.14 | 49.03 | 49.43 | +0.40 | 19.0% |
+| alma-7b-slimgpt30-gen-multi-lora | COMET | 0.8474 | 0.8229 | 0.8324 | +0.0095 | 38.9% |
+| alma-7b-slimgpt30-gen-multi-lora | BLEU | 30.35 | 25.88 | 27.59 | +1.72 | 38.4% |
+| alma-7b-slimgpt30-gen-multi-lora | chrF++ | 51.14 | 47.58 | 48.65 | +1.07 | 30.0% |
+| alma-7b-slimgpt40-gen-multi-lora | COMET | 0.8474 | 0.7905 | 0.8179 | +0.0274 | 48.2% |
+| alma-7b-slimgpt40-gen-multi-lora | BLEU | 30.35 | 22.92 | 26.36 | +3.44 | 46.3% |
+| alma-7b-slimgpt40-gen-multi-lora | chrF++ | 51.14 | 44.44 | 47.40 | +2.96 | 44.2% |
+| alma-7b-slimgpt40-gen-pair-cs-lora | COMET | 0.8474 | 0.7381 | 0.7522 | +0.0141 | 12.9% |
+| alma-7b-slimgpt40-gen-pair-cs-lora | BLEU | 30.35 | 20.16 | 20.95 | +0.78 | 7.7% |
+| alma-7b-slimgpt40-gen-pair-cs-lora | chrF++ | 51.14 | 41.58 | 42.61 | +1.03 | 10.8% |
+| alma-7b-slimgpt40-gen-pair-de-lora | COMET | 0.8474 | 0.7166 | 0.7324 | +0.0158 | 12.1% |
+| alma-7b-slimgpt40-gen-pair-de-lora | BLEU | 30.35 | 19.49 | 19.09 | -0.40 | -3.6% |
+| alma-7b-slimgpt40-gen-pair-de-lora | chrF++ | 51.14 | 40.37 | 37.83 | -2.54 | -23.6% |
+| alma-7b-slimgpt40-gen-pair-is-lora | COMET | 0.8474 | 0.7265 | 0.7465 | +0.0201 | 16.6% |
+| alma-7b-slimgpt40-gen-pair-is-lora | BLEU | 30.35 | 17.77 | 18.64 | +0.87 | 6.9% |
+| alma-7b-slimgpt40-gen-pair-is-lora | chrF++ | 51.14 | 39.58 | 40.55 | +0.97 | 8.4% |
+| alma-7b-slimgpt40-gen-pair-ru-lora | COMET | 0.8474 | 0.7217 | 0.7462 | +0.0246 | 19.5% |
+| alma-7b-slimgpt40-gen-pair-ru-lora | BLEU | 30.35 | 19.90 | 21.66 | +1.76 | 16.8% |
+| alma-7b-slimgpt40-gen-pair-ru-lora | chrF++ | 51.14 | 40.51 | 42.00 | +1.49 | 14.0% |
+| alma-7b-slimgpt40-gen-pair-zh-lora | COMET | 0.8474 | 0.6977 | 0.7116 | +0.0139 | 9.3% |
+| alma-7b-slimgpt40-gen-pair-zh-lora | BLEU | 30.35 | 17.48 | 17.79 | +0.31 | 2.4% |
+| alma-7b-slimgpt40-gen-pair-zh-lora | chrF++ | 51.14 | 37.23 | 33.80 | -3.43 | -24.6% |
+| alma-7b-slimgpt40-ref-multi-lora | COMET | 0.8474 | 0.7914 | 0.8193 | +0.0279 | 49.9% |
+| alma-7b-slimgpt40-ref-multi-lora | BLEU | 30.35 | 23.13 | 26.13 | +2.99 | 41.5% |
+| alma-7b-slimgpt40-ref-multi-lora | chrF++ | 51.14 | 44.56 | 47.40 | +2.84 | 43.2% |
+
+Repaired - pruned COMET with 95% CI:
+
+- alma-7b-flap40-ref-multi-lora: +0.0720 [+0.0671, +0.0768] p<0.001
+- alma-7b-slimgpt20-ref-multi-lora: +0.0007 [-0.0015, +0.0029] p=0.513
+- alma-7b-slimgpt30-gen-multi-lora: +0.0095 [+0.0069, +0.0121] p<0.001
+- alma-7b-slimgpt40-gen-multi-lora: +0.0274 [+0.0237, +0.0310] p<0.001
+- alma-7b-slimgpt40-gen-pair-cs-lora: +0.0141 [+0.0106, +0.0179] p<0.001
+- alma-7b-slimgpt40-gen-pair-de-lora: +0.0158 [+0.0111, +0.0206] p<0.001
+- alma-7b-slimgpt40-gen-pair-is-lora: +0.0201 [+0.0161, +0.0242] p<0.001
+- alma-7b-slimgpt40-gen-pair-ru-lora: +0.0246 [+0.0208, +0.0289] p<0.001
+- alma-7b-slimgpt40-gen-pair-zh-lora: +0.0139 [+0.0098, +0.0182] p<0.001
+- alma-7b-slimgpt40-ref-multi-lora: +0.0279 [+0.0245, +0.0312] p<0.001
+
+### Per-direction COMET
+
+| System | cs-en | de-en | is-en | ru-en | zh-en | en-cs | en-de | en-is | en-ru | en-zh | all |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| dense (alma-7b) | 0.8524 | 0.8392 | 0.8627 | 0.8464 | 0.7961 | 0.8703 | 0.8530 | 0.8418 | 0.8611 | 0.8507 | 0.8474 |
+| alma-7b-flap40-ref-multi | 0.8138 | 0.8063 | 0.8032 | 0.7899 | 0.7204 | 0.7172 | 0.7625 | 0.5826 | 0.7455 | 0.6513 | 0.7393 |
+| alma-7b-flap40-ref-multi-lora | 0.8335 | 0.8195 | 0.8320 | 0.8153 | 0.7626 | 0.8192 | 0.8137 | 0.7826 | 0.8292 | 0.8048 | 0.8113 |
+| dense (alma-7b) | 0.8524 | 0.8392 | 0.8627 | 0.8464 | 0.7961 | 0.8703 | 0.8530 | 0.8418 | 0.8611 | 0.8507 | 0.8474 |
+| alma-7b-slimgpt20-ref-multi | 0.8423 | 0.8336 | 0.8590 | 0.8360 | 0.7891 | 0.8519 | 0.8445 | 0.8278 | 0.8493 | 0.8399 | 0.8374 |
+| alma-7b-slimgpt20-ref-multi-lora | 0.8443 | 0.8372 | 0.8508 | 0.8335 | 0.7884 | 0.8544 | 0.8456 | 0.8320 | 0.8538 | 0.8406 | 0.8381 |
+| dense (alma-7b) | 0.8524 | 0.8392 | 0.8627 | 0.8464 | 0.7961 | 0.8703 | 0.8530 | 0.8418 | 0.8611 | 0.8507 | 0.8474 |
+| alma-7b-slimgpt30-gen-multi | 0.8378 | 0.8262 | 0.8496 | 0.8283 | 0.7817 | 0.8312 | 0.8332 | 0.8016 | 0.8268 | 0.8126 | 0.8229 |
+| alma-7b-slimgpt30-gen-multi-lora | 0.8402 | 0.8345 | 0.8474 | 0.8341 | 0.7900 | 0.8478 | 0.8368 | 0.8200 | 0.8405 | 0.8328 | 0.8324 |
+| dense (alma-7b) | 0.8524 | 0.8392 | 0.8627 | 0.8464 | 0.7961 | 0.8703 | 0.8530 | 0.8418 | 0.8611 | 0.8507 | 0.8474 |
+| alma-7b-slimgpt40-gen-multi | 0.8205 | 0.8168 | 0.8341 | 0.8122 | 0.7503 | 0.7893 | 0.7971 | 0.7410 | 0.7905 | 0.7537 | 0.7905 |
+| alma-7b-slimgpt40-gen-multi-lora | 0.8371 | 0.8254 | 0.8392 | 0.8236 | 0.7726 | 0.8185 | 0.8190 | 0.7938 | 0.8285 | 0.8216 | 0.8179 |
+| dense (alma-7b) | 0.8524 | 0.8392 | 0.8627 | 0.8464 | 0.7961 | 0.8703 | 0.8530 | 0.8418 | 0.8611 | 0.8507 | 0.8474 |
+| alma-7b-slimgpt40-gen-pair-cs | 0.8304 | 0.8172 | 0.8290 | 0.8127 | 0.7510 | 0.8246 | 0.7374 | 0.5403 | 0.7778 | 0.4603 | 0.7381 |
+| alma-7b-slimgpt40-gen-pair-cs-lora | 0.8338 | 0.8259 | 0.8403 | 0.8143 | 0.7586 | 0.8357 | 0.7653 | 0.5526 | 0.7902 | 0.5049 | 0.7522 |
+| dense (alma-7b) | 0.8524 | 0.8392 | 0.8627 | 0.8464 | 0.7961 | 0.8703 | 0.8530 | 0.8418 | 0.8611 | 0.8507 | 0.8474 |
+| alma-7b-slimgpt40-gen-pair-de | 0.8226 | 0.8177 | 0.8339 | 0.8124 | 0.7337 | 0.6329 | 0.8174 | 0.5027 | 0.7037 | 0.4889 | 0.7166 |
+| alma-7b-slimgpt40-gen-pair-de-lora | 0.8315 | 0.8254 | 0.8422 | 0.8178 | 0.7450 | 0.6384 | 0.8359 | 0.5982 | 0.6010 | 0.5886 | 0.7324 |
+| dense (alma-7b) | 0.8524 | 0.8392 | 0.8627 | 0.8464 | 0.7961 | 0.8703 | 0.8530 | 0.8418 | 0.8611 | 0.8507 | 0.8474 |
+| alma-7b-slimgpt40-gen-pair-is | 0.8111 | 0.8173 | 0.8309 | 0.8001 | 0.7294 | 0.6293 | 0.7232 | 0.7931 | 0.6642 | 0.4660 | 0.7265 |
+| alma-7b-slimgpt40-gen-pair-is-lora | 0.8210 | 0.8215 | 0.8392 | 0.8092 | 0.7462 | 0.6721 | 0.7371 | 0.8156 | 0.7175 | 0.4859 | 0.7465 |
+| dense (alma-7b) | 0.8524 | 0.8392 | 0.8627 | 0.8464 | 0.7961 | 0.8703 | 0.8530 | 0.8418 | 0.8611 | 0.8507 | 0.8474 |
+| alma-7b-slimgpt40-gen-pair-ru | 0.8320 | 0.8170 | 0.8305 | 0.8194 | 0.7348 | 0.6573 | 0.6982 | 0.4459 | 0.8108 | 0.5706 | 0.7217 |
+| alma-7b-slimgpt40-gen-pair-ru-lora | 0.8393 | 0.8211 | 0.8388 | 0.8272 | 0.7579 | 0.7055 | 0.7104 | 0.4696 | 0.8295 | 0.6628 | 0.7462 |
+| dense (alma-7b) | 0.8524 | 0.8392 | 0.8627 | 0.8464 | 0.7961 | 0.8703 | 0.8530 | 0.8418 | 0.8611 | 0.8507 | 0.8474 |
+| alma-7b-slimgpt40-gen-pair-zh | 0.8055 | 0.8130 | 0.8061 | 0.7932 | 0.7600 | 0.5112 | 0.5975 | 0.4307 | 0.6718 | 0.7882 | 0.6977 |
+| alma-7b-slimgpt40-gen-pair-zh-lora | 0.8130 | 0.8157 | 0.8165 | 0.8131 | 0.7734 | 0.5439 | 0.5806 | 0.5194 | 0.6196 | 0.8206 | 0.7116 |
+| dense (alma-7b) | 0.8524 | 0.8392 | 0.8627 | 0.8464 | 0.7961 | 0.8703 | 0.8530 | 0.8418 | 0.8611 | 0.8507 | 0.8474 |
+| alma-7b-slimgpt40-ref-multi | 0.8223 | 0.8152 | 0.8337 | 0.8167 | 0.7510 | 0.7899 | 0.7970 | 0.7479 | 0.7933 | 0.7469 | 0.7914 |
+| alma-7b-slimgpt40-ref-multi-lora | 0.8345 | 0.8267 | 0.8429 | 0.8259 | 0.7733 | 0.8253 | 0.8293 | 0.7994 | 0.8235 | 0.8125 | 0.8193 |
 
 ## Structure
 
