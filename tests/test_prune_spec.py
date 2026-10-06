@@ -382,3 +382,112 @@ class TestPruneSpecCommand:
         )
 
         assert main(["prune-spec", "--spec", str(config), "--field", "name"]) == 1
+
+
+@pytest.mark.parametrize("method", ["flap", "slimgpt"])
+def test_generated_cache_prunes_and_records_provenance(
+    method: str,
+    calibration: Path,
+    tmp_path: Path,
+    model_config_dir: Path,
+    stub_hub: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dataclasses import replace
+
+    import torch
+    import transformers
+
+    from mnlp_eval.artifacts import read_jsonl_dicts, write_jsonl
+    from mnlp_eval.config import ModelSpec, SuiteSpec
+    from mnlp_eval.data import generated_calibration as gc
+    from mnlp_eval.languages import parse_direction
+    from mnlp_eval.models import SegmentOutput
+    from mnlp_eval.prompts import get_prompt
+
+    (calibration / "calibration.json").write_text("{}")
+    for path in calibration.glob("*.jsonl"):
+        rows = list(read_jsonl_dicts(path))
+        for row in rows:
+            row["source"] = f"source {row['id']}"
+            row["prompt"] = get_prompt("alma").render(parse_direction(path.stem), row["source"])
+        write_jsonl(path, rows)
+
+    class Generator:
+        def translate(self, direction: Any, sources: Any, decode: Any, **kwargs: Any) -> Any:
+            return [
+                SegmentOutput("generated", input_token_ids=[1, 3, 4], generated_token_ids=[5, 6, 2])
+                for _ in sources
+            ]
+
+        def close(self) -> None:
+            pass
+
+    class ReplayTokenizer(StubTokenizer):
+        def pad(self, rows: Any, **kwargs: Any) -> Any:
+            return {
+                key: torch.tensor([row[key] for row in rows])
+                for key in ("input_ids", "attention_mask")
+            }
+
+    revisions: list[str] = []
+
+    def tokenizer(*args: Any, **kwargs: Any) -> Any:
+        revisions.append(kwargs["revision"])
+        return ReplayTokenizer()
+
+    monkeypatch.setattr(transformers.AutoTokenizer, "from_pretrained", tokenizer)
+    monkeypatch.setattr(gc, "build_translator", lambda _: Generator())
+    monkeypatch.setattr(
+        gc,
+        "_resolve_model",
+        lambda spec: (
+            replace(spec, revision="pinned-sha"),
+            {"repository": "stub/model", "revision": "pinned-sha"},
+        ),
+    )
+    out = tmp_path / "generated"
+    cache = gc.generate_calibration(
+        calibration,
+        ModelSpec(name="dense", loader="hf_causal", model_name_or_path="stub/model"),
+        SuiteSpec.from_dict(load_yaml_config("configs/suites/alma10-greedy.yaml")),
+        out,
+    )
+    spec = PruneSpec.from_dict(
+        {
+            "name": f"generated-{method}",
+            "method": method,
+            "model_name_or_path": "stub/model",
+            "calibration": str(out),
+            "calibration_text": "prompt+generated",
+            "dtype": "float32",
+            "directions": ["de-en", "en-de"],
+            "max_length": 12,
+        }
+    )
+    report = run_pruning(
+        spec, tmp_path / "out", subnetwork_dir=tmp_path / "subnetworks", config_dir=model_config_dir
+    )
+    assert revisions == ["pinned-sha"]
+    assert report["calibration_segments"] == 12
+    checkpoint = Path(report["checkpoint"])
+    provenance = json.loads((checkpoint / "calibration_provenance.json").read_text())
+    assert provenance["cache_fingerprint"] == cache["fingerprint"]
+    assert provenance["text"] == "prompt+generated"
+    assert provenance["directions"] == ["de-en", "en-de"]
+    assert cache["fingerprint"] in (checkpoint / "subnetwork.json").read_text()
+
+    from mnlp_eval.prune import PruneError
+
+    for changed, message in (
+        (replace(spec, model_name_or_path="wrong/model"), "different dense"),
+        (replace(spec, max_length=1), "exceeds max_length"),
+    ):
+        with pytest.raises(PruneError, match=message):
+            run_pruning(
+                changed,
+                tmp_path / "out",
+                subnetwork_dir=tmp_path / "subnetworks",
+                config_dir=model_config_dir,
+            )
+    assert revisions == ["pinned-sha"]  # Refuse before another model/tokenizer load.

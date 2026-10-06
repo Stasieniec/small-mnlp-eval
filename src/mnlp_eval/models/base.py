@@ -42,6 +42,9 @@ class SegmentOutput:
     #: translation itself is decided downstream, once the hypothesis is known.
     hit_token_budget: bool = False
     source_truncated: bool = False
+    #: Captured only for calibration, avoiding overhead during evaluation.
+    input_token_ids: list[int] | None = None
+    generated_token_ids: list[int] | None = None
 
 
 @dataclass
@@ -196,6 +199,8 @@ class Translator(abc.ABC):
         direction: Direction,
         sources: Sequence[str],
         decode: DecodeSpec,
+        *,
+        capture_token_ids: bool = False,
     ) -> list[SegmentOutput]:
         """Translate ``sources`` and return raw output in the original order."""
         import torch
@@ -253,6 +258,10 @@ class Translator(abc.ABC):
                     n_generated_tokens=n_content,
                     hit_token_budget=not complete,
                     source_truncated=untruncated_lengths[index] > max_source_length,
+                    input_token_ids=list(encoded[index]["input_ids"])
+                    if capture_token_ids
+                    else None,
+                    generated_token_ids=generated.tolist() if capture_token_ids else None,
                 )
 
         missing = [index for index, value in enumerate(results) if value is None]
