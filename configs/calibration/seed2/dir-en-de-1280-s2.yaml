@@ -1,0 +1,4 @@
+# dir-en-de-1280 redrawn with seed 5678. Written by scripts/grid_seed2.py.
+extends: ../dir-en-de-1280.yaml
+name: dir-en-de-1280-s2
+seed: 5678

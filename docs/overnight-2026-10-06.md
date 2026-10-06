@@ -106,3 +106,12 @@ prompt-only calibration, LLM-Pruner.
   that had landed on H100 were cancelled after 15 minutes and resubmitted to
   gpu_a100 only (27682686-27682688); grid jobs keep both partitions, since a
   slower GPU beats a queue.
+- 21:16 All 192 grid models done, none failed (FLAP pair and direction
+  models 20:37-21:16). Repairs running on A100, about 1 h 45 to 2 h each.
+- 21:25 Extra, not in the agreed plan: a second calibration draw (seed 5678)
+  for the SlimGPT prompt+reference slice, 48 models (`alma-7b-s2-*`,
+  `scripts/grid_seed2.py`, manifest `configs/grid/manifest-seed2.json`). The
+  bootstrap intervals cover test segments, not which calibration segments were
+  drawn, and the 30 percent specialist gains (+0.004 to +0.006 COMET) are small
+  enough that calibration noise could explain them. Cheap with the grid done
+  early; submitted through `slurm/single_pipeline.sbatch` on gpu_a100.
