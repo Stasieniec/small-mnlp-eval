@@ -18,7 +18,7 @@ export HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TOKENIZERS_PARALLELISM=false PYTHO
 : "${PRUNE_CONFIG:?path to a prune config}"
 SUITE_CONFIG=${SUITE_CONFIG:-configs/suites/alma10-greedy-300.yaml}
 PRUNE_OUT=${PRUNE_OUT:-/scratch-shared/${USER}/checkpoints}
-NAME=$(./.venv/bin/mnlp-eval prune-spec --spec "${PRUNE_CONFIG}" name)
+NAME=$(./.venv/bin/mnlp-eval prune-spec --spec "${PRUNE_CONFIG}" --field name)
 MODEL_CONFIG=configs/models/${NAME}.yaml
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true
 echo "name=${NAME} start=$(date +%T)"
