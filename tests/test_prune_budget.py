@@ -206,6 +206,8 @@ def test_sparsity_zero_keeps_everything() -> None:
         ({"sparsity": 1.0}, "fraction removed"),
         ({"sparsity": -0.1}, "fraction removed"),
         ({"allocation": "magic"}, "is not one of"),
+        # FLAP's own search over per-column scores, never a budget over these.
+        ({"allocation": "al-am"}, "flap's own structure search"),
     ],
 )
 def test_a_bad_budget_is_refused(kwargs: dict[str, object], expected: str) -> None:
@@ -234,6 +236,10 @@ class TestKeepCounts:
 
             assert heads == [len(layer.heads) for layer in plan]
             assert channels == [len(layer.channels) for layer in plan]
+
+    def test_flaps_own_search_is_refused(self) -> None:
+        with pytest.raises(PruneError, match="flap's own structure search"):
+            keep_counts([mha(0), mha(1)], sparsity=0.25, allocation="al-am")
 
     def test_global_needs_scores(self) -> None:
         groups = [mha(0), mha(1)]

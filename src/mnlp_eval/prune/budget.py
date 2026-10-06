@@ -13,8 +13,10 @@ follows the *shape* of a layer's score distribution, not its level, since every
 layer comes out zero-mean. A layer loses more when it holds units clearly worse
 than the rest of its own, not when all of its units score badly.
 
-Heads and channels are budgeted separately. FLAP pools the two, which trades a
-head against a channel in a unit that does not mean anything.
+Heads and channels are budgeted separately. FLAP's own search, ``al-am``, pools
+the two and trades a head against its parameter count in channels; it needs
+FLAP's per-column scores, so it lives in ``prune/methods/flap.py`` and is
+refused here.
 
 Pure Python over floats, so this is testable without torch.
 """
@@ -29,10 +31,22 @@ from mnlp_eval.prune import PruneError
 from mnlp_eval.prune.compact import LayerPlan
 from mnlp_eval.prune.groups import LayerGroups
 
-__all__ = ["ALLOCATIONS", "FIRST_LAYER_SHARE", "allocate", "keep_counts", "log_increase_ratios"]
+__all__ = [
+    "ALLOCATIONS",
+    "FIRST_LAYER_SHARE",
+    "METHOD_ALLOCATIONS",
+    "allocate",
+    "keep_counts",
+    "log_increase_ratios",
+]
 
 #: How a sparsity budget is spread over the layers.
 ALLOCATIONS = ("uniform", "global", "log-increase")
+
+#: Allocations that are one criterion's own structure search rather than a
+#: budget over its scores, and the method each belongs to. A prune spec accepts
+#: them only with that method; :func:`allocate` and :func:`keep_counts` never.
+METHOD_ALLOCATIONS = {"al-am": "flap"}
 
 #: ``r_0`` of the Incremental Pruning Ratio as a share of the target sparsity.
 #: The paper does not state it, but the curve plotted in its Figure 4 (LLaMA-7B
@@ -63,12 +77,7 @@ def allocate(
     Returns:
         One :class:`LayerPlan` per layer, holding indices into the dense model.
     """
-    if allocation not in ALLOCATIONS:
-        msg = f"allocation {allocation!r} is not one of {', '.join(ALLOCATIONS)}"
-        raise PruneError(msg)
-    if not 0.0 <= sparsity < 1.0:
-        msg = f"sparsity must be in [0, 1), got {sparsity}. It is the fraction removed."
-        raise PruneError(msg)
+    _check_budget(allocation, sparsity)
 
     _check_shapes(head_scores, groups, "head", "num_heads")
     _check_shapes(channel_scores, groups, "channel", "intermediate")
@@ -103,12 +112,7 @@ def keep_counts(
     many to keep. ``uniform`` and ``log-increase`` need no scores; ``global``
     compares layers and so does.
     """
-    if allocation not in ALLOCATIONS:
-        msg = f"allocation {allocation!r} is not one of {', '.join(ALLOCATIONS)}"
-        raise PruneError(msg)
-    if not 0.0 <= sparsity < 1.0:
-        msg = f"sparsity must be in [0, 1), got {sparsity}. It is the fraction removed."
-        raise PruneError(msg)
+    _check_budget(allocation, sparsity)
     if allocation == "global":
         if head_scores is None or channel_scores is None:
             msg = "a global budget compares layers, so it needs every layer's scores"
@@ -125,6 +129,22 @@ def keep_counts(
         _counts(heads, sparsity, allocation, steps=head_steps),
         _counts(channels, sparsity, allocation, steps=[1] * len(groups)),
     )
+
+
+def _check_budget(allocation: str, sparsity: float) -> None:
+    owner = METHOD_ALLOCATIONS.get(allocation)
+    if owner is not None:
+        msg = (
+            f"allocation {allocation!r} is {owner}'s own structure search over per-column "
+            f"scores, chosen in prune/methods/{owner}.py rather than here"
+        )
+        raise PruneError(msg)
+    if allocation not in ALLOCATIONS:
+        msg = f"allocation {allocation!r} is not one of {', '.join(ALLOCATIONS)}"
+        raise PruneError(msg)
+    if not 0.0 <= sparsity < 1.0:
+        msg = f"sparsity must be in [0, 1), got {sparsity}. It is the fraction removed."
+        raise PruneError(msg)
 
 
 def _counts(

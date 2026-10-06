@@ -52,7 +52,9 @@ def main() -> int:
                     "empty": sum(not h.strip() for h in hyps),
                     "hit_token_budget": sum(bool(record["hit_token_budget"]) for record in records),
                     "source_truncated": sum(bool(record["source_truncated"]) for record in records),
-                    "generated_tokens": sum(len(record["generated_token_ids"]) for record in records),
+                    "generated_tokens": sum(
+                        len(record["generated_token_ids"]) for record in records
+                    ),
                     "input_tokens": sum(len(record["input_token_ids"]) for record in records),
                 }
             )
