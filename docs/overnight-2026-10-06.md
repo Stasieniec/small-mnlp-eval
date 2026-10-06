@@ -119,7 +119,20 @@ All cheap to run: every checkpoint is on scratch, and the suite is `configs/suit
 3. **SlimGPT 40% gen pair models + own-pair LoRA.** The best 40% system; evaluate each pair model on its own two directions only.
 4. **Optional:** SlimGPT 30% gen multi + LoRA for the middle of the curve, and FLAP 40% ref + LoRA as the method contrast after repair.
 
-The calibration text doesn't matter, so pick one and say so: ref is the conventional choice, gen needs no references. Full-suite generation of a multi model is about 17.5k segments, roughly 40 min on an A100; `slurm/submit_sweep.sh` (PR #3) loads each model once. Use A100s: H100 nodes ran this workload at about half speed, because it is bound by the host CPU.
+The calibration text doesn't matter, so pick one and say so: ref is the conventional choice, gen needs no references.
+
+The commands are ready, one A100 job per system, each on its own directions. Pair and direction models are looked up in the grid manifest:
+
+```bash
+bash slurm/submit_eval.sh alma-7b-slimgpt20-ref-multi alma-7b-slimgpt40-gen-multi-lora \
+    alma-7b-slimgpt40-gen-pair-{cs,de,is,ru,zh}-lora
+# then: ./.venv/bin/python scripts/grid_report.py --suite alma10-greedy --out results/full-...
+```
+
+Done tonight as prerequisites and tests of that path (not one of the choices):
+
+- the dense ALMA-7B baseline on the full suite;
+- `alma-7b-slimgpt40-gen-pair-is-lora` on the full en-is and is-en sets. Full-suite generation of a multi model is about 17.5k segments, roughly 40 min on an A100; `slurm/submit_sweep.sh` (PR #3) loads each model once. Use A100s: H100 nodes ran this workload at about half speed, because it is bound by the host CPU.
 
 ### What changed in the code (all on `exp/final-grid`)
 
