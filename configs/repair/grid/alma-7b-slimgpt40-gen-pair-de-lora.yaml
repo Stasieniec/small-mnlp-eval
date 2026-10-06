@@ -1,0 +1,7 @@
+# LoRA repair of alma-7b-slimgpt40-gen-pair-de on its own directions (de-en, en-de), ALMA's recipe (RepairSpec defaults). Written by scripts/grid.py repairs.
+name: alma-7b-slimgpt40-gen-pair-de-lora
+source: configs/models/alma-7b-slimgpt40-gen-pair-de.yaml
+data: data/calibration/repair-multi-clean
+directions:
+- de-en
+- en-de

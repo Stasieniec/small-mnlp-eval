@@ -115,3 +115,23 @@ prompt-only calibration, LLM-Pruner.
   drawn, and the 30 percent specialist gains (+0.004 to +0.006 COMET) are small
   enough that calibration noise could explain them. Cheap with the grid done
   early; submitted through `slurm/single_pipeline.sbatch` on gpu_a100.
+- 21:36 Seed-5678 replicate done (48/48, 15 min wall clock). Headline COMET,
+  seed 1234 / seed 5678:
+
+  | SlimGPT ref | multi | pair | dir |
+  | --- | --- | --- | --- |
+  | 20% | 0.8374 / 0.8360 | 0.8369 / 0.8380 | 0.8371 / 0.8363 |
+  | 30% | 0.8219 / 0.8223 | 0.8271 / 0.8268 | 0.8282 / 0.8282 |
+  | 40% | 0.7914 / 0.7954 | 0.8083 / 0.8067 | 0.8076 / 0.8094 |
+
+  Calibration-draw noise on a composite is 0.0000 to 0.0040 COMET; the
+  specialist gains at 30 and 40 percent are significant under both draws.
+  Seeds share 4 to 8 percent of their sources except Icelandic, where
+  1,280 of 2,009 pairs are drawn and the two draws share 63 percent.
+  Report: `results/grid-2026-10-06/seed2/`.
+- 21:40 Extra, in the spirit of "LoRA on the most promising": the
+  specialists beat multi at 40 percent, so the five SlimGPT gen 40 percent
+  pair models are repaired too, each on its own pair's slice of
+  repair-multi-clean (`grid.py repairs` now restricts a specialist's repair
+  to its pruned directions). Same recipe, so one epoch over far less data:
+  for Icelandic a few dozen steps. Jobs 27683649-27683653.

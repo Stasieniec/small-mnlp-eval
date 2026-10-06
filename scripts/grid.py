@@ -1336,16 +1336,27 @@ def command_repairs(args: argparse.Namespace) -> int:
         if source not in grid_names and not (REPO / MODEL_CONFIG_DIR / f"{source}.yaml").is_file():
             raise GridError(f"{source} is neither a grid model nor an existing model config")
     names = []
+    scopes = {entry["name"]: entry for entry in _read_json(REPO / MANIFEST)["models"]}
     for source in args.source:
         spec = repair_spec(source, args.data)
+        entry = scopes.get(source)
+        if entry is not None and entry["scope"] != "multi":
+            # A specialist is repaired on its own directions only, so it stays
+            # a specialist; the multi models see every direction, as ALMA did.
+            spec["directions"] = list(entry["pruned_directions"])
         try:
             from mnlp_eval.prune.repair import RepairSpec
         except Exception as exc:
             print(f"warning: RepairSpec not importable ({exc}); not validated", file=sys.stderr)
         else:
             RepairSpec.from_dict(spec)
+        scope_note = (
+            f" on its own directions ({', '.join(spec['directions'])})"
+            if spec.get("directions")
+            else ""
+        )
         header = (
-            f"# LoRA repair of {source}, ALMA's recipe (RepairSpec defaults). "
+            f"# LoRA repair of {source}{scope_note}, ALMA's recipe (RepairSpec defaults). "
             "Written by scripts/grid.py repairs.\n"
         )
         path = REPO / REPAIR_CONFIG_DIR / f"{spec['name']}.yaml"
