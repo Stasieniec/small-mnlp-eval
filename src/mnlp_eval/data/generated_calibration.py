@@ -140,8 +140,11 @@ def generate_calibration(
 ) -> dict[str, Any]:
     """Generate the union once, loading one dense model for all missing directions.
 
-    The input directory is already the union (e.g. multi-10dir). Repeated prompts
-    within a direction are deduplicated; conflicting reference records are refused.
+    The input directory is already the union (e.g. multi-10dir). A prompt that
+    repeats within a direction is translated once, but every input record keeps
+    its own cached record, so the generated arm holds exactly the records the
+    reference arm does. ALMA's parallel data has such repeats, sometimes with
+    different references (one in dir-ru-en-1280).
     Completed directions survive interruptions. A mismatched cache requires a new
     output directory, rather than silently mixing translations from different runs.
     """
@@ -174,7 +177,7 @@ def generate_calibration(
         direction = parse_direction(path.stem)
         if str(direction) not in suite.data.directions:
             raise ValueError(f"{direction}: direction absent from decoding suite")
-        unique: dict[str, dict[str, Any]] = {}
+        rows: list[dict[str, Any]] = []
         input_rows = list(read_jsonl_dicts(path))
         if declared is not None and len(input_rows) != declared[path.stem]["n_segments"]:
             raise ValueError(f"{path}: segment count does not match the input manifest")
@@ -183,13 +186,10 @@ def generate_calibration(
                 direction, row["source"]
             ):
                 raise ValueError(f"{path}: prompt or direction does not match the dense model")
-            key = prompt_id(str(direction), row["prompt"])
-            if key in unique and unique[key]["target"] != row["target"]:
-                raise ValueError(f"{path}: duplicate prompt has conflicting references")
-            unique.setdefault(key, {**row, "cache_id": key})
-        if not unique:
+            rows.append({**row, "cache_id": prompt_id(str(direction), row["prompt"])})
+        if not rows:
             raise ValueError(f"{path}: empty calibration direction")
-        pool[str(direction)] = list(unique.values())
+        pool[str(direction)] = rows
     if not pool:
         raise ValueError(f"{root}: no calibration records")
     pinned, resolved = _resolve_model(model)
@@ -239,13 +239,18 @@ def generate_calibration(
             if name in manifest["directions"]:
                 continue
             direction = parse_direction(name)
+            # One translation per distinct prompt, in first-occurrence order.
+            sources = {row["cache_id"]: row["source"] for row in reversed(rows)}
+            keys = list(dict.fromkeys(row["cache_id"] for row in rows))
             outputs = translator.translate(
-                direction, [row["source"] for row in rows], suite.decode, capture_token_ids=True
+                direction, [sources[key] for key in keys], suite.decode, capture_token_ids=True
             )
-            if len(outputs) != len(rows):
+            if len(outputs) != len(keys):
                 raise ValueError(f"{name}: model returned the wrong number of translations")
+            by_key = dict(zip(keys, outputs, strict=True))
             records = []
-            for row, output in zip(rows, outputs, strict=True):
+            for row in rows:
+                output = by_key[row["cache_id"]]
                 if output.input_token_ids is None or output.generated_token_ids is None:
                     raise ValueError("translator did not return calibration token IDs")
                 parsed = extract_hypothesis(

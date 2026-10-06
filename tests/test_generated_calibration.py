@@ -240,14 +240,25 @@ def test_cli_generates_cache(setup_cache: Any, capsys: pytest.CaptureFixture[str
     assert json.loads(capsys.readouterr().out)["complete"]
 
 
-def test_duplicate_union_prompts_generated_once(setup_cache: Any) -> None:
+def test_duplicate_prompts_generated_once_but_every_record_kept(setup_cache: Any) -> None:
     source, out, model, suite, *_ = setup_cache
     path = source / "de-en.jsonl"
     rows = list(read_jsonl_dicts(path))
-    write_jsonl(path, [*rows, dict(rows[0], id=999)])
+    # A repeat with a different reference, as ALMA's ru-en data has.
+    write_jsonl(path, [*rows, dict(rows[0], id=999, target="another reference")])
+    (source / "calibration.json").write_text(json.dumps({"contamination": {"total_collisions": 0}}))
     cache = gc.generate_calibration(source, model, suite, out)
-    assert cache["total_segments"] == 6
-    assert cache["directions"]["de-en"]["n_segments"] == 2
+    assert cache["total_segments"] == 7
+    assert cache["directions"]["de-en"]["n_segments"] == 3
+    records = list(read_jsonl_dicts(out / "de-en.jsonl"))
+    assert [record["target"] for record in records] == [
+        "ref 0",
+        "ref 1",
+        "another reference",
+    ]
+    # The repeat replays the same generation as its first occurrence.
+    assert records[2]["generated_token_ids"] == records[0]["generated_token_ids"]
+    assert records[2]["input_token_ids"] == records[0]["input_token_ids"]
     assert gc.prompt_id("de-en", rows[0]["prompt"]) != gc.prompt_id("en-de", rows[0]["prompt"])
 
 
