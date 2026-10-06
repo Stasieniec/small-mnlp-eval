@@ -19,10 +19,8 @@ htmlcov/
 
 # Evaluation artifacts. Run directories hold hypotheses, scores and manifests
 # rather than weights, so they are small, but they are outputs and not source.
-runs/
-runs-*/
-reports/
-reports-*/
+/runs/
+/runs-*/
 outputs/
 slurm-logs/
 *.log
