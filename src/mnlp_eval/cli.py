@@ -465,14 +465,18 @@ def command_prune(args: argparse.Namespace) -> int:
         config_dir=Path(args.model_config_dir),
     )
 
-    achieved = manifest["unit_sparsity"]
+    # FLAP's al-am budgets parameters, trading heads against channels, so its
+    # unit count is not what it promised; every other budget prunes heads and
+    # channels to the same fraction, where the two coincide.
+    measure = "parameter_sparsity" if spec.allocation == "al-am" else "unit_sparsity"
+    achieved = manifest[measure]
     if abs(achieved - spec.sparsity) > 0.05:
         # Rounding to whole heads and channels moves the figure a little. A
         # large gap means the budget could not be met, and a sweep whose
         # members are not at the sparsity they claim compares nothing.
         return _fail(
-            f"asked for sparsity {spec.sparsity} but kept units imply {achieved}. "
-            "Check the per-layer floors against the requested budget."
+            f"asked for sparsity {spec.sparsity} but the kept units imply {measure} "
+            f"{achieved}. Check the per-layer floors against the requested budget."
         )
     print(json.dumps(manifest, indent=2, sort_keys=True))
     return 0

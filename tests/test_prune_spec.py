@@ -21,24 +21,40 @@ pytestmark = pytest.mark.torch
 
 
 class StubTokenizer:
-    """Splits on whitespace and pads. Enough for a calibration pass."""
+    """Splits on whitespace and pads on the left. Enough for a calibration pass.
+
+    Takes one text too, returning plain lists as a real tokenizer does without
+    ``return_tensors``, because reference calibration appends eos to each text
+    before padding.
+    """
 
     pad_token_id: int | None = 0
+    eos_token_id: int | None = 1
     eos_token = "</s>"
     pad_token = "<pad>"
 
-    def __call__(self, texts: list[str], **kwargs: Any) -> Any:
+    def __call__(self, texts: str | list[str], **kwargs: Any) -> Any:
+        limit = int(kwargs.get("max_length", 16))
+        if isinstance(texts, str):
+            ids = self._ids(texts)[:limit]
+            return {"input_ids": ids, "attention_mask": [1] * len(ids)}
+        return self.pad([{"input_ids": self._ids(text)[:limit]} for text in texts])
+
+    def pad(self, rows: list[dict[str, list[int]]], **_: Any) -> Any:
         import torch
 
-        limit = int(kwargs.get("max_length", 16))
-        rows = [
-            [(len(word) * 7 + index) % 64 for index, word in enumerate(text.split())][:limit]
-            for text in texts
-        ]
-        width = max(len(row) for row in rows)
-        ids = torch.tensor([[0] * (width - len(row)) + row for row in rows])
-        mask = torch.tensor([[0] * (width - len(row)) + [1] * len(row) for row in rows])
+        width = max(len(row["input_ids"]) for row in rows)
+        ids = torch.tensor(
+            [[0] * (width - len(row["input_ids"])) + row["input_ids"] for row in rows]
+        )
+        mask = torch.tensor(
+            [[0] * (width - len(row["input_ids"])) + [1] * len(row["input_ids"]) for row in rows]
+        )
         return _Encoded({"input_ids": ids, "attention_mask": mask})
+
+    @staticmethod
+    def _ids(text: str) -> list[int]:
+        return [(len(word) * 7 + index) % 64 for index, word in enumerate(text.split())]
 
     def save_pretrained(self, directory: str | Path) -> None:
         Path(directory, "tokenizer_config.json").write_text("{}", encoding="utf-8")
@@ -142,6 +158,49 @@ def test_a_run_writes_a_checkpoint_a_descriptor_and_a_model_config(
     assert beside.components["ffn_channels"].kept == alongside.components["ffn_channels"].kept
 
 
+def test_flap_al_am_prunes_to_a_parameter_budget_and_reloads(
+    calibration: Path, tmp_path: Path, model_config_dir: Path, stub_hub: None
+) -> None:
+    import yaml
+    from recipes.pruned import load_model
+
+    spec = PruneSpec.from_dict(
+        {
+            "name": "stub-flap-al-am30",
+            "method": "flap",
+            "model_name_or_path": "stub/model",
+            "calibration": str(calibration),
+            "sparsity": 0.3,
+            "allocation": "al-am",
+            "dtype": "float32",
+            "batch_size": 3,
+            "max_length": 12,
+        }
+    )
+
+    manifest = run_pruning(
+        spec,
+        tmp_path / "out",
+        subnetwork_dir=tmp_path / "subnetworks",
+        config_dir=model_config_dir,
+    )
+
+    # The stub's 4 heads of head_dim 8 and 48 channels per layer: a head is
+    # 32 / 544 of the two layers' weights, and the cut is nearest the budget.
+    assert abs(manifest["parameter_sparsity"] - 0.3) <= 16 / 544
+    components = manifest["components"]
+    assert components["attention_heads"]["kept"] >= 2
+    assert components["ffn_channels"]["kept"] >= 2
+    notes = json.loads(Path(manifest["subnetwork"]).read_text())["notes"]
+    assert notes.startswith("al-am budget")
+    assert "of attention and MLP weights" in notes
+    emitted = yaml.safe_load(Path(manifest["model_config"]).read_text())
+    assert emitted["compression"]["method"] == "FLAP, al-am budget"
+
+    loaded, _ = load_model(manifest["checkpoint"])
+    assert len(loaded.model.layers) == 2
+
+
 def test_target_calibration_reads_the_reference_after_the_prompt(calibration: Path) -> None:
     from mnlp_eval.prune.collect import load_calibration_prompts
 
@@ -154,9 +213,26 @@ def test_target_calibration_reads_the_reference_after_the_prompt(calibration: Pa
 
 @pytest.mark.parametrize("method", ["flap", "slimgpt"])
 def test_target_calibration_is_recorded_where_the_report_reads_it(
-    method: str, calibration: Path, tmp_path: Path, model_config_dir: Path, stub_hub: None
+    method: str,
+    calibration: Path,
+    tmp_path: Path,
+    model_config_dir: Path,
+    stub_hub: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import yaml
+
+    from mnlp_eval.prune import collect
+
+    batched: list[Any] = []
+    tokenize = collect.tokenized_batches
+
+    def recording(*args: Any, **kwargs: Any) -> Any:
+        for batch in tokenize(*args, **kwargs):
+            batched.append(batch["input_ids"])
+            yield batch
+
+    monkeypatch.setattr(collect, "tokenized_batches", recording)
 
     def run(calibration_text: str) -> dict[str, Any]:
         spec = PruneSpec.from_dict(
@@ -181,7 +257,14 @@ def test_target_calibration_is_recorded_where_the_report_reads_it(
         )
 
     plain = run("prompt")
+    plain_batches, batched[:] = list(batched), []
     target = run("prompt+target")
+
+    # The reference ends with eos, as a cached generation does; the prompt alone
+    # does not. Left padding puts every row's last token in the last column.
+    assert batched and plain_batches
+    assert all((ids[:, -1] == StubTokenizer.eos_token_id).all() for ids in batched)
+    assert not any((ids[:, -1] == StubTokenizer.eos_token_id).any() for ids in plain_batches)
 
     # The descriptor is what the overlap analysis reads, so it must say which.
     assert "prompt+target text" in json.loads(Path(target["subnetwork"]).read_text())["notes"]
@@ -247,6 +330,8 @@ def test_the_shipped_configs_all_parse() -> None:
         ({"name": ""}, "'name' is required"),
         ({"batch_size": 0}, "at least 1"),
         ({"calibration_text": "reference"}, "is not one of"),
+        ({"method": "slimgpt", "allocation": "al-am"}, "only with method 'flap'"),
+        ({"method": "llm-pruner", "allocation": "al-am"}, "only with method 'flap'"),
     ],
 )
 def test_a_bad_spec_is_refused(payload: dict[str, Any], expected: str) -> None:
@@ -317,6 +402,8 @@ def test_the_cli_runs_the_stage(
     manifest = json.loads(capsys.readouterr().out)
     assert manifest["requested_sparsity"] == 0.25
     assert abs(manifest["unit_sparsity"] - 0.25) < 0.05
+    # Heads and channels each lose a quarter, so the weights do too.
+    assert manifest["parameter_sparsity"] == pytest.approx(0.25)
     assert Path(manifest["subnetwork"]).is_file()
 
 
