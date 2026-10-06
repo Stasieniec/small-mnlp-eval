@@ -312,3 +312,11 @@ prompt-only calibration, LLM-Pruner.
 - 22:54 The five multi repairs done (914 steps, 101 to 120 min each on
   A100, peak 11.5 to 14.2 GB). Held-out loss fell for every repair. Final
   reports regenerated (`grid_report.py`, `repair_summary.py`).
+- 23:00 Independent review of the new pruning code by a subagent: no bugs.
+  Naive reimplementations of SlimGPT and of the official AL-AM give identical
+  selections; tokenisation, caches and LoRA on biased FLAP checkpoints checked.
+- 22:59-23:33 Full-suite tooling (`slurm/eval_directions.sbatch`,
+  `slurm/submit_eval.sh`) tested on two prerequisites: dense ALMA-7B on the
+  full suite (COMET 0.8475, BLEU 30.32, chrF++ 51.13, 34 min on an A100;
+  pilot was 0.8474 / 30.35) and the Icelandic pair model + LoRA on the full
+  en-is and is-en sets. `results/full-2026-10-06/`.
