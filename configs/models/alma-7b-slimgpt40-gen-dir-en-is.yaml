@@ -1,0 +1,14 @@
+extends: alma-7b.yaml
+name: alma-7b-slimgpt40-gen-dir-en-is
+baseline: alma-7b
+loader: custom
+entrypoint: recipes.pruned:load
+kwargs:
+  checkpoint: /scratch-shared/scur0560/checkpoints/alma-7b-slimgpt40-gen-dir-en-is
+compression:
+  family: pruning
+  method: SlimGPT, log-increase budget, prompt+generated calibration
+  nominal_sparsity: 0.4
+  pruned_for: en-is
+  subnetwork: subnetworks/alma-7b-slimgpt40-gen-dir-en-is.json
+  calibration: data/calibration/dir-en-is-1280-generated

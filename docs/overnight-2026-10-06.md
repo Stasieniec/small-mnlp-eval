@@ -2,6 +2,7 @@
 
 Unattended run on scur0560 (Snellius), branch `exp/final-grid`. Times are CEST.
 The morning write-up comes first; the chronological log with job ids is below.
+The polished report is [results/grid-2026-10-06/README.md](../results/grid-2026-10-06/README.md).
 
 ## Morning write-up
 

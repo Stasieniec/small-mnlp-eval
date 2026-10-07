@@ -1,0 +1,14 @@
+extends: alma-7b.yaml
+name: alma-7b-flap30-gen-multi-global
+baseline: alma-7b
+loader: custom
+entrypoint: recipes.pruned:load
+kwargs:
+  checkpoint: /scratch-shared/scur0560/checkpoints/alma-7b-flap30-gen-multi-global
+compression:
+  family: pruning
+  method: FLAP, global budget, prompt+generated calibration
+  nominal_sparsity: 0.3
+  pruned_for: multi
+  subnetwork: subnetworks/alma-7b-flap30-gen-multi-global.json
+  calibration: data/calibration/multi-10dir-generated
