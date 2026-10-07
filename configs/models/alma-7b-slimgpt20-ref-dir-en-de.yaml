@@ -1,0 +1,14 @@
+extends: alma-7b.yaml
+name: alma-7b-slimgpt20-ref-dir-en-de
+baseline: alma-7b
+loader: custom
+entrypoint: recipes.pruned:load
+kwargs:
+  checkpoint: /scratch-shared/scur0560/checkpoints/alma-7b-slimgpt20-ref-dir-en-de
+compression:
+  family: pruning
+  method: SlimGPT, log-increase budget, prompt+target calibration
+  nominal_sparsity: 0.2
+  pruned_for: en-de
+  subnetwork: subnetworks/alma-7b-slimgpt20-ref-dir-en-de.json
+  calibration: data/calibration/dir-en-de-1280

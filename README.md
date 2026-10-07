@@ -11,9 +11,9 @@ Final pilot grid of 6 October 2026: 192 pruned models (SlimGPT and FLAP; prompt 
 reference or prompt + dense-generated calibration; 20, 30 and 40 percent removed;
 one multi-directional, five pair and ten direction subnetworks, every one calibrated
 on 1,280 segments), each evaluated on the first 300 segments of all ten WMT22
-directions, greedy, plus LoRA repairs. Write-up, decisions and job log:
-[docs/overnight-2026-10-06.md](docs/overnight-2026-10-06.md). Tables, plots and
-per-segment contrasts: `results/grid-2026-10-06/`.
+directions, greedy, plus LoRA repairs. **Report:
+[results/grid-2026-10-06/README.md](results/grid-2026-10-06/README.md)**; decisions and
+job log: [docs/overnight-2026-10-06.md](docs/overnight-2026-10-06.md).
 
 COMET-22 (BLEU), macro over the ten directions; pair and dir translate each direction
 with the matching specialist. Dense ALMA-7B: 0.8474 (30.35).

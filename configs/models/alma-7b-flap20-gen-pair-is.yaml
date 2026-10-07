@@ -1,0 +1,14 @@
+extends: alma-7b.yaml
+name: alma-7b-flap20-gen-pair-is
+baseline: alma-7b
+loader: custom
+entrypoint: recipes.pruned:load
+kwargs:
+  checkpoint: /scratch-shared/scur0560/checkpoints/alma-7b-flap20-gen-pair-is
+compression:
+  family: pruning
+  method: FLAP, al-am budget, prompt+generated calibration
+  nominal_sparsity: 0.2
+  pruned_for: en-is,is-en
+  subnetwork: subnetworks/alma-7b-flap20-gen-pair-is.json
+  calibration: data/calibration/pair-is-640-generated
