@@ -6,7 +6,11 @@ gives the expected composites: a direction model scores 0.85 on its own
 direction and 0.70 elsewhere, a pair model 0.82 on its two directions and 0.71
 elsewhere, every multi model 0.80, dense 0.86. BLEU is computed from the fake
 hypotheses with the project's own surface scorer, so the aggregator's
-hyps-versus-stored-BLEU check holds.
+hyps-versus-stored-BLEU check holds. MetricX-24, where a run has it, is
+20 * (1 - COMET level): an error score, lower is better (multi 4.0, dense 2.8).
+
+Two grids: a pilot-style one where every model has all ten directions, and a
+full-suite one where specialists are evaluated only on their own directions.
 """
 
 from __future__ import annotations
@@ -31,7 +35,11 @@ sys.modules["grid_report"] = gr
 _spec.loader.exec_module(gr)
 
 SUITE = "alma10-greedy-300"
+FULL_SUITE = "alma10-greedy"
 N_SEG = 6
+#: Full-suite segment counts differ by direction (the real suite has 1,000 to
+#: 2,037), so a mean pooled over segments is not the macro over directions.
+FULL_SIZES = {d: N_SEG + 2 * i for i, d in enumerate(gr.DIRECTIONS)}
 WORDS = ("alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india")
 
 
@@ -56,6 +64,37 @@ def level(name: str, direction: str) -> float:
     return (0.85 if direction == system.scope_key else 0.70) + shift
 
 
+def metricx_level(name: str, direction: str) -> float:
+    """The synthetic MetricX-24: an error score that falls as COMET rises."""
+    return round(20 * (1 - level(name, direction)), 6)
+
+
+def write_metricx(
+    root: Path, name: str, directions: tuple[str, ...], sizes: dict[str, int] | None = None
+) -> None:
+    """A scores.metricx.json in the layout ``mnlp-eval score --groups metricx`` writes."""
+    rng = np.random.default_rng(zlib.crc32(f"metricx {name}".encode()))
+    per_direction = {}
+    for direction in directions:
+        n_seg = (sizes or {}).get(direction, N_SEG)
+        noise = rng.normal(0, 0.5, n_seg)
+        segments = [float(v) for v in metricx_level(name, direction) + noise - noise.mean()]
+        per_direction[direction] = {
+            "n_segments": n_seg,
+            "metrics": {
+                gr.METRICX_KEY: {
+                    "score": round(float(np.mean(segments)), 6),
+                    "higher_is_better": False,
+                    "signature": "google/metricx-24-hybrid-large-v2p6|tok:google/mt5-xl",
+                    "segment_scores": segments,
+                    "extra": {"reference_free": False, "range": "[0, 25], lower is better"},
+                }
+            },
+        }
+    payload = {"group": "metricx", "directions": per_direction, "aggregate": {}}
+    (root / "scores.metricx.json").write_text(json.dumps(payload))
+
+
 def write_run(
     runs_root: Path,
     name: str,
@@ -63,11 +102,14 @@ def write_run(
     run_hash: str = "000000000000",
     surface: bool = True,
     neural: bool = True,
+    metricx: bool = False,
     directions: tuple[str, ...] = gr.DIRECTIONS,
+    suite: str = SUITE,
+    sizes: dict[str, int] | None = None,
 ) -> Path:
     from mnlp_eval.metrics.surface import score_surface
 
-    slug = f"{name}__{SUITE}__{run_hash}"
+    slug = f"{name}__{suite}__{run_hash}"
     root = runs_root / slug
     (root / "hyps").mkdir(parents=True)
     (root / "stages").mkdir()
@@ -84,7 +126,7 @@ def write_run(
             },
             "kwargs": {},
         },
-        "suite": {"name": SUITE, "data": {"directions": list(gr.DIRECTIONS), "limit": 300}},
+        "suite": {"name": suite, "data": {"directions": list(gr.DIRECTIONS), "limit": 300}},
     }
     (root / "manifest.json").write_text(json.dumps(manifest))
     rng = np.random.default_rng(zlib.crc32(f"{name}{run_hash}".encode()))
@@ -92,8 +134,9 @@ def write_run(
     neural_dirs: dict[str, Any] = {}
     for direction in directions:
         value = level(name, direction)
+        n_seg = (sizes or {}).get(direction, N_SEG)
         keep = max(1, min(12, round((value - 0.6) * 40)))
-        references = [f"seg{i} {direction} " + " ".join(WORDS) for i in range(N_SEG)]
+        references = [f"seg{i} {direction} " + " ".join(WORDS) for i in range(n_seg)]
         hypotheses = [" ".join(ref.split()[:keep]) for ref in references]
         records = [
             {"index": i, "source": f"src {i}", "reference": ref, "hypothesis": hyp}
@@ -104,7 +147,7 @@ def write_run(
         )
         scores = score_surface(hypotheses, references, direction.split("-")[1])
         surface_dirs[direction] = {
-            "n_segments": N_SEG,
+            "n_segments": n_seg,
             "metrics": {key: score.to_dict() for key, score in scores.items()},
             "behaviour": {
                 "off_target_rate": round(1 - value, 4),
@@ -115,10 +158,10 @@ def write_run(
                 "length_ratio": round(keep / 13, 4),
             },
         }
-        noise = rng.normal(0, 0.03, N_SEG)
+        noise = rng.normal(0, 0.03, n_seg)
         segments = [float(v) for v in value + noise - noise.mean()]
         neural_dirs[direction] = {
-            "n_segments": N_SEG,
+            "n_segments": n_seg,
             "metrics": {
                 gr.COMET_KEY: {
                     "score": round(float(np.mean(segments)), 6),
@@ -137,6 +180,8 @@ def write_run(
         (root / "scores.neural.json").write_text(
             json.dumps({"group": "neural", "directions": neural_dirs, "aggregate": {}})
         )
+    if metricx:
+        write_metricx(root, name, directions, sizes)
     stage = {
         "status": "completed",
         "directions": {d: {"data": {"fingerprint": f"fp-{d}"}} for d in directions},
@@ -197,6 +242,70 @@ def template(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def grid(template: Path, tmp_path: Path) -> Path:
     target = tmp_path / "grid"
     shutil.copytree(template, target)
+    return target
+
+
+@pytest.fixture(scope="module")
+def full_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A full-suite grid of 33 manifest entries: specialists on their own directions.
+
+    SlimGPT gen 40% (MetricX on every run): multi on all ten directions, pair
+    models on their own pair, dir models on their own direction, except
+    dir-en-is, which (like the Tier-3 runs) has all ten. SlimGPT ref 40% multi
+    on all ten, with MetricX. FLAP ref 40% (no MetricX): multi on all ten, four
+    pair models on their own pair, pair-cs on cs-en only, no dir runs. Dense on
+    all ten with MetricX, and two repairs with MetricX: the gen multi model's
+    on all ten, pair-is's on its own pair. The manifest names the pilot suite,
+    as the real one does; the report is run with ``--suite alma10-greedy``.
+    Directions have FULL_SIZES segments, 6 to 24.
+    """
+    root = tmp_path_factory.mktemp("full")
+    entries = full_config("slimgpt", "gen", 40) + full_config("flap", "ref", 40)
+    entries.append(manifest_entry("slimgpt", "ref", 40, "multi"))
+    (root / "manifest.json").write_text(json.dumps(entries))
+    runs = root / "runs"
+    tier3 = grid_name("slimgpt", "gen", 40, "dir", "en-is")
+    for entry in entries:
+        system = gr.system_from_entry(entry)
+        assert system is not None
+        if system.method == "flap" and system.scope == "dir":
+            continue
+        directions = system.pruned_directions
+        if system.scope == "multi" or system.name == tier3:
+            directions = gr.DIRECTIONS
+        if system.name == grid_name("flap", "ref", 40, "pair", "cs"):
+            directions = ("cs-en",)
+        write_run(
+            runs,
+            system.name,
+            suite=FULL_SUITE,
+            directions=directions,
+            metricx=system.method == "slimgpt",
+            sizes=FULL_SIZES,
+        )
+    write_run(runs, "alma-7b", suite=FULL_SUITE, metricx=True, sizes=FULL_SIZES)
+    write_run(
+        runs,
+        f"{grid_name('slimgpt', 'gen', 40, 'multi')}-lora",
+        suite=FULL_SUITE,
+        metricx=True,
+        sizes=FULL_SIZES,
+    )
+    write_run(
+        runs,
+        f"{grid_name('slimgpt', 'gen', 40, 'pair', 'is')}-lora",
+        suite=FULL_SUITE,
+        directions=("is-en", "en-is"),
+        metricx=True,
+        sizes=FULL_SIZES,
+    )
+    return root
+
+
+@pytest.fixture
+def full_grid(full_template: Path, tmp_path: Path) -> Path:
+    target = tmp_path / "full"
+    shutil.copytree(full_template, target)
     return target
 
 
@@ -346,8 +455,15 @@ def test_partial_grid(grid: Path) -> None:
     out, results = run_report(grid)
     coverage = results["coverage"]
     assert coverage["missing"] == 2 + 3
-    assert coverage["partial"] == 2
-    assert coverage["complete"] == 33 - 3 - 2
+    # The pair model without COMET is partial. The dir model scored on its own
+    # direction (en-de) and one other is complete under the in-scope rule, but
+    # has too few directions to enter the transfer section.
+    assert coverage["partial"] == 1
+    assert coverage["partial_systems"] == {grid_name("slimgpt", "ref", 20, "pair", "de"): 0}
+    assert coverage["partial_expected"] == {grid_name("slimgpt", "ref", 20, "pair", "de"): 2}
+    assert coverage["complete"] == 33 - 3 - 1
+    assert results["transfer"]["slimgpt20-gen"]["dir_models"] == 9
+    assert results["transfer"]["slimgpt20-ref"]["dir_models"] == 7
 
     row = headline_row(results, "slimgpt", "ref", 20)
     assert row["dir"]["n_directions"]["comet"] == 7
@@ -372,20 +488,29 @@ def test_partial_grid(grid: Path) -> None:
     assert sum(1 for r in partial if r["comet"]) == 2
 
 
+def spy_on_bootstrap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> list[tuple[tuple[int, ...], int, bool]]:
+    """Record (per-direction sizes, n_samples, higher_is_better) per segment bootstrap."""
+    calls: list[tuple[tuple[int, ...], int, bool]] = []
+    real = gr.macro_segment_bootstrap
+
+    def spy(pairs: Any, **kwargs: Any) -> dict[str, Any]:
+        assert all(a.shape == b.shape for a, b in pairs)  # paired within each direction
+        sizes = tuple(a.shape[0] for a, _ in pairs)
+        calls.append((sizes, kwargs["n_samples"], kwargs.get("higher_is_better", True)))
+        return real(pairs, **kwargs)
+
+    monkeypatch.setattr(gr, "macro_segment_bootstrap", spy)
+    return calls
+
+
 def test_bootstrap_wiring(grid: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[tuple[int, int, int]] = []
-    real = gr.bootstrap_segment_delta
-
-    def spy(baseline: Any, system: Any, **kwargs: Any) -> dict[str, Any]:
-        calls.append((len(baseline), len(system), kwargs["n_samples"]))
-        return real(baseline, system, **kwargs)
-
-    monkeypatch.setattr(gr, "bootstrap_segment_delta", spy)
+    calls = spy_on_bootstrap(monkeypatch)
     _, results = run_report(grid, "--no-plots", "--no-structure", bootstrap=7)
     assert calls
-    assert all(n == 7 for _, _, n in calls)
-    assert all(a == b for a, b, _ in calls)
-    assert (10 * N_SEG, 10 * N_SEG, 7) in calls
+    assert all(n == 7 for _, n, _ in calls)
+    assert ((N_SEG,) * 10, 7, True) in calls
     row = headline_row(results, "slimgpt", "ref", 20)
     assert row["dir_minus_multi_comet"]["n_samples"] == 7
 
@@ -506,3 +631,420 @@ def test_structure_from_subnetwork_and_prune_manifest(grid: Path) -> None:
     assert {"comet_vs_sparsity.png", "ref_vs_gen.png", "structure_multi.png"} <= plots
     assert {"transfer_dir_s20.png", "transfer_pair_s20.png"} <= plots
     assert all((out / "plots" / name).stat().st_size > 0 for name in plots)
+
+
+# --------------------------------------------------------------------------
+# Full suite: specialists on their own directions, MetricX-24
+
+
+def summary_line(summary: str, prefix: str) -> str:
+    (line,) = [line for line in summary.splitlines() if line.startswith(prefix)]
+    return line
+
+
+def test_pilot_without_metricx(grid: Path) -> None:
+    """No run has MetricX: '-' everywhere, one coverage line, no warnings."""
+    out, results = run_report(grid, "--no-plots", bootstrap=0)
+    assert results["coverage"]["metricx"] == {
+        "grid_models": 0,
+        "grid_models_all_in_scope": 0,
+        "lora_systems": 0,
+        "dense": False,
+    }
+    assert results["coverage"]["specialists_all_directions"] == {"pair": 10, "dir": 20}
+    assert results["transfer_models"]["dir"] == 20
+    assert results["dense"]["metricx"] is None
+    row = headline_row(results, "slimgpt", "ref", 20)
+    assert row["dir"]["metricx"] is None and row["dir_minus_multi_metricx"] is None
+    assert row["dir"]["comet"] == pytest.approx(0.85, abs=1e-6)
+    assert not any("metricx" in w.lower() for w in results["warnings"])
+    summary = (out / "summary.md").read_text()
+    assert "No MetricX-24 scores (`scores.metricx.json`) for suite" in summary
+    assert "MetricX-24 (`scores.metricx.json`): 0/35 grid models" in summary
+    assert "| SlimGPT | 20% | dir | 0.8500 | 0.8600 |" in summary
+    assert summary_line(summary, "| SlimGPT | 20% | dir |").endswith("| - | - | - | - |")
+    with (out / "long.csv").open() as handle:
+        rows = list(csv.DictReader(handle))
+    assert all(
+        r["metricx"] == r["metricx_minus_dense"] == r["metricx_minus_multi"] == "" for r in rows
+    )
+
+
+def test_full_suite_completeness_and_coverage(full_grid: Path) -> None:
+    out, results = run_report(full_grid, "--suite", FULL_SUITE, "--no-plots", bootstrap=0)
+    coverage = results["coverage"]
+    assert coverage["expected"] == 33
+    assert coverage["complete"] == 16 + 1 + 1 + 4
+    assert coverage["partial"] == 1
+    assert coverage["partial_systems"] == {grid_name("flap", "ref", 40, "pair", "cs"): 1}
+    assert coverage["missing"] == 10
+    assert coverage["lora_systems"] == 2 and coverage["lora_complete"] == 2
+    assert coverage["specialists_all_directions"] == {"pair": 0, "dir": 1}
+    assert coverage["metricx"] == {
+        "grid_models": 17,
+        "grid_models_all_in_scope": 17,
+        "lora_systems": 2,
+        "dense": True,
+    }
+    # A missing scores.metricx.json is not worth a warning.
+    assert results["warnings"] == []
+
+    summary = (out / "summary.md").read_text()
+    assert "Grid models complete: **22/33**" in summary
+    assert "the model's own pruned directions for pair and dir models" in summary
+    assert "| SlimGPT gen 40% | 1/1 | 5/5 | 10/10 |" in summary
+    assert "| FLAP ref 40% | 1/1 | 4/5 (+1 partial) | 0/10 |" in summary
+    assert f"{grid_name('flap', 'ref', 40, 'pair', 'cs')} (1/2)" in summary
+    assert "0 pair and 1 dir models, of 20 specialists with a run" in summary
+    assert "MetricX-24 (`scores.metricx.json`): 17/33 grid models (17 on every" in summary
+    assert "MetricX-24 2.800." in summary  # dense line in the coverage section
+
+    with (out / "long.csv").open() as handle:
+        rows = {(r["system"], r["direction"]): r for r in csv.DictReader(handle)}
+    pair = grid_name("slimgpt", "gen", 40, "pair", "de")
+    assert rows[(pair, "en-de")]["comet"] and not rows[(pair, "en-cs")]["comet"]
+    assert rows[(pair, "en-cs")]["in_scope"] == "False"
+    own = rows[(grid_name("slimgpt", "gen", 40, "dir", "en-is"), "en-is")]
+    assert float(own["metricx"]) == pytest.approx(2.8, abs=1e-6)
+    assert float(own["metricx_minus_multi"]) == pytest.approx(-1.0, abs=1e-6)
+    assert float(own["metricx_minus_dense"]) == pytest.approx(0.0, abs=1e-6)
+    multi = rows[(grid_name("slimgpt", "gen", 40, "multi"), "zh-en")]
+    assert float(multi["metricx_minus_dense"]) == pytest.approx(1.0, abs=1e-6)
+    assert rows[(grid_name("flap", "ref", 40, "multi"), "zh-en")]["metricx"] == ""
+
+
+def test_full_suite_headlines(full_grid: Path) -> None:
+    out, results = run_report(full_grid, "--suite", FULL_SUITE, "--no-plots", bootstrap=50)
+    row = headline_row(results, "slimgpt", "gen", 40)
+    for scope, comet, metricx in (("multi", 0.81, 3.8), ("pair", 0.83, 3.4), ("dir", 0.86, 2.8)):
+        assert row[scope]["comet"] == pytest.approx(comet, abs=1e-6)
+        assert row[scope]["metricx"] == pytest.approx(metricx, abs=1e-6)
+        assert row[scope]["n_directions"]["comet"] == 10
+        assert row[scope]["n_directions"]["metricx"] == 10
+    # Specialist minus multi on an error score: negative = the specialist is better.
+    delta = row["dir_minus_multi_metricx"]
+    assert delta["metric"] == "metricx" and delta["higher_is_better"] is False
+    assert delta["delta"] == pytest.approx(-1.0, abs=1e-6)
+    assert delta["n_directions"] == 10 and delta["n_samples"] == 50
+    low, high = delta["bootstrap_ci_95"]
+    assert low <= -1.0 <= high < 0
+    assert delta["p_value"] < 0.05
+    assert row["pair_minus_multi_metricx"]["delta"] == pytest.approx(-0.4, abs=1e-6)
+    assert row["dir_minus_multi_comet"]["delta"] == pytest.approx(0.05, abs=1e-6)
+
+    flap = headline_row(results, "flap", "ref", 40)
+    assert flap["pair"]["n_directions"]["comet"] == 9
+    assert flap["dir"]["comet"] is None and flap["multi"]["metricx"] is None
+    assert flap["dir_minus_multi_metricx"] is None
+
+    summary = (out / "summary.md").read_text()
+    comet_table, metricx_table = summary.split("## Headline, MetricX-24 (lower is better)")
+    metricx_table = metricx_table.split("\n## ")[0]
+    # COMET: the highest complete scope is bold; MetricX: the lowest.
+    assert "| SlimGPT | gen | 40% | 0.8100 |" in comet_table
+    assert "**0.8600**" in comet_table
+    line = summary_line(metricx_table, "| SlimGPT | gen | 40% |")
+    assert line.startswith("| SlimGPT | gen | 40% | 3.800 | 3.400 | **2.800** | -0.400 [")
+    assert "| -1.000 [" in line
+    assert "**3.800**" not in metricx_table
+    assert "negative delta means the specialist is" in metricx_table
+    assert "| dense | - | 0% | 2.800 | 2.800 | 2.800 | - | - |" in metricx_table
+    assert "| FLAP | ref | 40% | - | - | - | - | - |" in metricx_table
+
+    # Contrast sections carry MetricX next to COMET; gen - ref < 0 = gen better.
+    contrast = next(
+        r
+        for r in results["ref_vs_gen"]
+        if r["baseline"] == {"method": "slimgpt", "calib": "ref", "sparsity": 40, "scope": "multi"}
+    )
+    assert contrast["comet"]["delta"] == pytest.approx(0.01, abs=1e-6)
+    assert contrast["metricx"]["delta"] == pytest.approx(-0.2, abs=1e-6)
+    assert contrast["metricx"]["bootstrap_ci_95"] is not None
+    method = next(
+        r
+        for r in results["slimgpt_vs_flap"]
+        if r["baseline"] == {"method": "flap", "calib": "ref", "sparsity": 40, "scope": "multi"}
+    )
+    assert method["comet"]["delta"] == pytest.approx(0.02, abs=1e-6)
+    assert method["metricx"] is None  # FLAP has no MetricX yet
+    assert "MetricX gen - ref [95% CI]" in summary
+    assert summary_line(summary, "| SlimGPT | 40% | multi |").endswith(" |")
+    assert "| 4.000 | 3.800 | -0.200 [" in summary_line(summary, "| SlimGPT | 40% | multi |")
+
+    # Per-direction and sparsity sections have MetricX versions.
+    per_direction = results["multi_per_direction"]["SlimGPT gen 40%"]["metricx"]
+    assert per_direction["en-de"] == pytest.approx(3.8, abs=1e-6)
+    assert "### MetricX-24 (lower is better)" in summary
+    curve = results["sparsity_curve"]
+    assert curve["dense_metricx"] == pytest.approx(2.8, abs=1e-6)
+    dir_curve = next(
+        r
+        for r in curve["rows"]
+        if (r["method"], r["calib"], r["scope"]) == ("slimgpt", "gen", "dir")
+    )
+    assert dir_curve["metricx"]["40"] == pytest.approx(2.8, abs=1e-6)
+    assert dir_curve["comet"]["40"] == pytest.approx(0.86, abs=1e-6)
+    assert "## Sparsity curve (macro MetricX-24, lower is better)" in summary
+    assert results["dense"]["metricx"] == pytest.approx(2.8, abs=1e-6)
+
+
+def test_full_suite_transfer_uses_only_all_ten_models(full_grid: Path) -> None:
+    out, results = run_report(full_grid, "--suite", FULL_SUITE, bootstrap=0)
+    assert results["transfer_models"]["pair"] == 0
+    assert results["transfer_models"]["dir"] == 1
+    data = results["transfer"]["slimgpt40-gen"]
+    assert data["pair_models"] == 0 and data["dir_models"] == 1
+    summary = data["dir_summary"]
+    assert summary["own"]["n_cells"] == 1
+    assert summary["own"]["comet"] == pytest.approx(0.86, abs=1e-6)
+    assert summary["own"]["minus_multi"] == pytest.approx(0.05, abs=1e-6)
+    assert summary["reverse"]["n_cells"] == 1
+    assert summary["same_source"]["n_cells"] == 4
+    assert summary["same_target"]["n_cells"] == 0
+    assert summary["other"]["n_cells"] == 4
+    assert summary["other"]["comet"] == pytest.approx(0.71, abs=1e-6)
+    assert results["transfer"]["flap40-ref"]["dir_models"] == 0
+    rows = (out / "transfer" / "slimgpt40-gen.csv").read_text().splitlines()
+    assert len(rows) == 1 + 10  # header plus the one dir model's ten cells
+    assert not (out / "transfer" / "flap40-ref.csv").exists()
+    md = (out / "summary.md").read_text()
+    assert "| SlimGPT gen 40% | 1/10 |" in md
+    assert "| SlimGPT gen 40% | 0/5 | - | - | - |" in md
+    plots = {Path(p).name for p in results["plots"]}
+    assert "transfer_dir_s40.png" in plots and "transfer_pair_s40.png" not in plots
+    assert "comet_vs_sparsity.png" in plots
+
+
+def test_full_suite_repair(full_grid: Path) -> None:
+    out, results = run_report(full_grid, "--suite", FULL_SUITE, "--no-plots", bootstrap=50)
+    records = {r["system"]: r for r in results["repair"]}
+    multi = records[f"{grid_name('slimgpt', 'gen', 40, 'multi')}-lora"]
+    comet, metricx = multi["metrics"]["comet"], multi["metrics"]["metricx"]
+    assert comet["recovered"] == pytest.approx(0.4, abs=1e-6)  # (0.83 - 0.81) / (0.86 - 0.81)
+    # Lower is better: pruned 3.8, repaired 3.4, dense 2.8 closes 0.4 of the 1.0 gap.
+    assert metricx["pruned"] == pytest.approx(3.8, abs=1e-6)
+    assert metricx["repaired"] == pytest.approx(3.4, abs=1e-6)
+    assert metricx["dense"] == pytest.approx(2.8, abs=1e-6)
+    assert metricx["recovered"] == pytest.approx(0.4, abs=1e-6)
+    assert metricx["higher_is_better"] is False
+    contrast = multi["metricx_repaired_minus_pruned"]
+    assert contrast["delta"] == pytest.approx(-0.4, abs=1e-6)
+    assert contrast["bootstrap_ci_95"][1] < 0
+
+    pair_name = f"{grid_name('slimgpt', 'gen', 40, 'pair', 'is')}-lora"
+    pair = records[pair_name]
+    assert pair["metrics"]["comet"]["n_directions"] == 2
+    assert pair["comet_repaired_minus_pruned"]["directions"] == ["is-en", "en-is"]
+    summary = (out / "summary.md").read_text()
+    # Complete on its own pair, so no (2/10) marker.
+    for prefix in (f"| {pair_name} | COMET |", f"- {pair_name}:"):
+        for line in [line for line in summary.splitlines() if line.startswith(prefix)]:
+            assert "/10)" not in line
+    assert summary_line(summary, f"| {multi['system']} | MetricX-24 |").endswith(
+        "| 2.800 | 3.800 | 3.400 | -0.400 | 40.0% |"
+    )
+    assert "Repaired - pruned MetricX-24 with 95% CI (negative = the repair helped):" in summary
+
+
+def test_recovered_share_direction() -> None:
+    assert gr.recovered_share(0.86, 0.81, 0.83) == pytest.approx(0.4)
+    assert gr.recovered_share(2.8, 3.8, 3.4, higher_is_better=False) == pytest.approx(0.4)
+    # A repair that makes MetricX worse recovers a negative share.
+    assert gr.recovered_share(2.8, 3.8, 4.0, higher_is_better=False) == pytest.approx(-0.2)
+    assert gr.recovered_share(2.8, 2.8, 3.0, higher_is_better=False) is None
+    assert gr.recovered_share(None, 3.8, 3.4, higher_is_better=False) is None
+
+
+def test_metricx_bootstrap_wiring(full_grid: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = spy_on_bootstrap(monkeypatch)
+    argv = ("--suite", FULL_SUITE, "--no-plots", "--no-structure")
+    _, results = run_report(full_grid, *argv, bootstrap=7)
+    metricx_calls = [c for c in calls if c[2] is False]
+    all_ten = tuple(FULL_SIZES[d] for d in gr.DIRECTIONS)
+    assert metricx_calls and all(n == 7 for _, n, _ in calls)
+    assert (all_ten, 7, False) in metricx_calls  # dir - multi on all ten directions
+    own_pair = (FULL_SIZES["is-en"], FULL_SIZES["en-is"])
+    assert (own_pair, 7, False) in metricx_calls  # pair-is repair on its own pair
+    assert (all_ten, 7, True) in calls  # COMET: higher is better
+    assert headline_row(results, "slimgpt", "gen", 40)["dir_minus_multi_metricx"]["n_samples"] == 7
+
+    calls.clear()
+    run_report(full_grid, *argv, bootstrap=7)
+    assert calls == []  # every bootstrap, MetricX included, came from the cache
+
+    _, results = run_report(full_grid, *argv, "--no-cache", bootstrap=0)
+    assert calls == []
+    delta = headline_row(results, "slimgpt", "gen", 40)["dir_minus_multi_metricx"]
+    assert delta["p_value"] is None and delta["bootstrap_ci_95"] is None
+    assert delta["delta"] == pytest.approx(-1.0, abs=1e-6)
+    assert "| SlimGPT | gen | 40% | 3.800 | 3.400 | **2.800** | -0.400 | -1.000 |" in (
+        (full_grid / "out" / "summary.md").read_text()
+    )
+
+
+def test_metricx_file_invalidates_run_cache(full_grid: Path) -> None:
+    argv = ("--suite", FULL_SUITE, "--no-plots", "--no-structure")
+    _, results = run_report(full_grid, *argv, bootstrap=0)
+    assert headline_row(results, "flap", "ref", 40)["multi"]["metricx"] is None
+    name = grid_name("flap", "ref", 40, "multi")
+    root = full_grid / "runs" / f"{name}__{FULL_SUITE}__000000000000"
+    write_metricx(root, name, gr.DIRECTIONS, FULL_SIZES)
+    _, results = run_report(full_grid, *argv, bootstrap=0)
+    assert headline_row(results, "flap", "ref", 40)["multi"]["metricx"] == pytest.approx(4.4)
+    assert results["coverage"]["metricx"]["grid_models"] == 18
+
+
+def test_run_cache_version(tmp_path: Path) -> None:
+    cache = gr.Cache(tmp_path)
+    cache.put("runs", "x", [1], {"a": 1})
+    cache.put("bleu", "x", [1], {"b": 1})
+    assert cache.get("runs", "x", [1]) == {"a": 1}
+    path = tmp_path / "runs" / "x.json"
+    assert json.loads(path.read_text())["version"] == gr.RUN_CACHE_VERSION == 2
+    # A run parsed by the previous version lacks the MetricX fields: ignored.
+    stale = json.loads(path.read_text()) | {"version": 1}
+    path.write_text(json.dumps(stale))
+    assert cache.get("runs", "x", [1]) is None
+    # The BLEU and bootstrap caches keep their version and stay valid.
+    assert json.loads((tmp_path / "bleu" / "x.json").read_text())["version"] == 1
+    assert cache.get("bleu", "x", [1]) == {"b": 1}
+
+
+# --------------------------------------------------------------------------
+# Stratified bootstrap of the macro
+
+
+@pytest.mark.parametrize("higher_is_better", [True, False])
+def test_macro_bootstrap_single_direction_matches_segment_helper(higher_is_better: bool) -> None:
+    """One direction: the same seed, CI and p convention as the project helper."""
+    from mnlp_eval.metrics.significance import DEFAULT_SEED, bootstrap_segment_delta
+
+    rng = np.random.default_rng(7)
+    a, b = rng.normal(0.80, 0.1, 57), rng.normal(0.81, 0.1, 57)
+    ours = gr.macro_segment_bootstrap(
+        [(a, b)], n_samples=400, seed=DEFAULT_SEED, higher_is_better=higher_is_better
+    )
+    theirs = bootstrap_segment_delta(
+        list(a), list(b), n_samples=400, seed=DEFAULT_SEED, higher_is_better=higher_is_better
+    )
+    for key in (
+        "delta",
+        "baseline_score",
+        "system_score",
+        "p_value",
+        "bootstrap_ci_95",
+        "improved",
+        "n_segments",
+        "significant_at_0.05",
+    ):
+        assert ours[key] == theirs[key], key
+
+
+def test_macro_bootstrap_unequal_sizes() -> None:
+    """Directions of 3, 40 and 400 segments count equally, unlike a pooled mean."""
+    rng = np.random.default_rng(11)
+    pairs = []
+    for size, shift in ((3, 0.10), (40, 0.0), (400, -0.05)):
+        a = rng.normal(0.8, 0.05, size)
+        pairs.append((a, a + shift + rng.normal(0, 0.01, size)))
+    macro_a = np.mean([a.mean() for a, _ in pairs])
+    macro_b = np.mean([b.mean() for _, b in pairs])
+    pooled = (
+        np.concatenate([b for _, b in pairs]).mean() - np.concatenate([a for a, _ in pairs]).mean()
+    )
+    result = gr.macro_segment_bootstrap(pairs, n_samples=500, seed=3)
+    assert result["delta"] == pytest.approx(macro_b - macro_a, abs=1e-6)
+    assert result["baseline_score"] == pytest.approx(macro_a, abs=1e-6)
+    assert result["system_score"] == pytest.approx(macro_b, abs=1e-6)
+    assert abs(result["delta"] - pooled) > 0.03  # pooling would be dominated by the 400
+    low, high = result["bootstrap_ci_95"]
+    assert low <= result["delta"] <= high
+    assert result["n_directions"] == 3 and result["n_segments"] == 443
+    assert gr.macro_segment_bootstrap(pairs, n_samples=500, seed=3) == result
+    assert gr.macro_segment_bootstrap(pairs, n_samples=500, seed=4)["bootstrap_ci_95"] != [
+        low,
+        high,
+    ]
+    worse = gr.macro_segment_bootstrap(pairs, n_samples=50, seed=3, higher_is_better=False)
+    assert worse["improved"] is (result["delta"] < 0)
+
+
+def shift_scores(run: Path, group: str, key: str, offsets: dict[str, float]) -> None:
+    """Add a per-direction offset to every segment score of one metric in a run."""
+    path = run / f"scores.{group}.json"
+    payload = json.loads(path.read_text())
+    for direction, offset in offsets.items():
+        metric = payload["directions"][direction]["metrics"][key]
+        metric["segment_scores"] = [v + offset for v in metric["segment_scores"]]
+        metric["score"] = round(float(np.mean(metric["segment_scores"])), 6)
+    path.write_text(json.dumps(payload))
+
+
+def test_full_suite_contrasts_equal_macro_differences(full_grid: Path) -> None:
+    """Unequal directions and a multi model whose gap varies by direction.
+
+    The gen 40% multi model gains 0.01 x i COMET and loses 0.1 x i MetricX on
+    the i-th direction, and later directions have more segments, so a pooled
+    delta would differ from the macro difference (dir - multi COMET: pooled
+    -0.006, macro +0.005). Every contrast must equal its macro difference.
+    """
+    multi = grid_name("slimgpt", "gen", 40, "multi")
+    run = full_grid / "runs" / f"{multi}__{FULL_SUITE}__000000000000"
+    shift_scores(run, "neural", gr.COMET_KEY, {d: 0.01 * i for i, d in enumerate(gr.DIRECTIONS)})
+    shift_scores(run, "metricx", gr.METRICX_KEY, {d: -0.1 * i for i, d in enumerate(gr.DIRECTIONS)})
+    out, results = run_report(full_grid, "--suite", FULL_SUITE, "--no-plots", bootstrap=200)
+
+    row = headline_row(results, "slimgpt", "gen", 40)
+    assert row["multi"]["comet"] == pytest.approx(0.855, abs=1e-6)
+    assert row["multi"]["metricx"] == pytest.approx(3.35, abs=1e-6)
+    for scope in ("pair", "dir"):
+        for metric in ("comet", "metricx"):
+            contrast = row[f"{scope}_minus_multi_{metric}"]
+            macro_difference = row[scope][metric] - row["multi"][metric]
+            assert contrast["delta"] == pytest.approx(macro_difference, abs=2e-6), (scope, metric)
+            low, high = contrast["bootstrap_ci_95"]
+            assert low <= contrast["delta"] <= high
+    assert row["dir_minus_multi_comet"]["delta"] == pytest.approx(0.005, abs=1e-6)
+    assert row["dir_minus_multi_metricx"]["delta"] == pytest.approx(-0.55, abs=1e-6)
+    assert row["dir_minus_multi_comet"]["n_segments"] == sum(FULL_SIZES.values())
+
+    summary = (out / "summary.md").read_text()
+    line = summary_line(summary, "| SlimGPT | gen | 40% | 0.8550 |")
+    assert line.split(" | ")[-1].startswith("+0.0050 [")
+
+    # The contrast sections' score columns are the headline macros.
+    contrast = next(
+        r
+        for r in results["ref_vs_gen"]
+        if r["baseline"] == {"method": "slimgpt", "calib": "ref", "sparsity": 40, "scope": "multi"}
+    )
+    ref = headline_row(results, "slimgpt", "ref", 40)["multi"]
+    assert contrast["comet"]["baseline_score"] == pytest.approx(ref["comet"], abs=1e-6)
+    assert contrast["comet"]["system_score"] == pytest.approx(0.855, abs=1e-6)
+    assert contrast["comet"]["delta"] == pytest.approx(0.055, abs=1e-6)
+    assert contrast["metricx"]["delta"] == pytest.approx(3.35 - 4.0, abs=1e-6)
+
+    (repair,) = [r for r in results["repair"] if r["system"] == f"{multi}-lora"]
+    comet = repair["metrics"]["comet"]
+    assert repair["comet_repaired_minus_pruned"]["delta"] == pytest.approx(
+        comet["repaired"] - comet["pruned"], abs=2e-6
+    )
+    metricx = repair["metrics"]["metricx"]
+    assert repair["metricx_repaired_minus_pruned"]["delta"] == pytest.approx(
+        metricx["repaired"] - metricx["pruned"], abs=2e-6
+    )
+
+
+def test_bootstrap_cache_drops_pooled_results(grid: Path) -> None:
+    """Results stored under the old (pooled) cache signature are not reused."""
+    out = grid / "out"
+    stale = {"version": gr.CACHE_VERSION, "signature": "v1", "data": {"k": {"delta": 9.0}}}
+    (out / ".cache" / "bootstrap").mkdir(parents=True)
+    (out / ".cache" / "bootstrap" / "results.json").write_text(json.dumps(stale))
+    assert gr.Cache(out / ".cache").bootstrap_get("k") is None
+    run_report(grid, "--no-plots", "--no-structure", bootstrap=5)
+    stored = json.loads((out / ".cache" / "bootstrap" / "results.json").read_text())
+    assert stored["signature"] == gr.BOOTSTRAP_CACHE == "v2"
+    assert "k" not in stored["data"]
+    methods = {entry["method"] for entry in stored["data"].values()}
+    assert "stratified paired bootstrap on the macro of per-segment scores" in methods

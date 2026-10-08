@@ -7,17 +7,36 @@ Usage::
         [--runs-root runs] [--manifest configs/grid/manifest.json] [--bootstrap 1000]
 
 The grid is method {slimgpt, flap} x calibration text {ref, gen} x sparsity
-{20, 30, 40} x scope {multi, pair, dir}, every model evaluated on all ten
-directions of the suite. The grid manifest (written by ``scripts/grid.py
-configs``) names the systems and their attributes; run directories under
-``--runs-root`` hold the scores. The dense ``alma-7b`` run is the baseline, and
-any ``<source>-lora`` run is treated as a LoRA repair of ``<source>``.
+{20, 30, 40} x scope {multi, pair, dir}. The grid manifest (written by
+``scripts/grid.py configs``) names the systems and their attributes; run
+directories under ``--runs-root`` hold the scores. The dense ``alma-7b`` run is
+the baseline, and any ``<source>-lora`` run is treated as a LoRA repair of
+``<source>``.
+
+A model is complete when every direction it is meant to be evaluated on is
+scored (BLEU, chrF++ and COMET): all ten for dense, multi models and their
+repairs, the manifest's ``pruned_directions`` for pair and dir models (a
+``-lora`` system inherits its source's). On the pilot suite every model has
+all ten; on the full suite (``--suite alma10-greedy``) specialists are only
+evaluated on their own directions. Specialists that do have all ten feed the
+transfer section; the others are left out of it.
+
+MetricX-24 (``scores.metricx.json``, an error score in [0, 25], lower is
+better) is reported next to COMET where it exists and as ``-`` elsewhere.
+COMET stays the primary metric.
+
+Every contrast (COMET, MetricX-24, BLEU) is system minus baseline on the macro
+over the directions both sides have, each direction weighted equally, so a
+delta is the difference of the macro columns. Its 95% CI and two-sided p come
+from a stratified paired bootstrap: each resample redraws segment positions
+within each direction, the same positions for both systems.
 
 Written into ``--out``:
 
 * ``long.csv``: one row per (system, direction) with every metric and attribute.
-* ``summary.md``: coverage, headline, ref vs gen, SlimGPT vs FLAP,
-  per-direction, sparsity curve, transfer, behaviour, repair and structure.
+* ``summary.md``: coverage, headline (COMET, then MetricX-24), ref vs gen,
+  SlimGPT vs FLAP, per-direction, sparsity curve, transfer, behaviour, repair
+  and structure.
 * ``transfer/<config>.md`` and ``transfer/<config>.csv``: the full pair (5x10)
   and direction (10x10) transfer matrices for one method x calib x sparsity.
 * ``structure.csv`` and ``structure/<name>.layers.csv``: removed parameters and
@@ -53,7 +72,7 @@ from typing import Any
 
 import numpy as np
 
-from mnlp_eval.metrics.significance import DEFAULT_SEED, bootstrap_segment_delta
+from mnlp_eval.metrics.significance import DEFAULT_SEED
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -61,7 +80,16 @@ DEFAULT_OUT = "results/grid-2026-10-06"
 DEFAULT_SUITE = "alma10-greedy-300"
 DENSE = "alma-7b"
 COMET_KEY = "wmt22_comet_da"
+METRICX_KEY = "metricx24"
 CACHE_VERSION = 1
+#: The parsed-run cache has its own version, bumped when the parsed structure
+#: changes (2: MetricX fields), so the BLEU and bootstrap caches stay valid.
+RUN_CACHE_VERSION = 2
+#: Signature of the stored bootstrap results. v2: COMET and MetricX contrasts
+#: became a stratified bootstrap of the macro, so pooled v1 results are dropped.
+BOOTSTRAP_CACHE = "v2"
+#: Tag in the cache key of every per-segment contrast bootstrap.
+SEGMENT_BOOTSTRAP = "stratified-macro"
 
 PAIR_LANGS = ("cs", "de", "is", "ru", "zh")
 INTO_EN = tuple(f"{lang}-en" for lang in PAIR_LANGS)
@@ -113,10 +141,13 @@ LONG_COLUMNS = (
     "comet",
     "bleu",
     "chrf",
+    "metricx",
     "comet_minus_dense",
     "bleu_minus_dense",
     "chrf_minus_dense",
+    "metricx_minus_dense",
     "comet_minus_multi",
+    "metricx_minus_multi",
     *BEHAVIOUR_FIELDS,
     "bleu_token_length_ratio",
 )
@@ -231,6 +262,11 @@ def f2(value: float | None) -> str:
     return "-" if value is None else f"{value:.2f}"
 
 
+def f3(value: float | None) -> str:
+    """MetricX-24 scores and deltas (an error score in [0, 25])."""
+    return "-" if value is None else f"{value:.3f}"
+
+
 def signed(value: float | None, digits: int) -> str:
     return "-" if value is None else f"{value:+.{digits}f}"
 
@@ -295,6 +331,20 @@ class System:
         if self.is_dense or self.scope == "multi":
             return True
         return direction in self.pruned_directions
+
+    @property
+    def expected_directions(self) -> tuple[str, ...]:
+        """The directions this system must be scored on to count as complete.
+
+        All ten for dense and multi models (and their repairs); the pruned
+        directions for a pair or dir model, which a ``-lora`` repair inherits.
+        A specialist scored on more (the pilot, the Tier-3 full-suite runs) is
+        still complete, and also has transfer data.
+        """
+        if self.is_dense or self.scope == "multi":
+            return DIRECTIONS
+        own = tuple(d for d in DIRECTIONS if d in self.pruned_directions)
+        return own or DIRECTIONS
 
     def label(self) -> str:
         if self.is_dense:
@@ -484,12 +534,14 @@ class RunInfo:
     fingerprints: dict[str, str]
     neural_sig: Any
     mtime: int
+    has_metricx: bool = False
+    metricx_sig: Any = None
 
     def value(self, direction: str, key: str) -> float | None:
         return _num(self.directions.get(direction, {}).get(key))
 
-    def segments(self, direction: str) -> list[float] | None:
-        found = self.directions.get(direction, {}).get("comet_segments")
+    def segments(self, direction: str, metric: str = "comet") -> list[float] | None:
+        found = self.directions.get(direction, {}).get(f"{metric}_segments")
         return found or None
 
     @property
@@ -497,9 +549,17 @@ class RunInfo:
         keys = ("comet", "bleu", "chrf")
         return [d for d in DIRECTIONS if all(self.value(d, key) is not None for key in keys)]
 
+    def covers(self, directions: Iterable[str]) -> bool:
+        """Whether BLEU, chrF++ and COMET exist for every one of ``directions``."""
+        return set(directions) <= set(self.scored_directions)
+
     @property
-    def complete(self) -> bool:
+    def all_directions(self) -> bool:
+        """Scored on all ten directions: the condition for entering the transfer section."""
         return len(self.scored_directions) == N_DIRS
+
+    def metricx_directions(self) -> list[str]:
+        return [d for d in DIRECTIONS if self.value(d, "metricx") is not None]
 
 
 def _metric_score(metrics: dict[str, Any], name: str) -> float | None:
@@ -523,6 +583,7 @@ def parse_run(path: Path) -> dict[str, Any]:
         "checkpoint": (model.get("kwargs") or {}).get("checkpoint"),
         "has_surface": False,
         "has_neural": False,
+        "has_metricx": False,
         "directions": {},
         "fingerprints": {},
         "errors": errors,
@@ -554,6 +615,20 @@ def parse_run(path: Path) -> dict[str, Any]:
             )
             if record.get("n_segments") is None:
                 record["n_segments"] = entry.get("n_segments")
+    # Optional: absent for every pilot run, so a missing file is not an error.
+    metricx = _read_json(path / "scores.metricx.json", errors)
+    if isinstance(metricx, dict):
+        data["has_metricx"] = True
+        for direction, entry in (metricx.get("directions") or {}).items():
+            payload = (entry.get("metrics") or {}).get(METRICX_KEY) or {}
+            record = data["directions"].setdefault(direction, {})
+            record["metricx"] = _num(payload.get("score"))
+            segments = payload.get("segment_scores")
+            record["metricx_segments"] = (
+                [float(value) for value in segments] if isinstance(segments, list) else None
+            )
+            if record.get("n_segments") is None:
+                record["n_segments"] = entry.get("n_segments")
     stages = path / "stages"
     if stages.is_dir():
         for stage in sorted(stages.glob("generate*.json")):
@@ -565,11 +640,12 @@ def parse_run(path: Path) -> dict[str, Any]:
     return data
 
 
+#: Files whose signatures make up the first entries of ``run_signature``.
+RUN_FILES = ("manifest.json", "scores.surface.json", "scores.neural.json", "scores.metricx.json")
+
+
 def run_signature(path: Path) -> list[Any]:
-    parts: list[Any] = [
-        _file_sig(path / name)
-        for name in ("manifest.json", "scores.surface.json", "scores.neural.json")
-    ]
+    parts: list[Any] = [_file_sig(path / name) for name in RUN_FILES]
     stages = path / "stages"
     if stages.is_dir():
         parts.append(
@@ -596,11 +672,15 @@ class Cache:
         safe = re.sub(r"[^A-Za-z0-9_.+-]", "_", key)
         return self.root / kind / f"{safe}.json"
 
+    @staticmethod
+    def version(kind: str) -> int:
+        return RUN_CACHE_VERSION if kind == "runs" else CACHE_VERSION
+
     def get(self, kind: str, key: str, signature: Any) -> Any:
         if self.root is None:
             return None
         payload = _read_json(self._path(kind, key))
-        if not isinstance(payload, dict) or payload.get("version") != CACHE_VERSION:
+        if not isinstance(payload, dict) or payload.get("version") != self.version(kind):
             return None
         if payload.get("signature") != signature:
             return None
@@ -609,7 +689,7 @@ class Cache:
     def put(self, kind: str, key: str, signature: Any, data: Any) -> None:
         if self.root is None:
             return
-        payload = {"version": CACHE_VERSION, "signature": signature, "data": data}
+        payload = {"version": self.version(kind), "signature": signature, "data": data}
         try:
             _write_text(self._path(kind, key), json.dumps(payload))
         except OSError as exc:
@@ -617,7 +697,7 @@ class Cache:
 
     def _bootstraps(self) -> dict[str, Any]:
         if self._bootstrap is None:
-            loaded = self.get("bootstrap", "results", "v1") if self.root else None
+            loaded = self.get("bootstrap", "results", BOOTSTRAP_CACHE) if self.root else None
             self._bootstrap = loaded if isinstance(loaded, dict) else {}
         return self._bootstrap
 
@@ -631,7 +711,7 @@ class Cache:
 
     def flush(self) -> None:
         if self._bootstrap_dirty and self._bootstrap is not None:
-            self.put("bootstrap", "results", "v1", self._bootstrap)
+            self.put("bootstrap", "results", BOOTSTRAP_CACHE, self._bootstrap)
             self._bootstrap_dirty = False
 
 
@@ -676,6 +756,21 @@ class Context:
     def warn(self, message: str) -> None:
         if message not in self.warnings:
             self.warnings.append(message)
+
+    def complete(self, system: System) -> bool:
+        """Scored on every direction the system is meant to be evaluated on."""
+        run = self.runs.get(system.name)
+        return run is not None and run.covers(system.expected_directions)
+
+    def in_scope_scored(self, system: System) -> int:
+        run = self.runs.get(system.name)
+        if run is None:
+            return 0
+        return len(set(system.expected_directions) & set(run.scored_directions))
+
+    @property
+    def has_metricx(self) -> bool:
+        return any(run.metricx_directions() for run in self.runs.values())
 
     def configs(self) -> list[tuple[str, str, int]]:
         return [(m, c, s) for m in self.methods for c in self.calibs for s in self.sparsities]
@@ -752,7 +847,7 @@ def discover_runs(ctx: Context) -> None:
             ctx.warn(error)
         if data["suite"] != ctx.suite:
             continue
-        mtimes = [part[0] for part in signature[:3] if part]
+        mtimes = [part[0] for part in signature[: len(RUN_FILES)] if part]
         run = RunInfo(
             name=data["name"],
             slug=child.name,
@@ -765,8 +860,10 @@ def discover_runs(ctx: Context) -> None:
             has_neural=data["has_neural"],
             directions=data["directions"],
             fingerprints=data["fingerprints"],
-            neural_sig=signature[2],
+            neural_sig=signature[RUN_FILES.index("scores.neural.json")],
             mtime=max(mtimes) if mtimes else 0,
+            has_metricx=bool(data.get("has_metricx")),
+            metricx_sig=signature[RUN_FILES.index("scores.metricx.json")],
         )
         candidates.setdefault(run.name, []).append(run)
 
@@ -793,7 +890,13 @@ def discover_runs(ctx: Context) -> None:
             continue
         ranked = sorted(
             runs,
-            key=lambda r: (len(r.scored_directions), r.has_neural, r.has_surface, r.mtime),
+            key=lambda r: (
+                len(r.scored_directions),
+                r.has_neural,
+                r.has_surface,
+                len(r.metricx_directions()),
+                r.mtime,
+            ),
             reverse=True,
         )
         chosen = ranked[0]
@@ -933,6 +1036,66 @@ def macro_bleu_bootstrap(
     }
 
 
+def _macro_means(pairs: Sequence[tuple[np.ndarray, np.ndarray]]) -> tuple[float, float, float]:
+    """Baseline macro, system macro and their difference: equal weight per direction."""
+    base = float(np.mean([a.mean() for a, _ in pairs]))
+    system = float(np.mean([b.mean() for _, b in pairs]))
+    observed = float(np.mean([b.mean() - a.mean() for a, b in pairs]))
+    return base, system, observed
+
+
+def macro_segment_bootstrap(
+    pairs: Sequence[tuple[np.ndarray, np.ndarray]],
+    *,
+    n_samples: int,
+    seed: int,
+    higher_is_better: bool = True,
+) -> dict[str, Any]:
+    """Stratified paired bootstrap on the macro of a per-segment metric.
+
+    ``pairs`` holds one (baseline, system) pair of per-segment score arrays per
+    direction, paired by position. Each resample redraws segment positions
+    independently within each direction, the same positions for both systems,
+    takes the per-direction mean difference and averages the directions with
+    equal weight. The observed delta is therefore the difference of the two
+    macros, whatever the directions' sizes, unlike pooling all segments, which
+    weights directions by their segment counts.
+
+    Seed, p-value and CI mirror ``significance.bootstrap_segment_delta``: one
+    ``default_rng(seed)``, directions drawn in order; two-sided centred p,
+    ``P(|d_b - d| >= |d|)``, add-one smoothed; percentile 95% CI on the delta.
+    With a single direction it reproduces that helper exactly.
+    """
+    base, system, observed = _macro_means(pairs)
+    rng = np.random.default_rng(seed)
+    deltas = np.zeros(n_samples)
+    for a, b in pairs:
+        indices = rng.integers(0, a.shape[0], size=(n_samples, a.shape[0]))
+        deltas += b[indices].mean(axis=1) - a[indices].mean(axis=1)
+    deltas /= len(pairs)
+    centred = np.abs(deltas - observed) >= abs(observed)
+    p_value = float((1 + int(centred.sum())) / (n_samples + 1))
+    improved = observed > 0 if higher_is_better else observed < 0
+    return {
+        "method": "stratified paired bootstrap on the macro of per-segment scores",
+        "n_samples": n_samples,
+        "seed": seed,
+        "n_segments": int(sum(a.shape[0] for a, _ in pairs)),
+        "n_directions": len(pairs),
+        "baseline_score": round(base, 6),
+        "system_score": round(system, 6),
+        "delta": round(observed, 6),
+        "improved": bool(improved),
+        "higher_is_better": higher_is_better,
+        "p_value": round(p_value, 6),
+        "significant_at_0.05": p_value < 0.05,
+        "bootstrap_ci_95": [
+            round(float(np.percentile(deltas, 2.5)), 6),
+            round(float(np.percentile(deltas, 97.5)), 6),
+        ],
+    }
+
+
 def bleu_stats(ctx: Context, run: RunInfo, direction: str) -> tuple[np.ndarray, Any] | None:
     """Per-segment BLEU statistics for one run and direction, cached by hyps file."""
     path = run.path / "hyps" / f"{direction}.jsonl"
@@ -983,48 +1146,76 @@ def flush_bleu_cache(ctx: Context) -> None:
     ctx.bleu_dirty.clear()
 
 
-def comet_contrast(ctx: Context, base: Composite, system: Composite) -> dict[str, Any] | None:
-    """System minus base on COMET, pooling the segments of shared directions."""
+#: Metrics with stored per-segment scores: label, which way is better, and the
+#: run attribute holding the signature of the scores file they come from.
+SEGMENT_METRICS = {
+    "comet": ("COMET", True, "neural_sig"),
+    "metricx": ("MetricX-24", False, "metricx_sig"),
+}
+
+
+def segment_contrast(
+    ctx: Context, base: Composite, system: Composite, metric: str = "comet"
+) -> dict[str, Any] | None:
+    """System minus base on the macro of a per-segment metric over shared directions.
+
+    Equal weight per direction, so the delta is the difference of the macro
+    columns; the CI and p come from ``macro_segment_bootstrap``. The delta is
+    always system minus base: for MetricX-24 (lower is better) a negative delta
+    means the system is better.
+    """
+    label, higher_is_better, sig_attr = SEGMENT_METRICS[metric]
     directions: list[str] = []
-    a: list[float] = []
-    b: list[float] = []
+    pairs: list[tuple[np.ndarray, np.ndarray]] = []
     key_parts: list[Any] = []
     for direction in DIRECTIONS:
         if direction not in base or direction not in system:
             continue
         run_a, run_b = base[direction][1], system[direction][1]
-        seg_a, seg_b = run_a.segments(direction), run_b.segments(direction)
+        seg_a, seg_b = run_a.segments(direction, metric), run_b.segments(direction, metric)
         if not seg_a or not seg_b:
             continue
         if len(seg_a) != len(seg_b):
             ctx.warn(
-                f"{direction}: {run_a.name} has {len(seg_a)} COMET segments but "
+                f"{direction}: {run_a.name} has {len(seg_a)} {label} segments but "
                 f"{run_b.name} has {len(seg_b)}; left out of the paired contrast"
             )
             continue
         directions.append(direction)
-        a.extend(seg_a)
-        b.extend(seg_b)
-        key_parts.append([direction, run_a.slug, run_a.neural_sig, run_b.slug, run_b.neural_sig])
+        pairs.append((np.asarray(seg_a, dtype=np.float64), np.asarray(seg_b, dtype=np.float64)))
+        key_parts.append(
+            [
+                direction,
+                run_a.slug,
+                getattr(run_a, sig_attr),
+                run_b.slug,
+                getattr(run_b, sig_attr),
+            ]
+        )
     if not directions:
         return None
+    base_score, system_score, delta = _macro_means(pairs)
     result: dict[str, Any] = {
-        "metric": "comet",
+        "metric": metric,
+        "higher_is_better": higher_is_better,
         "directions": directions,
         "n_directions": len(directions),
-        "baseline_score": round(sum(a) / len(a), 6),
-        "system_score": round(sum(b) / len(b), 6),
-        "delta": round(sum(b) / len(b) - sum(a) / len(a), 6),
+        "n_segments": int(sum(a.shape[0] for a, _ in pairs)),
+        "baseline_score": round(base_score, 6),
+        "system_score": round(system_score, 6),
+        "delta": round(delta, 6),
         "p_value": None,
         "bootstrap_ci_95": None,
         "n_samples": 0,
     }
     n_samples = ctx.args.bootstrap
     if n_samples > 0:
-        key = _digest(["comet", n_samples, ctx.args.seed, key_parts])
+        key = _digest([metric, SEGMENT_BOOTSTRAP, n_samples, ctx.args.seed, key_parts])
         boot = ctx.cache.bootstrap_get(key)
         if boot is None:
-            boot = bootstrap_segment_delta(a, b, n_samples=n_samples, seed=ctx.args.seed)
+            boot = macro_segment_bootstrap(
+                pairs, n_samples=n_samples, seed=ctx.args.seed, higher_is_better=higher_is_better
+            )
             ctx.n_bootstraps += 1
             ctx.cache.bootstrap_put(key, boot)
         result.update(
@@ -1036,6 +1227,16 @@ def comet_contrast(ctx: Context, base: Composite, system: Composite) -> dict[str
             }
         )
     return result
+
+
+def comet_contrast(ctx: Context, base: Composite, system: Composite) -> dict[str, Any] | None:
+    """System minus base on macro COMET over the shared directions."""
+    return segment_contrast(ctx, base, system, "comet")
+
+
+def metricx_contrast(ctx: Context, base: Composite, system: Composite) -> dict[str, Any] | None:
+    """System minus base on MetricX-24: negative means the system is better."""
+    return segment_contrast(ctx, base, system, "metricx")
 
 
 def bleu_contrast(ctx: Context, base: Composite, system: Composite) -> dict[str, Any] | None:
@@ -1093,7 +1294,9 @@ def bleu_contrast(ctx: Context, base: Composite, system: Composite) -> dict[str,
     return result
 
 
-def delta_text(result: dict[str, Any] | None, digits: int, *, with_p: bool = False) -> str:
+def delta_text(
+    result: dict[str, Any] | None, digits: int, *, with_p: bool = False, total: int = N_DIRS
+) -> str:
     if not result:
         return "-"
     text = signed(result.get("delta"), digits)
@@ -1103,7 +1306,7 @@ def delta_text(result: dict[str, Any] | None, digits: int, *, with_p: bool = Fal
     if with_p and result.get("p_value") is not None:
         p_value = fmt_p(result["p_value"])
         text += f" p{p_value}" if p_value.startswith("<") else f" p={p_value}"
-    return with_coverage(text, int(result.get("n_directions") or 0))
+    return with_coverage(text, int(result.get("n_directions") or 0), total)
 
 
 def p_text(result: dict[str, Any] | None) -> str:
@@ -1134,27 +1337,54 @@ def _status_counts(ctx: Context) -> Counter[str]:
 
 def section_coverage(ctx: Context) -> list[str]:
     grid = ctx.grid
-    complete = [s for s in grid if s.name in ctx.runs and ctx.runs[s.name].complete]
-    partial = [s for s in grid if s.name in ctx.runs and not ctx.runs[s.name].complete]
+    complete = [s for s in grid if ctx.complete(s)]
+    partial = [s for s in grid if s.name in ctx.runs and not ctx.complete(s)]
     missing = [s for s in grid if s.name not in ctx.runs]
     loras = [s for s in ctx.systems.values() if s.repaired]
-    lora_done = [s for s in loras if s.name in ctx.runs and ctx.runs[s.name].complete]
+    lora_done = [s for s in loras if ctx.complete(s)]
+    specialists = [s for s in grid if s.scope != "multi" and s.name in ctx.runs]
+    all_ten = Counter(s.scope for s in specialists if ctx.runs[s.name].all_directions)
     expected = f"{len(grid)}" if ctx.manifest_found else f"{len(grid)} (inferred, no manifest)"
     lines = ["## Coverage", ""]
     lines.append(
-        f"Grid models complete: **{len(complete)}/{expected}** (BLEU, chrF++ and COMET on all "
-        f"{N_DIRS} directions); {len(partial)} partially scored; {len(missing)} without a "
-        f"run. LoRA-repaired systems: {len(lora_done)}/{len(loras)} complete."
+        f"Grid models complete: **{len(complete)}/{expected}** (BLEU, chrF++ and COMET on every "
+        f"direction the model is evaluated on: all {N_DIRS} for multi models, the model's own "
+        "pruned directions for pair and dir models; a `-lora` system follows its source); "
+        f"{len(partial)} partially scored; {len(missing)} without a run. LoRA-repaired "
+        f"systems: {len(lora_done)}/{len(loras)} complete."
+    )
+    lines.append("")
+    lines.append(
+        f"Specialists scored on all {N_DIRS} directions, which feed the transfer section: "
+        f"{all_ten['pair']} pair and {all_ten['dir']} dir models, of {len(specialists)} "
+        "specialists with a run."
+    )
+    with_mx = {name: run for name, run in ctx.runs.items() if run.metricx_directions()}
+    mx_grid = [s for s in grid if s.name in with_mx]
+    mx_full = [
+        s
+        for s in mx_grid
+        if set(s.expected_directions) <= set(with_mx[s.name].metricx_directions())
+    ]
+    mx_lora = [s for s in loras if s.name in with_mx]
+    lines.append("")
+    lines.append(
+        f"MetricX-24 (`scores.metricx.json`): {len(mx_grid)}/{len(grid)} grid models "
+        f"({len(mx_full)} on every in-scope direction), {len(mx_lora)}/{len(loras)} LoRA "
+        f"systems, dense baseline {'yes' if DENSE in with_mx else 'no'}."
     )
     dense = ctx.dense
     if dense is not None:
         comet, _ = macro(single(ctx, DENSE), "comet")
         bleu, _ = macro(single(ctx, DENSE), "bleu")
         chrf, _ = macro(single(ctx, DENSE), "chrf")
+        metricx, n_mx = macro(single(ctx, DENSE), "metricx")
+        mx_text = f", MetricX-24 {with_coverage(f3(metricx), n_mx)}" if metricx is not None else ""
         lines.append("")
         lines.append(
             f"Dense baseline `{DENSE}` (run {dense.run_id}, {len(dense.scored_directions)}/"
-            f"{N_DIRS} directions): COMET {f4(comet)}, BLEU {f2(bleu)}, chrF++ {f2(chrf)}."
+            f"{N_DIRS} directions): COMET {f4(comet)}, BLEU {f2(bleu)}, chrF++ {f2(chrf)}"
+            f"{mx_text}."
         )
     else:
         lines.extend(["", f"Dense baseline `{DENSE}`: no run found."])
@@ -1173,8 +1403,8 @@ def section_coverage(ctx: Context) -> list[str]:
                 if s.cell[:4] == (method, calib, sparsity, scope)
                 and (scope != "multi" or s.scope_key == "")
             ]
-            done = sum(1 for s in members if s.name in ctx.runs and ctx.runs[s.name].complete)
-            part = sum(1 for s in members if s.name in ctx.runs and not ctx.runs[s.name].complete)
+            done = sum(1 for s in members if ctx.complete(s))
+            part = sum(1 for s in members if s.name in ctx.runs and not ctx.complete(s))
             text = f"{done}/{len(members)}" if members else "-"
             if part:
                 text += f" (+{part} partial)"
@@ -1184,9 +1414,9 @@ def section_coverage(ctx: Context) -> list[str]:
     if partial:
         lines.append("")
         listed = ", ".join(
-            f"{s.name} ({len(ctx.runs[s.name].scored_directions)}/{N_DIRS})" for s in partial
+            f"{s.name} ({ctx.in_scope_scored(s)}/{len(s.expected_directions)})" for s in partial
         )
-        lines.append(f"Partially scored: {listed}.")
+        lines.append(f"Partially scored (in-scope directions scored): {listed}.")
     off_grid = [
         s
         for s in grid
@@ -1199,14 +1429,26 @@ def section_coverage(ctx: Context) -> list[str]:
             f"as extra rows where they fit): {', '.join(s.name for s in off_grid)}."
         )
     ctx.results["coverage"] = {
+        "rule": (
+            "complete = BLEU, chrF++ and COMET on every expected direction: all ten for dense "
+            "and multi (and their repairs), pruned_directions for pair and dir (and theirs)"
+        ),
         "expected": len(grid),
         "manifest_found": ctx.manifest_found,
         "complete": len(complete),
         "partial": len(partial),
         "missing": len(missing),
-        "partial_systems": {s.name: len(ctx.runs[s.name].scored_directions) for s in partial},
+        "partial_systems": {s.name: ctx.in_scope_scored(s) for s in partial},
+        "partial_expected": {s.name: len(s.expected_directions) for s in partial},
+        "specialists_all_directions": {"pair": all_ten["pair"], "dir": all_ten["dir"]},
         "lora_systems": len(loras),
         "lora_complete": len(lora_done),
+        "metricx": {
+            "grid_models": len(mx_grid),
+            "grid_models_all_in_scope": len(mx_full),
+            "lora_systems": len(mx_lora),
+            "dense": DENSE in with_mx,
+        },
         "status_counts": dict(states),
     }
     return lines
@@ -1218,8 +1460,11 @@ def section_headline(ctx: Context) -> list[str]:
         f"Macro over the {N_DIRS} directions. For pair and dir, each direction is translated "
         "by the matching specialised model: `pair-<l>` for both directions of language l, "
         "`dir-<d>` for direction d. Bold marks the best complete scope per metric. The "
-        "delta columns pool the segments of the shared directions and pair each specialist "
-        "segment with multi's same segment (paired bootstrap 95% CI and two-sided p). "
+        "delta columns are specialist minus multi on the macro over the shared directions, "
+        "so they equal the difference of the macro columns, with a stratified paired "
+        "bootstrap 95% CI and two-sided p: each resample redraws segment positions within "
+        "each direction, the same positions for both models, and averages the per-direction "
+        "mean differences with equal weight. "
         f"`(n/{N_DIRS})` means only n directions exist yet."
     )
     lines.append("")
@@ -1273,22 +1518,100 @@ def section_headline(ctx: Context) -> list[str]:
                 delta_text(deltas["dir"], 4, with_p=True),
             ]
         )
+        for scope in SCOPES:
+            values[scope]["metricx"] = macro(
+                composite(ctx, method, calib, sparsity, scope), "metricx"
+            )
+        record_keys = (*(key for key, _ in metrics), "metricx")
         records.append(
             {
                 "method": method,
                 "calib": calib,
                 "sparsity": sparsity,
                 **{
-                    scope: {key: values[scope][key][0] for key, _ in metrics}
-                    | {"n_directions": {key: values[scope][key][1] for key, _ in metrics}}
+                    scope: {key: values[scope][key][0] for key in record_keys}
+                    | {"n_directions": {key: values[scope][key][1] for key in record_keys}}
                     for scope in SCOPES
                 },
                 "pair_minus_multi_comet": deltas["pair"],
                 "dir_minus_multi_comet": deltas["dir"],
+                # Filled by section_headline_metricx.
+                "pair_minus_multi_metricx": None,
+                "dir_minus_multi_metricx": None,
             }
         )
     lines.extend(md_table(header, rows, labels=3))
     ctx.results["headline"] = records
+    return lines
+
+
+def section_headline_metricx(ctx: Context) -> list[str]:
+    """The COMET headline again on MetricX-24, where lower is better."""
+    lines = ["## Headline, MetricX-24 (lower is better)", ""]
+    records = {(r["method"], r["calib"], r["sparsity"]): r for r in ctx.results["headline"]}
+    if not ctx.has_metricx:
+        lines.append(f"No MetricX-24 scores (`scores.metricx.json`) for suite `{ctx.suite}` yet.")
+        return lines
+    lines.append(
+        "MetricX-24 is an error score in [0, 25]: lower is better. Same scope composites and "
+        "macro over directions as the COMET headline; bold marks the lowest (best) complete "
+        "scope. The delta columns are specialist minus multi on macro MetricX, with the same "
+        "stratified paired bootstrap 95% CI and two-sided p: **a negative delta means the "
+        f"specialist is better**. `-` means no MetricX scores yet; `(n/{N_DIRS})` means only "
+        "n directions have them."
+    )
+    lines.append("")
+    header = [
+        "Method",
+        "Calib",
+        "Sparsity",
+        *[f"{scope} MetricX" for scope in SCOPES],
+        "pair - multi MetricX",
+        "dir - multi MetricX",
+    ]
+    rows: list[list[str]] = []
+    dense = single(ctx, DENSE)
+    if dense:
+        value, n = macro(dense, "metricx")
+        rows.append(["dense", "-", "0%", *[with_coverage(f3(value), n)] * len(SCOPES), "-", "-"])
+    for method, calib, sparsity in ctx.configs():
+        values = {
+            scope: macro(composite(ctx, method, calib, sparsity, scope), "metricx")
+            for scope in SCOPES
+        }
+        complete = {
+            scope: value
+            for scope, (value, n) in values.items()
+            if value is not None and n == N_DIRS
+        }
+        best = min(complete.values()) if len(complete) >= 2 else None
+        cells = []
+        for scope in SCOPES:
+            value, n = values[scope]
+            text = with_coverage(f3(value), n)
+            if best is not None and scope in complete and f3(complete[scope]) == f3(best):
+                text = f"**{text}**"
+            cells.append(text)
+        multi = composite(ctx, method, calib, sparsity, "multi")
+        deltas = {
+            scope: metricx_contrast(ctx, multi, composite(ctx, method, calib, sparsity, scope))
+            for scope in ("pair", "dir")
+        }
+        record = records.get((method, calib, sparsity))
+        if record is not None:
+            record["pair_minus_multi_metricx"] = deltas["pair"]
+            record["dir_minus_multi_metricx"] = deltas["dir"]
+        rows.append(
+            [
+                METHOD_LABEL.get(method, method),
+                calib,
+                f"{sparsity}%",
+                *cells,
+                delta_text(deltas["pair"], 3, with_p=True),
+                delta_text(deltas["dir"], 3, with_p=True),
+            ]
+        )
+    lines.extend(md_table(header, rows, labels=3))
     return lines
 
 
@@ -1301,8 +1624,12 @@ def _contrast_section(
     header_labels: list[str],
     result_key: str,
 ) -> list[str]:
-    lines = [title, "", intro, ""]
     first, second = names
+    intro += (
+        f" MetricX-24 is lower-is-better; its delta is also {second} minus {first}, so a "
+        f"negative MetricX delta means {second} is better."
+    )
+    lines = [title, "", intro, ""]
     header = [
         *header_labels,
         f"COMET {first}",
@@ -1313,6 +1640,10 @@ def _contrast_section(
         f"BLEU {second}",
         f"{second} - {first} [95% CI]",
         "p",
+        f"MetricX {first}",
+        f"MetricX {second}",
+        f"MetricX {second} - {first} [95% CI]",
+        "p",
     ]
     rows = []
     records = []
@@ -1321,6 +1652,7 @@ def _contrast_section(
         system = composite(ctx, *system_key)
         comet = comet_contrast(ctx, base, system)
         bleu = bleu_contrast(ctx, base, system)
+        metricx = metricx_contrast(ctx, base, system)
         rows.append(
             [
                 *labels,
@@ -1332,6 +1664,10 @@ def _contrast_section(
                 f2(bleu["system_score"]) if bleu else "-",
                 delta_text(bleu, 2),
                 p_text(bleu),
+                f3(metricx["baseline_score"]) if metricx else "-",
+                f3(metricx["system_score"]) if metricx else "-",
+                delta_text(metricx, 3),
+                p_text(metricx),
             ]
         )
         records.append(
@@ -1344,6 +1680,7 @@ def _contrast_section(
                 ),
                 "comet": comet,
                 "bleu": bleu,
+                "metricx": metricx,
             }
         )
     lines.extend(md_table(header, rows, labels=len(header_labels)))
@@ -1365,8 +1702,10 @@ def section_ref_vs_gen(ctx: Context) -> list[str]:
     intro = (
         "Calibrating on prompt + dense-generated continuation (gen) instead of prompt + "
         "reference (ref). Scores are the scope composites of the headline, over the "
-        "directions both sides have. COMET pools segments (paired bootstrap); BLEU is the "
-        "macro over directions with segments resampled within each direction."
+        "directions both sides have, each direction weighted equally. COMET and MetricX-24 use "
+        "a stratified paired bootstrap of the macro (segment positions resampled within each "
+        "direction, the same for both sides); BLEU does the same, recomputing corpus BLEU "
+        "per direction from sufficient statistics."
     )
     return _contrast_section(
         ctx,
@@ -1392,7 +1731,7 @@ def section_method(ctx: Context) -> list[str]:
     ]
     intro = (
         "Deltas are SlimGPT minus FLAP at the same calibration text, sparsity and scope; "
-        "positive means SlimGPT is better. Same composites and tests as above."
+        "positive means SlimGPT is better on COMET and BLEU. Same composites and tests as above."
     )
     return _contrast_section(
         ctx,
@@ -1424,8 +1763,14 @@ def section_per_direction(ctx: Context) -> list[str]:
         "five directions on each side."
     )
     per_direction: dict[str, dict[str, dict[str, float | None]]] = {}
-    for key, fmt, title in (("comet", f4, "COMET"), ("bleu", f2, "BLEU")):
+    for key, fmt, title in (
+        ("comet", f4, "COMET"),
+        ("bleu", f2, "BLEU"),
+        ("metricx", f3, "MetricX-24 (lower is better)"),
+    ):
         lines.extend(["", f"### {title}", ""])
+        if key == "metricx" and not ctx.has_metricx:
+            lines.append("No MetricX-24 scores yet.")
         header = ["System", *INTO_EN, "into-EN", *OUT_OF_EN, "out-of-EN", "all"]
         rows = []
         for label, comp in _multi_rows(ctx):
@@ -1446,32 +1791,49 @@ def section_per_direction(ctx: Context) -> list[str]:
             per_direction.setdefault(label, {})[key] = {
                 d: (comp[d][1].value(d, key) if d in comp else None) for d in DIRECTIONS
             }
-        lines.extend(md_table(header, rows))
+        if key != "metricx" or ctx.has_metricx:
+            lines.extend(md_table(header, rows))
     ctx.results["multi_per_direction"] = per_direction
     return lines
 
 
 def section_sparsity(ctx: Context) -> list[str]:
-    lines = ["## Sparsity curve (macro COMET)", ""]
-    dense_comet, _ = macro(single(ctx, DENSE), "comet")
     header = ["Method", "Calib", "Scope", "0% (dense)", *[f"{s}%" for s in ctx.sparsities]]
-    rows = []
-    records = []
-    for method in ctx.methods:
-        for calib in ctx.calibs:
-            for scope in SCOPES:
-                cells = []
-                record = {"method": method, "calib": calib, "scope": scope, "comet": {}}
-                for sparsity in ctx.sparsities:
-                    value, n = macro(composite(ctx, method, calib, sparsity, scope), "comet")
-                    cells.append(with_coverage(f4(value), n))
-                    record["comet"][str(sparsity)] = value
-                rows.append(
-                    [METHOD_LABEL.get(method, method), calib, scope, f4(dense_comet), *cells]
-                )
-                records.append(record)
-    lines.extend(md_table(header, rows, labels=3))
-    ctx.results["sparsity_curve"] = {"dense": dense_comet, "rows": records}
+    records = [
+        {"method": method, "calib": calib, "scope": scope, "comet": {}, "metricx": {}}
+        for method in ctx.methods
+        for calib in ctx.calibs
+        for scope in SCOPES
+    ]
+    lines: list[str] = []
+    dense_values: dict[str, float | None] = {}
+    for key, fmt, title in (
+        ("comet", f4, "## Sparsity curve (macro COMET)"),
+        ("metricx", f3, "## Sparsity curve (macro MetricX-24, lower is better)"),
+    ):
+        if lines:
+            lines.append("")
+        lines.extend([title, ""])
+        dense_value, _ = macro(single(ctx, DENSE), key)
+        dense_values[key] = dense_value
+        rows = []
+        for record in records:
+            method, calib, scope = record["method"], record["calib"], record["scope"]
+            cells = []
+            for sparsity in ctx.sparsities:
+                value, n = macro(composite(ctx, method, calib, sparsity, scope), key)
+                cells.append(with_coverage(fmt(value), n))
+                record[key][str(sparsity)] = value
+            rows.append([METHOD_LABEL.get(method, method), calib, scope, fmt(dense_value), *cells])
+        if key == "metricx" and not ctx.has_metricx:
+            lines.append("No MetricX-24 scores yet.")
+        else:
+            lines.extend(md_table(header, rows, labels=3))
+    ctx.results["sparsity_curve"] = {
+        "dense": dense_values["comet"],
+        "dense_metricx": dense_values["metricx"],
+        "rows": records,
+    }
     return lines
 
 
@@ -1507,7 +1869,10 @@ def compute_transfer(ctx: Context, method: str, calib: str, sparsity: int) -> di
         for key in keys:
             system = ctx.index.get((method, calib, sparsity, scope, key))
             run = ctx.runs.get(system.name) if system else None
-            if system is None or run is None:
+            # Only models scored on all ten directions: one evaluated on its own
+            # directions alone has no transfer cells, and a part-scored one would
+            # weight the categories unevenly.
+            if system is None or run is None or not run.all_directions:
                 continue
             cells = {}
             for direction in DIRECTIONS:
@@ -1551,16 +1916,6 @@ def _summary_cell(entry: dict[str, Any]) -> str:
 
 def section_transfer(ctx: Context) -> list[str]:
     lines = ["## Transfer", ""]
-    lines.append(
-        "Every specialised model is evaluated on all ten directions. Each cell is the mean "
-        "COMET over the matrix cells in that category, with the mean of (specialist minus the "
-        "multi model of the same config, on the same direction) in parentheses. Pair: own = "
-        "the two directions of the model's language, other = the remaining eight. Dir: own = "
-        "the calibration direction, reverse = its reverse, same target / same source = other "
-        "directions sharing the target / source language (into-English models have same-target "
-        "neighbours, out-of-English models same-source ones), other = the rest. Full matrices "
-        "are in `transfer/<config>.md` and `.csv`."
-    )
     pair_rows = []
     dir_rows = []
     for method, calib, sparsity in ctx.configs():
@@ -1591,6 +1946,22 @@ def section_transfer(ctx: Context) -> list[str]:
         )
         if data["pair"] or data["dir"]:
             write_transfer_files(ctx, config, label, data)
+    n_pair = sum(len(data["pair"]) for data in ctx.transfer.values())
+    n_dir = sum(len(data["dir"]) for data in ctx.transfer.values())
+    n_specialists = sum(1 for s in ctx.grid if s.scope != "multi" and s.name in ctx.runs)
+    lines.append(
+        f"Only specialised models scored on all {N_DIRS} directions enter: {n_pair} pair and "
+        f"{n_dir} dir models here, of {n_specialists} specialists with a run (the Models "
+        "columns count them per config). Specialists evaluated only on their own directions, "
+        "as on the full suite, are left out. Each cell is the mean "
+        "COMET over the matrix cells in that category, with the mean of (specialist minus the "
+        "multi model of the same config, on the same direction) in parentheses. Pair: own = "
+        "the two directions of the model's language, other = the remaining eight. Dir: own = "
+        "the calibration direction, reverse = its reverse, same target / same source = other "
+        "directions sharing the target / source language (into-English models have same-target "
+        "neighbours, out-of-English models same-source ones), other = the rest. Full matrices "
+        "are in `transfer/<config>.md` and `.csv`."
+    )
     lines.extend(["", "### Pair models (5 x 10)", ""])
     lines.extend(md_table(["Config", "Models", "Own pair", "Other 8", "Own - other"], pair_rows))
     lines.extend(["", "### Direction models (10 x 10)", ""])
@@ -1609,6 +1980,12 @@ def section_transfer(ctx: Context) -> list[str]:
             dir_rows,
         )
     )
+    ctx.results["transfer_models"] = {
+        "rule": f"specialists scored on all {N_DIRS} directions only",
+        "pair": n_pair,
+        "dir": n_dir,
+        "specialists_with_a_run": n_specialists,
+    }
     ctx.results["transfer"] = {
         config: {
             "multi_system": data["multi_system"],
@@ -1746,6 +2123,31 @@ def section_behaviour(ctx: Context) -> list[str]:
     return lines
 
 
+def recovered_share(
+    dense: float | None,
+    pruned: float | None,
+    repaired: float | None,
+    *,
+    higher_is_better: bool = True,
+) -> float | None:
+    """Share of the pruning loss that the repair won back.
+
+    The loss is how far the pruned model sits from dense in the bad direction
+    (below it for COMET, above it for MetricX-24), the gain how far the repair
+    moved in the good direction. Both flip sign together for a lower-is-better
+    metric, so the ratio equals ``(repaired - pruned) / (dense - pruned)``
+    either way; it is written out so the direction is explicit. 1 = the whole
+    gap closed, 0 = nothing, negative = the repair made it worse.
+    """
+    if dense is None or pruned is None or repaired is None:
+        return None
+    sign = 1.0 if higher_is_better else -1.0
+    loss = sign * (dense - pruned)
+    if abs(loss) <= 1e-9:
+        return None
+    return sign * (repaired - pruned) / loss
+
+
 def section_repair(ctx: Context) -> list[str]:
     lines = ["## Repair (LoRA)", ""]
     loras = sorted((s for s in ctx.systems.values() if s.repaired), key=lambda s: s.name)
@@ -1754,63 +2156,87 @@ def section_repair(ctx: Context) -> list[str]:
         ctx.results["repair"] = []
         return lines
     lines.append(
-        "Macro over the directions all three systems have. Recovered = (repaired - pruned) / "
-        "(dense - pruned): 1 means the repair closed the whole gap to dense, 0 means nothing. "
-        "The COMET delta is repaired minus pruned, pooled paired bootstrap."
+        "Macro over the directions all three systems have (a specialist's repair is evaluated "
+        "on its own directions on the full suite). Recovered = share of the pruning loss "
+        "won back, (repaired - pruned) / (dense - pruned): 1 means the repair closed the whole "
+        "gap to dense, 0 means nothing; the ratio is the same for a lower-is-better metric. The "
+        "deltas are repaired minus pruned on the macro, stratified paired bootstrap; on "
+        "MetricX-24 (lower is better) a negative delta means the repair helped."
     )
     lines.append("")
     rows = []
     records = []
     dense = single(ctx, DENSE)
     per_direction_rows = []
+    metrics: list[tuple[str, Any, str, int, bool]] = [
+        ("comet", f4, "COMET", 4, True),
+        ("bleu", f2, "BLEU", 2, True),
+        ("chrf", f2, "chrF++", 2, True),
+        ("metricx", f3, "MetricX-24", 3, False),
+    ]
     for lora in loras:
         source = single(ctx, lora.source)
         repaired = single(ctx, lora.name)
+        expected = len(lora.expected_directions)
         shared = [d for d in DIRECTIONS if d in source and d in repaired and d in dense]
         record: dict[str, Any] = {"system": lora.name, "source": lora.source, "metrics": {}}
-        for key, fmt, title in (
-            ("comet", f4, "COMET"),
-            ("bleu", f2, "BLEU"),
-            ("chrf", f2, "chrF++"),
-        ):
-            d_value, _ = macro(dense, key, shared)
-            p_value, n = macro(source, key, shared)
-            r_value, _ = macro(repaired, key, shared)
-            recovered = None
-            if None not in (d_value, p_value, r_value) and abs(d_value - p_value) > 1e-9:
-                recovered = (r_value - p_value) / (d_value - p_value)
-            gain = r_value - p_value if r_value is not None and p_value is not None else None
-            rows.append(
-                [
-                    lora.name,
-                    title,
-                    fmt(d_value),
-                    fmt(p_value),
-                    fmt(r_value),
-                    with_coverage(signed(gain, 4 if key == "comet" else 2), n),
-                    pct(recovered),
-                ]
+        for key, fmt, title, digits, higher_is_better in metrics:
+            # Per metric, so a MetricX file missing for one of the three
+            # shrinks the MetricX macro rather than mixing direction sets.
+            have = [
+                d
+                for d in shared
+                if all(comp[d][1].value(d, key) is not None for comp in (dense, source, repaired))
+            ]
+            d_value, _ = macro(dense, key, have)
+            p_value, n = macro(source, key, have)
+            r_value, _ = macro(repaired, key, have)
+            recovered = recovered_share(
+                d_value, p_value, r_value, higher_is_better=higher_is_better
             )
+            gain = r_value - p_value if r_value is not None and p_value is not None else None
+            if key != "metricx" or ctx.has_metricx:
+                rows.append(
+                    [
+                        lora.name,
+                        title,
+                        fmt(d_value),
+                        fmt(p_value),
+                        fmt(r_value),
+                        with_coverage(signed(gain, digits), n, expected),
+                        pct(recovered),
+                    ]
+                )
             record["metrics"][key] = {
                 "dense": d_value,
                 "pruned": p_value,
                 "repaired": r_value,
                 "recovered": recovered,
+                "higher_is_better": higher_is_better,
                 "n_directions": n,
             }
         record["comet_repaired_minus_pruned"] = comet_contrast(ctx, source, repaired)
+        record["metricx_repaired_minus_pruned"] = metricx_contrast(ctx, source, repaired)
         records.append(record)
-        for label, comp in (
-            (f"dense ({DENSE})", dense),
-            (lora.source, source),
-            (lora.name, repaired),
+        for label, comp, own in (
+            (f"dense ({DENSE})", dense, N_DIRS),
+            (lora.source, source, expected),
+            (lora.name, repaired, expected),
         ):
-            overall, n = macro(comp, "comet")
+            # Over the shared directions, so a pair repair on the full suite is
+            # not set against a ten-direction dense macro; each system's own
+            # directions while the three share none yet.
+            if shared:
+                overall, n = macro(comp, "comet", shared)
+                total = len(shared)
+            else:
+                overall, n = macro(comp, "comet")
+                total = own
             per_direction_rows.append(
                 [
                     label,
                     *[f4(comp[d][1].value(d, "comet")) if d in comp else "-" for d in DIRECTIONS],
-                    with_coverage(f4(overall), n),
+                    with_coverage(f4(overall), n, total),
                 ]
             )
     lines.extend(
@@ -1820,12 +2246,29 @@ def section_repair(ctx: Context) -> list[str]:
             labels=2,
         )
     )
+    by_name = {lora.name: lora for lora in loras}
     lines.extend(["", "Repaired - pruned COMET with 95% CI:", ""])
     for record in records:
         contrast = record["comet_repaired_minus_pruned"]
-        lines.append(f"- {record['system']}: {delta_text(contrast, 4, with_p=True)}")
+        total = len(by_name[record["system"]].expected_directions)
+        lines.append(f"- {record['system']}: {delta_text(contrast, 4, with_p=True, total=total)}")
+    if ctx.has_metricx:
+        lines.extend(
+            ["", "Repaired - pruned MetricX-24 with 95% CI (negative = the repair helped):", ""]
+        )
+        for record in records:
+            contrast = record["metricx_repaired_minus_pruned"]
+            total = len(by_name[record["system"]].expected_directions)
+            lines.append(
+                f"- {record['system']}: {delta_text(contrast, 3, with_p=True, total=total)}"
+            )
     lines.extend(["", "### Per-direction COMET", ""])
-    lines.extend(md_table(["System", *DIRECTIONS, "all"], per_direction_rows))
+    lines.append(
+        "The macro column averages the directions all three systems have (each system's own "
+        "while they share none yet)."
+    )
+    lines.append("")
+    lines.extend(md_table(["System", *DIRECTIONS, "macro"], per_direction_rows))
     ctx.results["repair"] = records
     return lines
 
@@ -2167,18 +2610,19 @@ def write_long_csv(ctx: Context) -> int:
                 "in_scope": system.in_scope(direction),
                 "n_segments": record.get("n_segments"),
             }
-            for key in ("comet", "bleu", "chrf"):
+            for key in ("comet", "bleu", "chrf", "metricx"):
                 value = run.value(direction, key)
                 row[key] = value
                 base = dense.value(direction, key) if dense is not None else None
                 row[f"{key}_minus_dense"] = (
                     value - base if value is not None and base is not None else None
                 )
-            comet = run.value(direction, "comet")
-            multi = multi_run.value(direction, "comet") if multi_run is not None else None
-            row["comet_minus_multi"] = (
-                comet - multi if comet is not None and multi is not None else None
-            )
+            for key in ("comet", "metricx"):
+                value = run.value(direction, key)
+                multi = multi_run.value(direction, key) if multi_run is not None else None
+                row[f"{key}_minus_multi"] = (
+                    value - multi if value is not None and multi is not None else None
+                )
             for key in (*BEHAVIOUR_FIELDS, "bleu_token_length_ratio"):
                 row[key] = record.get(key)
             writer.writerow({key: _csv_value(value) for key, value in row.items()})
@@ -2596,6 +3040,7 @@ def build(args: argparse.Namespace) -> Context:
     sections = [
         section_coverage,
         section_headline,
+        section_headline_metricx,
         section_ref_vs_gen,
         section_method,
         section_per_direction,
@@ -2641,7 +3086,7 @@ def build(args: argparse.Namespace) -> Context:
             "dense": {
                 "system": DENSE,
                 "run": ctx.dense.slug if ctx.dense else None,
-                **{key: macro(dense, key)[0] for key in ("comet", "bleu", "chrf")},
+                **{key: macro(dense, key)[0] for key in ("comet", "bleu", "chrf", "metricx")},
             },
             "runs": {name: run.slug for name, run in sorted(ctx.runs.items())},
             "plots": plots,
