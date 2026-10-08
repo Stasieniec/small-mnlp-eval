@@ -10,7 +10,7 @@ repair recovers.
 | --- | --- |
 | Baseline and pruning target | `haoranxu/ALMA-7B`, fully fine-tuned |
 | Directions | all ten ALMA supports: English against cs, de, is, ru, zh |
-| Test sets | `haoranxu/WMT22-Test` (17,491 segments), FLORES-200 out of domain |
+| Test sets | `haoranxu/WMT22-Test` (17,491 segments; WMT21 for Icelandic) |
 | Calibration and repair data | `haoranxu/ALMA-Human-Parallel` |
 | Quality | BLEU, chrF++, COMET-22, COMETKiwi, XCOMET-XL, MetricX-24 |
 | Efficiency | size, FLOPs, MFU, latency, throughput, three compression ratios |
@@ -34,6 +34,14 @@ multi-directional calibration set nearly free of the language most likely to
 break. `segments_per_direction` is also the same for the pair-specific sets, so
 the comparison is scope at a fixed per-direction budget rather than scope
 confounded with calibration size.
+
+**FLORES-200 is not a test set for ALMA.** ALMA-Human-Parallel, ALMA's
+fine-tuning data and the pool every calibration and repair set here is drawn
+from, contains the FLORES-200 sentences: all 1,012 test sources of de-en,
+is-en and zh-en appear in it (checked 8 October 2026). ALMA-7B was trained on
+them, and a calibration draw can include them, so FLORES scores measure
+memorisation, not out-of-domain translation. `configs/suites/flores200-10dir-greedy.yaml`
+stays only for completeness.
 
 ## What the report contains
 

@@ -1,0 +1,7 @@
+# LoRA repair of alma-7b-flap30-gen-pair-ru on its own directions (en-ru, ru-en), ALMA's recipe (RepairSpec defaults). Written by scripts/grid.py repairs.
+name: alma-7b-flap30-gen-pair-ru-lora
+source: configs/models/alma-7b-flap30-gen-pair-ru.yaml
+data: data/calibration/repair-multi-clean
+directions:
+- en-ru
+- ru-en

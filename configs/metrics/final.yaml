@@ -1,0 +1,12 @@
+# Metric set for the full-suite evaluation of the final grid: surface metrics,
+# COMET-22 (primary) and MetricX-24, one of the two WMT24 metrics task winners,
+# as a second learned metric. COMETKiwi and XCOMET-XL are left out (gated, not
+# needed). MetricX scores in its own environment; see slurm/score_metricx.sbatch.
+groups: [surface, neural, metricx]
+comet_models:
+  - Unbabel/wmt22-comet-da
+metricx_model: google/metricx-24-hybrid-large-v2p6-bfloat16
+metricx_tokenizer: google/mt5-xl
+comet_batch_size: 32
+bootstrap_samples: 1000
+compute_ter: false
