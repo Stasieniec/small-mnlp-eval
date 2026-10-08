@@ -7,42 +7,49 @@ evaluates the result: quality, behaviour and efficiency. Study design in
 
 ## Results
 
-Final pilot grid of 6 October 2026: 192 pruned models (SlimGPT and FLAP; prompt +
-reference or prompt + dense-generated calibration; 20, 30 and 40 percent removed;
-one multi-directional, five pair and ten direction subnetworks, every one calibrated
-on 1,280 segments), each evaluated on the first 300 segments of all ten WMT22
-directions, greedy, plus LoRA repairs. **Report:
-[results/grid-2026-10-06/README.md](results/grid-2026-10-06/README.md)**; decisions and
-job log: [docs/overnight-2026-10-06.md](docs/overnight-2026-10-06.md).
+The final grid of 192 pruned models was evaluated in two passes:
+- a pilot of 6 October 2026, on the first 300 segments of each direction;
+- the complete test sets, on 8 October 2026.
 
-COMET-22 (BLEU), macro over the ten directions; pair and dir translate each direction
-with the matching specialist. Dense ALMA-7B: 0.8474 (30.35).
+The models cover SlimGPT and FLAP; prompt + reference or prompt + dense-generated
+calibration; 20, 30 and 40 percent removed; and one multi-directional, five pair and
+ten direction subnetworks, each calibrated on 1,280 segments. Both passes also include
+LoRA repairs.
 
-| method | calibration | removed | multi | pair | dir | multi + LoRA |
-| --- | --- | --- | --- | --- | --- | --- |
-| SlimGPT | reference | 20% | 0.8374 (27.72) | 0.8369 (27.97) | 0.8371 (27.95) | 0.8381 (28.41) |
-| SlimGPT | generated | 30% | 0.8229 (25.88) | 0.8276 (26.52) | 0.8267 (26.58) | 0.8324 (27.59) |
-| SlimGPT | generated | 40% | 0.7905 (22.92) | 0.8092 (24.18) | 0.8081 (24.44) | 0.8179 (26.36) |
-| FLAP | reference | 20% | 0.8221 (26.81) | 0.8297 (27.24) | 0.8299 (27.67) | |
-| FLAP | reference | 30% | 0.7823 (23.66) | 0.8003 (24.09) | 0.8017 (24.49) | |
-| FLAP | reference | 40% | 0.7393 (20.50) | 0.7552 (20.11) | 0.7552 (20.33) | 0.8112 (25.73) |
+**Reports:**
+- full test sets: [results/full-2026-10-08/README.md](results/full-2026-10-08/README.md);
+- pilot: [results/grid-2026-10-06/README.md](results/grid-2026-10-06/README.md);
+- decisions and job log: [docs/overnight-2026-10-06.md](docs/overnight-2026-10-06.md).
 
-Rows follow the repaired configurations; the other calibration text is within 0.0015
-COMET of each cell, and all twelve method, calibration and sparsity rows are in the write-up.
-The five SlimGPT 40 percent pair models, each LoRA-repaired on its own pair, reach
-0.8236 (26.08).
+Full test sets (WMT22, WMT21 for Icelandic; 17,471 segments), greedy decoding. COMET-22
+with BLEU in brackets, macro over the ten directions. Pair and dir translate each
+direction with the matching specialist. Dense ALMA-7B: 0.8475 (30.32), MetricX-24 2.937.
 
-- SlimGPT beats FLAP at every setting, by 0.015 COMET at 20 percent and 0.05 at 40.
-- Reference and dense-generated calibration are indistinguishable, so calibration
-  needs only source sentences.
-- At equal calibration size, pair and direction subnetworks beat the
-  multi-directional one from 30 percent up (+0.017 COMET at 40), and pair matches
-  direction. A second calibration draw reproduces this. They fail on other
-  directions that write a different language, and transfer to directions that
-  read one.
-- Out-of-English Icelandic and Chinese degrade most.
-- LoRA repair recovers about half of the 40 percent loss for SlimGPT and two thirds
-  for FLAP.
+| method | calibration | removed | multi | pair | dir | multi + LoRA | pair + LoRA |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| SlimGPT | reference | 20% | 0.8361 (27.76) | 0.8383 (28.21) | 0.8382 (28.10) | 0.8391 (28.51) | |
+| SlimGPT | generated | 30% | 0.8227 (25.94) | 0.8287 (26.78) | 0.8282 (26.81) | 0.8312 (27.48) | 0.8353 (28.04) |
+| SlimGPT | generated | 40% | 0.7937 (23.27) | 0.8089 (24.33) | 0.8096 (24.44) | 0.8196 (26.16) | 0.8248 (26.34) |
+| FLAP | generated | 20% | 0.8217 (26.72) | 0.8292 (27.44) | 0.8305 (27.73) | | |
+| FLAP | generated | 30% | 0.7823 (23.55) | 0.8011 (24.46) | 0.8014 (24.52) | 0.8239 (27.05) | 0.8261 (27.22) |
+| FLAP | generated | 40% | 0.7417 (20.17) | 0.7580 (20.34) | 0.7577 (20.54) | 0.8113 (25.91) | 0.8118 (25.38) |
+
+The other calibration text is within 0.0015 COMET of each cell. All twelve
+configurations are in the report.
+
+**Main findings:**
+- **SlimGPT beats FLAP at every setting**, by 0.014 COMET at 20 percent and 0.052 at 40.
+- **Reference and dense-generated calibration are equivalent**, so calibration needs
+  only source sentences.
+- **Specialists beat the multi-directional subnetwork at every sparsity**, at equal
+  calibration size: for SlimGPT +0.003 COMET at 20 percent and +0.016 at 40.
+  - Pair specialists match direction specialists.
+  - Specialists fail on other directions that write a different language, and
+    transfer to those that read one.
+- **Out-of-English Icelandic and Chinese degrade most.**
+- **LoRA repair recovers about half of the 40 percent loss for SlimGPT and two thirds
+  for FLAP.** After repair, specialisation still helps SlimGPT (+0.005 COMET at 40).
+- **The 300-segment pilot predicted the full table** with r = 0.9995.
 
 SlimGPT's compensation was fixed on 6 October (see docs/pruning.md); the 29
 September pilot in `results/pilot-2026-09-29/` used the earlier code.

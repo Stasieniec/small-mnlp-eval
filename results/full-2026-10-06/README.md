@@ -1,5 +1,8 @@
 # Full-suite runs started on 6 October 2026
 
+Superseded by the complete full-suite evaluation of 8 October 2026:
+[../full-2026-10-08/README.md](../full-2026-10-08/README.md).
+
 `configs/suites/alma10-greedy.yaml` (all of WMT22, WMT21 for Icelandic, greedy),
 through `slurm/submit_eval.sh`. Prerequisites for the full evaluation of the chosen
 systems, not the choice itself.

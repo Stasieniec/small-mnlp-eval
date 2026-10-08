@@ -125,12 +125,24 @@
   "coverage": {
     "complete": 192,
     "expected": 192,
-    "lora_complete": 10,
-    "lora_systems": 10,
+    "lora_complete": 27,
+    "lora_systems": 27,
     "manifest_found": true,
+    "metricx": {
+      "dense": false,
+      "grid_models": 0,
+      "grid_models_all_in_scope": 0,
+      "lora_systems": 0
+    },
     "missing": 0,
     "partial": 0,
+    "partial_expected": {},
     "partial_systems": {},
+    "rule": "complete = BLEU, chrF++ and COMET on every expected direction: all ten for dense and multi (and their repairs), pruned_directions for pair and dir (and theirs)",
+    "specialists_all_directions": {
+      "dir": 120,
+      "pair": 60
+    },
     "status_counts": {
       "done": 192
     }
@@ -139,10 +151,11 @@
     "bleu": 30.35114,
     "chrf": 51.139,
     "comet": 0.847379,
+    "metricx": null,
     "run": "alma-7b__alma10-greedy-300__63d55369fea1",
     "system": "alma-7b"
   },
-  "generated_at": "2026-10-06 20:54 UTC",
+  "generated_at": "2026-10-08 19:45 UTC",
   "headline": [
     {
       "calib": "ref",
@@ -150,17 +163,19 @@
         "bleu": 27.95489,
         "chrf": 49.37583,
         "comet": 0.837089,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.837352,
         "bootstrap_ci_95": [
-          -0.002394,
-          0.001777
+          -0.002314,
+          0.001807
         ],
         "delta": -0.000263,
         "directions": [
@@ -175,38 +190,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.791209,
+        "n_segments": 3000,
+        "p_value": 0.796204,
         "system_score": 0.837088
       },
+      "dir_minus_multi_metricx": null,
       "method": "slimgpt",
       "multi": {
         "bleu": 27.71585,
         "chrf": 49.03299,
         "comet": 0.837351,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 27.96501,
         "chrf": 49.21827,
         "comet": 0.836879,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.837352,
         "bootstrap_ci_95": [
-          -0.002718,
-          0.00173
+          -0.002568,
+          0.001524
         ],
         "delta": -0.000473,
         "directions": [
@@ -221,12 +243,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.657343,
+        "n_segments": 3000,
+        "p_value": 0.64036,
         "system_score": 0.836879
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 20
     },
     {
@@ -235,17 +260,19 @@
         "bleu": 26.42522,
         "chrf": 47.91001,
         "comet": 0.828222,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.82189,
         "bootstrap_ci_95": [
-          0.003967,
-          0.008792
+          0.003737,
+          0.00871
         ],
         "delta": 0.006332,
         "directions": [
@@ -260,38 +287,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.828222
       },
+      "dir_minus_multi_metricx": null,
       "method": "slimgpt",
       "multi": {
         "bleu": 25.53928,
         "chrf": 47.08309,
         "comet": 0.82189,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 26.26743,
         "chrf": 47.84685,
         "comet": 0.827094,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.82189,
         "bootstrap_ci_95": [
-          0.002784,
-          0.007606
+          0.002814,
+          0.007641
         ],
         "delta": 0.005204,
         "directions": [
@@ -306,12 +340,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.827094
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 30
     },
     {
@@ -320,17 +357,19 @@
         "bleu": 24.12749,
         "chrf": 45.79598,
         "comet": 0.807589,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.791399,
         "bootstrap_ci_95": [
-          0.012971,
-          0.019815
+          0.012935,
+          0.0193
         ],
         "delta": 0.016189,
         "directions": [
@@ -345,38 +384,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.807588
       },
+      "dir_minus_multi_metricx": null,
       "method": "slimgpt",
       "multi": {
         "bleu": 23.13494,
         "chrf": 44.55743,
         "comet": 0.791399,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 23.98764,
         "chrf": 45.6635,
         "comet": 0.808277,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.791399,
         "bootstrap_ci_95": [
-          0.013566,
-          0.02034
+          0.013632,
+          0.01978
         ],
         "delta": 0.016878,
         "directions": [
@@ -391,12 +437,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.808277
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 40
     },
     {
@@ -405,17 +454,19 @@
         "bleu": 27.93329,
         "chrf": 49.36054,
         "comet": 0.837256,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.836021,
         "bootstrap_ci_95": [
-          -0.000975,
-          0.003419
+          -0.00091,
+          0.003319
         ],
         "delta": 0.001234,
         "directions": [
@@ -430,38 +481,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.252747,
+        "n_segments": 3000,
+        "p_value": 0.241758,
         "system_score": 0.837256
       },
+      "dir_minus_multi_metricx": null,
       "method": "slimgpt",
       "multi": {
         "bleu": 27.51865,
         "chrf": 48.93466,
         "comet": 0.836022,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 28.12811,
         "chrf": 49.36663,
         "comet": 0.837728,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.836021,
         "bootstrap_ci_95": [
-          -0.000431,
-          0.003752
+          -0.000353,
+          0.003691
         ],
         "delta": 0.001706,
         "directions": [
@@ -476,12 +534,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.111888,
+        "n_segments": 3000,
+        "p_value": 0.104895,
         "system_score": 0.837728
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 20
     },
     {
@@ -490,17 +551,19 @@
         "bleu": 26.58364,
         "chrf": 48.12348,
         "comet": 0.826723,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.822905,
         "bootstrap_ci_95": [
-          0.001265,
-          0.00634
+          0.001328,
+          0.006195
         ],
         "delta": 0.003819,
         "directions": [
@@ -515,38 +578,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.003996,
+        "n_segments": 3000,
+        "p_value": 0.002997,
         "system_score": 0.826724
       },
+      "dir_minus_multi_metricx": null,
       "method": "slimgpt",
       "multi": {
         "bleu": 25.87633,
         "chrf": 47.57865,
         "comet": 0.822904,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 26.52066,
         "chrf": 48.06001,
         "comet": 0.827648,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.822905,
         "bootstrap_ci_95": [
-          0.002079,
-          0.00707
+          0.002249,
+          0.007023
         ],
         "delta": 0.004744,
         "directions": [
@@ -561,12 +631,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.002997,
+        "n_segments": 3000,
+        "p_value": 0.000999,
         "system_score": 0.827648
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 30
     },
     {
@@ -575,17 +648,19 @@
         "bleu": 24.44392,
         "chrf": 45.98338,
         "comet": 0.80806,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.790543,
         "bootstrap_ci_95": [
-          0.014145,
-          0.021108
+          0.014216,
+          0.020899
         ],
         "delta": 0.017518,
         "directions": [
@@ -600,38 +675,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.80806
       },
+      "dir_minus_multi_metricx": null,
       "method": "slimgpt",
       "multi": {
         "bleu": 22.91926,
         "chrf": 44.44312,
         "comet": 0.790543,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 24.17606,
         "chrf": 45.94961,
         "comet": 0.809244,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.790543,
         "bootstrap_ci_95": [
-          0.015422,
-          0.022034
+          0.015625,
+          0.021888
         ],
         "delta": 0.018701,
         "directions": [
@@ -646,12 +728,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.809244
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 40
     },
     {
@@ -660,17 +745,19 @@
         "bleu": 27.67423,
         "chrf": 48.65665,
         "comet": 0.829929,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.822115,
         "bootstrap_ci_95": [
-          0.005452,
-          0.010278
+          0.005317,
+          0.010423
         ],
         "delta": 0.007814,
         "directions": [
@@ -685,38 +772,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.829929
       },
+      "dir_minus_multi_metricx": null,
       "method": "flap",
       "multi": {
         "bleu": 26.81088,
         "chrf": 47.88979,
         "comet": 0.822115,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 27.24149,
         "chrf": 48.29034,
         "comet": 0.829703,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.822115,
         "bootstrap_ci_95": [
-          0.005031,
-          0.010059
+          0.005243,
+          0.010132
         ],
         "delta": 0.007588,
         "directions": [
@@ -731,12 +825,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.829703
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 20
     },
     {
@@ -745,17 +842,19 @@
         "bleu": 24.4917,
         "chrf": 45.75604,
         "comet": 0.801683,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.78225,
         "bootstrap_ci_95": [
-          0.015527,
-          0.02345
+          0.015822,
+          0.023201
         ],
         "delta": 0.019433,
         "directions": [
@@ -770,38 +869,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.801683
       },
+      "dir_minus_multi_metricx": null,
       "method": "flap",
       "multi": {
         "bleu": 23.65724,
         "chrf": 44.55803,
         "comet": 0.78225,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 24.086,
         "chrf": 45.35984,
         "comet": 0.800253,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.78225,
         "bootstrap_ci_95": [
-          0.014052,
-          0.021855
+          0.014065,
+          0.021935
         ],
         "delta": 0.018003,
         "directions": [
@@ -816,12 +922,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.800253
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 30
     },
     {
@@ -830,17 +939,19 @@
         "bleu": 20.33393,
         "chrf": 41.3447,
         "comet": 0.755214,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.739284,
         "bootstrap_ci_95": [
-          0.011343,
-          0.020592
+          0.011383,
+          0.020027
         ],
         "delta": 0.01593,
         "directions": [
@@ -855,38 +966,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.755214
       },
+      "dir_minus_multi_metricx": null,
       "method": "flap",
       "multi": {
         "bleu": 20.49784,
         "chrf": 40.9386,
         "comet": 0.739284,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 20.10649,
         "chrf": 40.88237,
         "comet": 0.755194,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.739284,
         "bootstrap_ci_95": [
-          0.011055,
-          0.020603
+          0.011518,
+          0.019815
         ],
         "delta": 0.01591,
         "directions": [
@@ -901,12 +1019,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.755194
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 40
     },
     {
@@ -915,17 +1036,19 @@
         "bleu": 27.70185,
         "chrf": 48.75217,
         "comet": 0.830622,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.820878,
         "bootstrap_ci_95": [
-          0.006906,
-          0.012309
+          0.007276,
+          0.012624
         ],
         "delta": 0.009744,
         "directions": [
@@ -940,38 +1063,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.830622
       },
+      "dir_minus_multi_metricx": null,
       "method": "flap",
       "multi": {
         "bleu": 26.70449,
         "chrf": 47.77507,
         "comet": 0.820878,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 27.30738,
         "chrf": 48.30165,
         "comet": 0.82914,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.820878,
         "bootstrap_ci_95": [
-          0.005709,
-          0.010885
+          0.005854,
+          0.010849
         ],
         "delta": 0.008262,
         "directions": [
@@ -986,12 +1116,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.82914
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 20
     },
     {
@@ -1000,17 +1133,19 @@
         "bleu": 24.59015,
         "chrf": 45.59026,
         "comet": 0.800605,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.782974,
         "bootstrap_ci_95": [
-          0.013592,
-          0.021597
+          0.014067,
+          0.021336
         ],
         "delta": 0.017631,
         "directions": [
@@ -1025,38 +1160,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.800605
       },
+      "dir_minus_multi_metricx": null,
       "method": "flap",
       "multi": {
         "bleu": 23.96993,
         "chrf": 44.78646,
         "comet": 0.782974,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 24.38945,
         "chrf": 45.37304,
         "comet": 0.800132,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.782974,
         "bootstrap_ci_95": [
-          0.013621,
-          0.021099
+          0.013403,
+          0.020793
         ],
         "delta": 0.017158,
         "directions": [
@@ -1071,12 +1213,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.800132
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 30
     },
     {
@@ -1085,17 +1230,19 @@
         "bleu": 20.46173,
         "chrf": 41.53724,
         "comet": 0.755704,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "dir_minus_multi_comet": {
         "baseline_score": 0.739165,
         "bootstrap_ci_95": [
-          0.011626,
-          0.021412
+          0.011845,
+          0.021323
         ],
         "delta": 0.016539,
         "directions": [
@@ -1110,38 +1257,45 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.755704
       },
+      "dir_minus_multi_metricx": null,
       "method": "flap",
       "multi": {
         "bleu": 20.12102,
         "chrf": 40.78951,
         "comet": 0.739165,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair": {
         "bleu": 19.95214,
         "chrf": 40.86402,
         "comet": 0.754267,
+        "metricx": null,
         "n_directions": {
           "bleu": 10,
           "chrf": 10,
-          "comet": 10
+          "comet": 10,
+          "metricx": 0
         }
       },
       "pair_minus_multi_comet": {
         "baseline_score": 0.739165,
         "bootstrap_ci_95": [
-          0.010419,
-          0.019593
+          0.010594,
+          0.019441
         ],
         "delta": 0.015102,
         "directions": [
@@ -1156,12 +1310,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.754267
       },
+      "pair_minus_multi_metricx": null,
       "sparsity": 40
     }
   ],
@@ -1191,6 +1348,18 @@
         "is-en": 0.8559,
         "ru-en": 0.831917,
         "zh-en": 0.774656
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "FLAP gen 30%": {
@@ -1217,6 +1386,18 @@
         "is-en": 0.834012,
         "ru-en": 0.814894,
         "zh-en": 0.757614
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "FLAP gen 40%": {
@@ -1243,6 +1424,18 @@
         "is-en": 0.806095,
         "ru-en": 0.790157,
         "zh-en": 0.72273
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "FLAP ref 20%": {
@@ -1269,6 +1462,18 @@
         "is-en": 0.855995,
         "ru-en": 0.829396,
         "zh-en": 0.776619
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "FLAP ref 30%": {
@@ -1295,6 +1500,18 @@
         "is-en": 0.835123,
         "ru-en": 0.813054,
         "zh-en": 0.752004
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "FLAP ref 40%": {
@@ -1321,6 +1538,18 @@
         "is-en": 0.803217,
         "ru-en": 0.789934,
         "zh-en": 0.720391
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "SlimGPT gen 20%": {
@@ -1347,6 +1576,18 @@
         "is-en": 0.857115,
         "ru-en": 0.836968,
         "zh-en": 0.78948
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "SlimGPT gen 30%": {
@@ -1373,6 +1614,18 @@
         "is-en": 0.849629,
         "ru-en": 0.828318,
         "zh-en": 0.7817
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "SlimGPT gen 40%": {
@@ -1399,6 +1652,18 @@
         "is-en": 0.834093,
         "ru-en": 0.812222,
         "zh-en": 0.750275
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "SlimGPT ref 20%": {
@@ -1425,6 +1690,18 @@
         "is-en": 0.85903,
         "ru-en": 0.835967,
         "zh-en": 0.789121
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "SlimGPT ref 30%": {
@@ -1451,6 +1728,18 @@
         "is-en": 0.850379,
         "ru-en": 0.82937,
         "zh-en": 0.776733
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "SlimGPT ref 40%": {
@@ -1477,6 +1766,18 @@
         "is-en": 0.833735,
         "ru-en": 0.816731,
         "zh-en": 0.750981
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     },
     "dense (alma-7b)": {
@@ -1503,6 +1804,18 @@
         "is-en": 0.862663,
         "ru-en": 0.846423,
         "zh-en": 0.796135
+      },
+      "metricx": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
       }
     }
   },
@@ -1553,8 +1866,8 @@
       "comet": {
         "baseline_score": 0.837352,
         "bootstrap_ci_95": [
-          -0.002986,
-          0.00012
+          -0.002869,
+          0.000357
         ],
         "delta": -0.00133,
         "directions": [
@@ -1569,12 +1882,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.086913,
+        "n_segments": 3000,
+        "p_value": 0.103896,
         "system_score": 0.836021
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -1617,8 +1933,8 @@
       "comet": {
         "baseline_score": 0.836879,
         "bootstrap_ci_95": [
-          -0.000603,
-          0.002221
+          -0.00051,
+          0.002285
         ],
         "delta": 0.000849,
         "directions": [
@@ -1633,12 +1949,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.258741,
+        "n_segments": 3000,
+        "p_value": 0.238761,
         "system_score": 0.837728
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -1681,8 +2000,8 @@
       "comet": {
         "baseline_score": 0.837088,
         "bootstrap_ci_95": [
-          -0.001446,
-          0.001812
+          -0.001423,
+          0.001823
         ],
         "delta": 0.000167,
         "directions": [
@@ -1697,12 +2016,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.82018,
+        "n_segments": 3000,
+        "p_value": 0.822178,
         "system_score": 0.837256
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -1745,8 +2067,8 @@
       "comet": {
         "baseline_score": 0.82189,
         "bootstrap_ci_95": [
-          -0.000983,
-          0.003024
+          -0.000919,
+          0.003009
         ],
         "delta": 0.001014,
         "directions": [
@@ -1761,12 +2083,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.310689,
         "system_score": 0.822905
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -1809,8 +2134,8 @@
       "comet": {
         "baseline_score": 0.827094,
         "bootstrap_ci_95": [
-          -0.001204,
-          0.00208
+          -0.001139,
+          0.002126
         ],
         "delta": 0.000554,
         "directions": [
@@ -1825,12 +2150,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.523477,
+        "n_segments": 3000,
+        "p_value": 0.504496,
         "system_score": 0.827648
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -1873,8 +2201,8 @@
       "comet": {
         "baseline_score": 0.828222,
         "bootstrap_ci_95": [
-          -0.003343,
-          0.000268
+          -0.003303,
+          0.000279
         ],
         "delta": -0.001499,
         "directions": [
@@ -1889,12 +2217,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.107892,
+        "n_segments": 3000,
+        "p_value": 0.114885,
         "system_score": 0.826724
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -1937,8 +2268,8 @@
       "comet": {
         "baseline_score": 0.791399,
         "bootstrap_ci_95": [
-          -0.003724,
-          0.001923
+          -0.003612,
+          0.001819
         ],
         "delta": -0.000856,
         "directions": [
@@ -1953,12 +2284,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.543457,
+        "n_segments": 3000,
+        "p_value": 0.522478,
         "system_score": 0.790543
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -2001,8 +2335,8 @@
       "comet": {
         "baseline_score": 0.808277,
         "bootstrap_ci_95": [
-          -0.001216,
-          0.003249
+          -0.001127,
+          0.003203
         ],
         "delta": 0.000967,
         "directions": [
@@ -2017,12 +2351,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.410589,
+        "n_segments": 3000,
+        "p_value": 0.376623,
         "system_score": 0.809244
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -2065,8 +2402,8 @@
       "comet": {
         "baseline_score": 0.807588,
         "bootstrap_ci_95": [
-          -0.00176,
-          0.002673
+          -0.00184,
+          0.002904
         ],
         "delta": 0.000472,
         "directions": [
@@ -2081,12 +2418,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.72028,
+        "n_segments": 3000,
+        "p_value": 0.688312,
         "system_score": 0.80806
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -2129,8 +2469,8 @@
       "comet": {
         "baseline_score": 0.822115,
         "bootstrap_ci_95": [
-          -0.003249,
-          0.000653
+          -0.003228,
+          0.000779
         ],
         "delta": -0.001237,
         "directions": [
@@ -2145,12 +2485,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.205794,
+        "n_segments": 3000,
+        "p_value": 0.215784,
         "system_score": 0.820878
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "flap",
@@ -2193,8 +2536,8 @@
       "comet": {
         "baseline_score": 0.829703,
         "bootstrap_ci_95": [
-          -0.002273,
-          0.001122
+          -0.002177,
+          0.000969
         ],
         "delta": -0.000563,
         "directions": [
@@ -2209,12 +2552,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.481518,
+        "n_segments": 3000,
+        "p_value": 0.47952,
         "system_score": 0.82914
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "flap",
@@ -2257,8 +2603,8 @@
       "comet": {
         "baseline_score": 0.829929,
         "bootstrap_ci_95": [
-          -0.001064,
-          0.002364
+          -0.001101,
+          0.002362
         ],
         "delta": 0.000693,
         "directions": [
@@ -2273,12 +2619,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.43956,
+        "n_segments": 3000,
+        "p_value": 0.457542,
         "system_score": 0.830622
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "flap",
@@ -2321,8 +2670,8 @@
       "comet": {
         "baseline_score": 0.78225,
         "bootstrap_ci_95": [
-          -0.00227,
-          0.003314
+          -0.001989,
+          0.003461
         ],
         "delta": 0.000724,
         "directions": [
@@ -2337,12 +2686,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.593407,
+        "n_segments": 3000,
+        "p_value": 0.607393,
         "system_score": 0.782974
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "flap",
@@ -2385,8 +2737,8 @@
       "comet": {
         "baseline_score": 0.800253,
         "bootstrap_ci_95": [
-          -0.002527,
-          0.002469
+          -0.00261,
+          0.002342
         ],
         "delta": -0.000121,
         "directions": [
@@ -2401,12 +2753,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.929071,
+        "n_segments": 3000,
+        "p_value": 0.912088,
         "system_score": 0.800132
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "flap",
@@ -2449,8 +2804,8 @@
       "comet": {
         "baseline_score": 0.801683,
         "bootstrap_ci_95": [
-          -0.00371,
-          0.001661
+          -0.003958,
+          0.001411
         ],
         "delta": -0.001078,
         "directions": [
@@ -2465,12 +2820,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.432567,
+        "n_segments": 3000,
+        "p_value": 0.42957,
         "system_score": 0.800605
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "flap",
@@ -2513,8 +2871,8 @@
       "comet": {
         "baseline_score": 0.739284,
         "bootstrap_ci_95": [
-          -0.00342,
-          0.003308
+          -0.003547,
+          0.003243
         ],
         "delta": -0.000119,
         "directions": [
@@ -2529,12 +2887,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.936064,
+        "n_segments": 3000,
+        "p_value": 0.949051,
         "system_score": 0.739165
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "flap",
@@ -2577,8 +2938,8 @@
       "comet": {
         "baseline_score": 0.755194,
         "bootstrap_ci_95": [
-          -0.004206,
-          0.002439
+          -0.004391,
+          0.002532
         ],
         "delta": -0.000926,
         "directions": [
@@ -2593,12 +2954,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.596404,
+        "n_segments": 3000,
+        "p_value": 0.598402,
         "system_score": 0.754267
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "flap",
@@ -2641,8 +3005,8 @@
       "comet": {
         "baseline_score": 0.755214,
         "bootstrap_ci_95": [
-          -0.00275,
-          0.003868
+          -0.002736,
+          0.003634
         ],
         "delta": 0.00049,
         "directions": [
@@ -2657,12 +3021,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.778222,
+        "n_segments": 3000,
+        "p_value": 0.742258,
         "system_score": 0.755704
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "flap",
@@ -2674,10 +3041,802 @@
   "repair": [
     {
       "comet_repaired_minus_pruned": {
+        "baseline_score": 0.782974,
+        "bootstrap_ci_95": [
+          0.0375,
+          0.044955
+        ],
+        "delta": 0.0412,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.824174
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 23.96993,
+          "recovered": 0.48965321623955305,
+          "repaired": 27.09451
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 44.78646,
+          "recovered": 0.5219612942224687,
+          "repaired": 48.10224
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.782974,
+          "recovered": 0.6397018864994951,
+          "repaired": 0.824174
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap30-gen-multi",
+      "system": "alma-7b-flap30-gen-multi-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.761153,
+        "bootstrap_ci_95": [
+          0.02735,
+          0.035537
+        ],
+        "delta": 0.031336,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.792488
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 22.39017,
+          "recovered": 0.3136451965024362,
+          "repaired": 24.88709
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 43.36949,
+          "recovered": 0.26506690898139024,
+          "repaired": 45.42893
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.761153,
+          "recovered": 0.3634054693479924,
+          "repaired": 0.792488
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap30-gen-pair-cs",
+      "system": "alma-7b-flap30-gen-pair-cs-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.750584,
+        "bootstrap_ci_95": [
+          0.028852,
+          0.036807
+        ],
+        "delta": 0.032793,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.783378
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 21.42812,
+          "recovered": 0.36062566261198575,
+          "repaired": 24.64599
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 42.64747,
+          "recovered": 0.3258081876882021,
+          "repaired": 45.41408
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.750584,
+          "recovered": 0.338798491657627,
+          "repaired": 0.783378
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap30-gen-pair-de",
+      "system": "alma-7b-flap30-gen-pair-de-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.761022,
+        "bootstrap_ci_95": [
+          0.02802,
+          0.035851
+        ],
+        "delta": 0.032035,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.793057
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 20.84318,
+          "recovered": 0.1952763789498484,
+          "repaired": 22.69986
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 42.08908,
+          "recovered": 0.20743277288638975,
+          "repaired": 43.96633
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.761022,
+          "recovered": 0.3709600843012151,
+          "repaired": 0.793057
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap30-gen-pair-is",
+      "system": "alma-7b-flap30-gen-pair-is-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.754349,
+        "bootstrap_ci_95": [
+          0.003332,
+          0.011462
+        ],
+        "delta": 0.007547,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.761897
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 21.8907,
+          "recovered": -0.15660060233273906,
+          "repaired": 20.56579
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 42.87488,
+          "recovered": -0.836974777713779,
+          "repaired": 35.95802
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.754349,
+          "recovered": 0.0811351177039665,
+          "repaired": 0.761897
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap30-gen-pair-ru",
+      "system": "alma-7b-flap30-gen-pair-ru-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.752376,
+        "bootstrap_ci_95": [
+          0.02002,
+          0.027255
+        ],
+        "delta": 0.023715,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.776092
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 21.91811,
+          "recovered": 0.23650099667616517,
+          "repaired": 23.91253
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 42.73674,
+          "recovered": 0.25486238226381974,
+          "repaired": 44.87816
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.752376,
+          "recovered": 0.24963422207719727,
+          "repaired": 0.776092
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap30-gen-pair-zh",
+      "system": "alma-7b-flap30-gen-pair-zh-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.739165,
+        "bootstrap_ci_95": [
+          0.067675,
+          0.076114
+        ],
+        "delta": 0.071853,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.811018
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 20.12102,
+          "recovered": 0.5598536478555478,
+          "repaired": 25.84839
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 40.78951,
+          "recovered": 0.6047882552666846,
+          "repaired": 47.04876
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.739165,
+          "recovered": 0.6639898719204542,
+          "repaired": 0.811018
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap40-gen-multi",
+      "system": "alma-7b-flap40-gen-multi-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.688257,
+        "bootstrap_ci_95": [
+          0.057187,
+          0.066413
+        ],
+        "delta": 0.061775,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.750032
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 16.99856,
+          "recovered": 0.3375182923449998,
+          "repaired": 21.5053
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 37.39003,
+          "recovered": 0.3697091491217156,
+          "repaired": 42.47315
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.688257,
+          "recovered": 0.38822412991289723,
+          "repaired": 0.750032
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap40-gen-pair-cs",
+      "system": "alma-7b-flap40-gen-pair-cs-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.673459,
+        "bootstrap_ci_95": [
+          0.055822,
+          0.065494
+        ],
+        "delta": 0.060655,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.734115
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 16.31291,
+          "recovered": 0.33883046509424614,
+          "repaired": 21.06949
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 36.64084,
+          "recovered": 0.3524950752371337,
+          "repaired": 41.75137
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.673459,
+          "recovered": 0.3487522999080038,
+          "repaired": 0.734114
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap40-gen-pair-de",
+      "system": "alma-7b-flap40-gen-pair-de-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.679185,
+        "bootstrap_ci_95": [
+          0.058387,
+          0.068561
+        ],
+        "delta": 0.063442,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.742627
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 14.96476,
+          "recovered": 0.236864681621018,
+          "repaired": 18.60925
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 35.2562,
+          "recovered": 0.28316102954139083,
+          "repaired": 39.75359
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.679185,
+          "recovered": 0.37719538152371673,
+          "repaired": 0.742627
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap40-gen-pair-is",
+      "system": "alma-7b-flap40-gen-pair-is-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.701898,
+        "bootstrap_ci_95": [
+          0.042014,
+          0.050947
+        ],
+        "delta": 0.046583,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.748481
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 17.90382,
+          "recovered": 0.30351834772465064,
+          "repaired": 21.68181
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 38.40529,
+          "recovered": 0.28570620816714065,
+          "repaired": 42.04339
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.701898,
+          "recovered": 0.32020676239508916,
+          "repaired": 0.748482
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap40-gen-pair-ru",
+      "system": "alma-7b-flap40-gen-pair-ru-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.696216,
+        "bootstrap_ci_95": [
+          0.038516,
+          0.04704
+        ],
+        "delta": 0.042616,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.738832
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 17.64673,
+          "recovered": 0.29413014850748653,
+          "repaired": 21.38348
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 37.96951,
+          "recovered": 0.31522329262560667,
+          "repaired": 42.12084
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.696216,
+          "recovered": 0.2819208404172984,
+          "repaired": 0.738832
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-flap40-gen-pair-zh",
+      "system": "alma-7b-flap40-gen-pair-zh-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
         "baseline_score": 0.739284,
         "bootstrap_ci_95": [
-          0.067132,
-          0.076772
+          0.067747,
+          0.075549
         ],
         "delta": 0.071966,
         "directions": [
@@ -2692,15 +3851,18 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.81125
       },
       "metrics": {
         "bleu": {
           "dense": 30.35114,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 20.49784,
           "recovered": 0.5309185755026236,
@@ -2708,6 +3870,7 @@
         },
         "chrf": {
           "dense": 51.139,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 40.9386,
           "recovered": 0.5780930159601583,
@@ -2715,12 +3878,22 @@
         },
         "comet": {
           "dense": 0.847379,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 0.739284,
           "recovered": 0.6657662241546789,
           "repaired": 0.81125
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
         }
       },
+      "metricx_repaired_minus_pruned": null,
       "source": "alma-7b-flap40-ref-multi",
       "system": "alma-7b-flap40-ref-multi-lora"
     },
@@ -2728,8 +3901,8 @@
       "comet_repaired_minus_pruned": {
         "baseline_score": 0.837352,
         "bootstrap_ci_95": [
-          -0.001493,
-          0.002888
+          -0.001414,
+          0.002989
         ],
         "delta": 0.000716,
         "directions": [
@@ -2744,15 +3917,18 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
-        "p_value": 0.513487,
+        "n_segments": 3000,
+        "p_value": 0.53047,
         "system_score": 0.838067
       },
       "metrics": {
         "bleu": {
           "dense": 30.35114,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 27.71585,
           "recovered": 0.2630754110553302,
@@ -2760,6 +3936,7 @@
         },
         "chrf": {
           "dense": 51.139,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 49.03299,
           "recovered": 0.1901605405482409,
@@ -2767,12 +3944,22 @@
         },
         "comet": {
           "dense": 0.847379,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 0.837351,
           "recovered": 0.07140007977663017,
           "repaired": 0.838067
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
         }
       },
+      "metricx_repaired_minus_pruned": null,
       "source": "alma-7b-slimgpt20-ref-multi",
       "system": "alma-7b-slimgpt20-ref-multi-lora"
     },
@@ -2780,8 +3967,8 @@
       "comet_repaired_minus_pruned": {
         "baseline_score": 0.822905,
         "bootstrap_ci_95": [
-          0.006906,
-          0.012052
+          0.006957,
+          0.012188
         ],
         "delta": 0.009516,
         "directions": [
@@ -2796,15 +3983,18 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.83242
       },
       "metrics": {
         "bleu": {
           "dense": 30.35114,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 25.87633,
           "recovered": 0.3840475908474327,
@@ -2812,6 +4002,7 @@
         },
         "chrf": {
           "dense": 51.139,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 47.57865,
           "recovered": 0.29966716755375067,
@@ -2819,21 +4010,361 @@
         },
         "comet": {
           "dense": 0.847379,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 0.822904,
           "recovered": 0.3888049029622092,
           "repaired": 0.83242
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
         }
       },
+      "metricx_repaired_minus_pruned": null,
       "source": "alma-7b-slimgpt30-gen-multi",
       "system": "alma-7b-slimgpt30-gen-multi-lora"
     },
     {
       "comet_repaired_minus_pruned": {
+        "baseline_score": 0.785847,
+        "bootstrap_ci_95": [
+          0.002516,
+          0.008886
+        ],
+        "delta": 0.005718,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.003996,
+        "system_score": 0.791565
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 23.18326,
+          "recovered": 0.10345876326054551,
+          "repaired": 23.92484
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 44.66095,
+          "recovered": 0.0880882364291719,
+          "repaired": 45.23159
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.785847,
+          "recovered": 0.09292725736202298,
+          "repaired": 0.791565
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-slimgpt30-gen-pair-cs",
+      "system": "alma-7b-slimgpt30-gen-pair-cs-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.775654,
+        "bootstrap_ci_95": [
+          0.004202,
+          0.010843
+        ],
+        "delta": 0.007693,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.783347
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 22.67522,
+          "recovered": 0.17000307455002117,
+          "repaired": 23.98015
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 44.31094,
+          "recovered": 0.12633896011458526,
+          "repaired": 45.17359
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.775654,
+          "recovered": 0.10727082607180322,
+          "repaired": 0.783348
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-slimgpt30-gen-pair-de",
+      "system": "alma-7b-slimgpt30-gen-pair-de-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.782447,
+        "bootstrap_ci_95": [
+          0.003038,
+          0.009147
+        ],
+        "delta": 0.005966,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.788413
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 22.22223,
+          "recovered": -0.024265245893975988,
+          "repaired": 22.02498
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 44.20619,
+          "recovered": -0.029859465353874792,
+          "repaired": 43.99918
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.782447,
+          "recovered": 0.091880736770776,
+          "repaired": 0.788413
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-slimgpt30-gen-pair-is",
+      "system": "alma-7b-slimgpt30-gen-pair-is-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.784079,
+        "bootstrap_ci_95": [
+          -0.003086,
+          0.003728
+        ],
+        "delta": 0.000288,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.868132,
+        "system_score": 0.784367
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 23.52481,
+          "recovered": -0.06259000077640552,
+          "repaired": 23.09755
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 44.66723,
+          "recovered": -0.4504872700976715,
+          "repaired": 41.75178
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.784079,
+          "recovered": 0.004549763033176396,
+          "repaired": 0.784367
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-slimgpt30-gen-pair-ru",
+      "system": "alma-7b-slimgpt30-gen-pair-ru-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
+        "baseline_score": 0.745428,
+        "bootstrap_ci_95": [
+          0.00563,
+          0.012561
+        ],
+        "delta": 0.009033,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "higher_is_better": true,
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "n_segments": 3000,
+        "p_value": 0.000999,
+        "system_score": 0.754461
+      },
+      "metrics": {
+        "bleu": {
+          "dense": 30.35114,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 21.02619,
+          "recovered": 0.06465450216891261,
+          "repaired": 21.62909
+        },
+        "chrf": {
+          "dense": 51.139,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 42.41701,
+          "recovered": -0.1604748457634091,
+          "repaired": 41.01735
+        },
+        "comet": {
+          "dense": 0.847379,
+          "higher_is_better": true,
+          "n_directions": 10,
+          "pruned": 0.745428,
+          "recovered": 0.08860138694078594,
+          "repaired": 0.754461
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
+        }
+      },
+      "metricx_repaired_minus_pruned": null,
+      "source": "alma-7b-slimgpt30-gen-pair-zh",
+      "system": "alma-7b-slimgpt30-gen-pair-zh-lora"
+    },
+    {
+      "comet_repaired_minus_pruned": {
         "baseline_score": 0.790543,
         "bootstrap_ci_95": [
-          0.023738,
-          0.030965
+          0.02385,
+          0.030808
         ],
         "delta": 0.027388,
         "directions": [
@@ -2848,15 +4379,18 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.81793
       },
       "metrics": {
         "bleu": {
           "dense": 30.35114,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 22.91926,
           "recovered": 0.46281829093042387,
@@ -2864,6 +4398,7 @@
         },
         "chrf": {
           "dense": 51.139,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 44.44312,
           "recovered": 0.4417178921963952,
@@ -2871,12 +4406,22 @@
         },
         "comet": {
           "dense": 0.847379,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 0.790543,
           "recovered": 0.48186008867619207,
           "repaired": 0.81793
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
         }
       },
+      "metricx_repaired_minus_pruned": null,
       "source": "alma-7b-slimgpt40-gen-multi",
       "system": "alma-7b-slimgpt40-gen-multi-lora"
     },
@@ -2884,8 +4429,8 @@
       "comet_repaired_minus_pruned": {
         "baseline_score": 0.73807,
         "bootstrap_ci_95": [
-          0.010597,
-          0.017909
+          0.010698,
+          0.017568
         ],
         "delta": 0.01409,
         "directions": [
@@ -2900,15 +4445,18 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.75216
       },
       "metrics": {
         "bleu": {
           "dense": 30.35114,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 20.16416,
           "recovered": 0.07684122281579057,
@@ -2916,6 +4464,7 @@
         },
         "chrf": {
           "dense": 51.139,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 41.57959,
           "recovered": 0.10779744775043619,
@@ -2923,12 +4472,22 @@
         },
         "comet": {
           "dense": 0.847379,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 0.738071,
           "recovered": 0.1288926702528637,
           "repaired": 0.75216
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
         }
       },
+      "metricx_repaired_minus_pruned": null,
       "source": "alma-7b-slimgpt40-gen-pair-cs",
       "system": "alma-7b-slimgpt40-gen-pair-cs-lora"
     },
@@ -2936,8 +4495,8 @@
       "comet_repaired_minus_pruned": {
         "baseline_score": 0.71658,
         "bootstrap_ci_95": [
-          0.011078,
-          0.02057
+          0.011302,
+          0.020302
         ],
         "delta": 0.015822,
         "directions": [
@@ -2952,15 +4511,18 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.732402
       },
       "metrics": {
         "bleu": {
           "dense": 30.35114,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 19.48992,
           "recovered": -0.0364876137303176,
@@ -2968,6 +4530,7 @@
         },
         "chrf": {
           "dense": 51.139,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 40.37226,
           "recovered": -0.23604637986985813,
@@ -2975,12 +4538,22 @@
         },
         "comet": {
           "dense": 0.847379,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 0.71658,
           "recovered": 0.12096422755525656,
           "repaired": 0.732402
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
         }
       },
+      "metricx_repaired_minus_pruned": null,
       "source": "alma-7b-slimgpt40-gen-pair-de",
       "system": "alma-7b-slimgpt40-gen-pair-de-lora"
     },
@@ -2988,8 +4561,8 @@
       "comet_repaired_minus_pruned": {
         "baseline_score": 0.726451,
         "bootstrap_ci_95": [
-          0.016102,
-          0.024191
+          0.016206,
+          0.023972
         ],
         "delta": 0.020078,
         "directions": [
@@ -3004,15 +4577,18 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.746529
       },
       "metrics": {
         "bleu": {
           "dense": 30.35114,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 17.76554,
           "recovered": 0.06909404398677844,
@@ -3020,6 +4596,7 @@
         },
         "chrf": {
           "dense": 51.139,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 39.5832,
           "recovered": 0.08398380034268513,
@@ -3027,12 +4604,22 @@
         },
         "comet": {
           "dense": 0.847379,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 0.726451,
           "recovered": 0.1660326806033345,
           "repaired": 0.746529
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
         }
       },
+      "metricx_repaired_minus_pruned": null,
       "source": "alma-7b-slimgpt40-gen-pair-is",
       "system": "alma-7b-slimgpt40-gen-pair-is-lora"
     },
@@ -3040,8 +4627,8 @@
       "comet_repaired_minus_pruned": {
         "baseline_score": 0.721658,
         "bootstrap_ci_95": [
-          0.020814,
-          0.028905
+          0.020277,
+          0.028389
         ],
         "delta": 0.024564,
         "directions": [
@@ -3056,15 +4643,18 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.746222
       },
       "metrics": {
         "bleu": {
           "dense": 30.35114,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 19.90162,
           "recovered": 0.16801728691844195,
@@ -3072,6 +4662,7 @@
         },
         "chrf": {
           "dense": 51.139,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 40.50973,
           "recovered": 0.14030784804600904,
@@ -3079,12 +4670,22 @@
         },
         "comet": {
           "dense": 0.847379,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 0.721658,
           "recovered": 0.19538501920920162,
           "repaired": 0.746222
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
         }
       },
+      "metricx_repaired_minus_pruned": null,
       "source": "alma-7b-slimgpt40-gen-pair-ru",
       "system": "alma-7b-slimgpt40-gen-pair-ru-lora"
     },
@@ -3092,8 +4693,8 @@
       "comet_repaired_minus_pruned": {
         "baseline_score": 0.69772,
         "bootstrap_ci_95": [
-          0.009831,
-          0.01823
+          0.01018,
+          0.018008
         ],
         "delta": 0.013867,
         "directions": [
@@ -3108,15 +4709,18 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.711587
       },
       "metrics": {
         "bleu": {
           "dense": 30.35114,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 17.47665,
           "recovered": 0.02410580923982229,
@@ -3124,6 +4728,7 @@
         },
         "chrf": {
           "dense": 51.139,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 37.22611,
           "recovered": -0.24642399961474548,
@@ -3131,12 +4736,22 @@
         },
         "comet": {
           "dense": 0.847379,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 0.69772,
           "recovered": 0.09265730761263916,
           "repaired": 0.711587
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
         }
       },
+      "metricx_repaired_minus_pruned": null,
       "source": "alma-7b-slimgpt40-gen-pair-zh",
       "system": "alma-7b-slimgpt40-gen-pair-zh-lora"
     },
@@ -3144,8 +4759,8 @@
       "comet_repaired_minus_pruned": {
         "baseline_score": 0.791399,
         "bootstrap_ci_95": [
-          0.024453,
-          0.031185
+          0.024873,
+          0.030917
         ],
         "delta": 0.027933,
         "directions": [
@@ -3160,15 +4775,18 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.819332
       },
       "metrics": {
         "bleu": {
           "dense": 30.35114,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 23.13494,
           "recovered": 0.41494692497436336,
@@ -3176,6 +4794,7 @@
         },
         "chrf": {
           "dense": 51.139,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 44.55743,
           "recovered": 0.43183921161668165,
@@ -3183,12 +4802,22 @@
         },
         "comet": {
           "dense": 0.847379,
+          "higher_is_better": true,
           "n_directions": 10,
           "pruned": 0.791399,
           "recovered": 0.49898177920685904,
           "repaired": 0.819332
+        },
+        "metricx": {
+          "dense": null,
+          "higher_is_better": false,
+          "n_directions": 0,
+          "pruned": null,
+          "recovered": null,
+          "repaired": null
         }
       },
+      "metricx_repaired_minus_pruned": null,
       "source": "alma-7b-slimgpt40-ref-multi",
       "system": "alma-7b-slimgpt40-ref-multi-lora"
     }
@@ -3238,11 +4867,17 @@
     "alma-7b-flap30-gen-dir-ru-en": "alma-7b-flap30-gen-dir-ru-en__alma10-greedy-300__32ce7661522d",
     "alma-7b-flap30-gen-dir-zh-en": "alma-7b-flap30-gen-dir-zh-en__alma10-greedy-300__ee6626a45ef6",
     "alma-7b-flap30-gen-multi": "alma-7b-flap30-gen-multi__alma10-greedy-300__ee5b90d3e197",
+    "alma-7b-flap30-gen-multi-lora": "alma-7b-flap30-gen-multi-lora__alma10-greedy-300__f11ca1a40453",
     "alma-7b-flap30-gen-pair-cs": "alma-7b-flap30-gen-pair-cs__alma10-greedy-300__6a82e0427284",
+    "alma-7b-flap30-gen-pair-cs-lora": "alma-7b-flap30-gen-pair-cs-lora__alma10-greedy-300__2085d24b5f28",
     "alma-7b-flap30-gen-pair-de": "alma-7b-flap30-gen-pair-de__alma10-greedy-300__e9f156d5bc8f",
+    "alma-7b-flap30-gen-pair-de-lora": "alma-7b-flap30-gen-pair-de-lora__alma10-greedy-300__4f341a03e335",
     "alma-7b-flap30-gen-pair-is": "alma-7b-flap30-gen-pair-is__alma10-greedy-300__a2f875afbcc1",
+    "alma-7b-flap30-gen-pair-is-lora": "alma-7b-flap30-gen-pair-is-lora__alma10-greedy-300__f95220bfbe30",
     "alma-7b-flap30-gen-pair-ru": "alma-7b-flap30-gen-pair-ru__alma10-greedy-300__0ad551e2e482",
+    "alma-7b-flap30-gen-pair-ru-lora": "alma-7b-flap30-gen-pair-ru-lora__alma10-greedy-300__ec7360c8f3ee",
     "alma-7b-flap30-gen-pair-zh": "alma-7b-flap30-gen-pair-zh__alma10-greedy-300__48ce4f609c17",
+    "alma-7b-flap30-gen-pair-zh-lora": "alma-7b-flap30-gen-pair-zh-lora__alma10-greedy-300__5003e1366bbe",
     "alma-7b-flap30-ref-dir-cs-en": "alma-7b-flap30-ref-dir-cs-en__alma10-greedy-300__216034256622",
     "alma-7b-flap30-ref-dir-de-en": "alma-7b-flap30-ref-dir-de-en__alma10-greedy-300__b6ebff15b6f2",
     "alma-7b-flap30-ref-dir-en-cs": "alma-7b-flap30-ref-dir-en-cs__alma10-greedy-300__7b36b5c71d0d",
@@ -3270,11 +4905,17 @@
     "alma-7b-flap40-gen-dir-ru-en": "alma-7b-flap40-gen-dir-ru-en__alma10-greedy-300__60a170088da0",
     "alma-7b-flap40-gen-dir-zh-en": "alma-7b-flap40-gen-dir-zh-en__alma10-greedy-300__8c1c1b147b34",
     "alma-7b-flap40-gen-multi": "alma-7b-flap40-gen-multi__alma10-greedy-300__54b5459f65d9",
+    "alma-7b-flap40-gen-multi-lora": "alma-7b-flap40-gen-multi-lora__alma10-greedy-300__d732f520ab19",
     "alma-7b-flap40-gen-pair-cs": "alma-7b-flap40-gen-pair-cs__alma10-greedy-300__bbc3d035af70",
+    "alma-7b-flap40-gen-pair-cs-lora": "alma-7b-flap40-gen-pair-cs-lora__alma10-greedy-300__d1571428154a",
     "alma-7b-flap40-gen-pair-de": "alma-7b-flap40-gen-pair-de__alma10-greedy-300__b823b1925765",
+    "alma-7b-flap40-gen-pair-de-lora": "alma-7b-flap40-gen-pair-de-lora__alma10-greedy-300__8428fc860cd7",
     "alma-7b-flap40-gen-pair-is": "alma-7b-flap40-gen-pair-is__alma10-greedy-300__baebb668daae",
+    "alma-7b-flap40-gen-pair-is-lora": "alma-7b-flap40-gen-pair-is-lora__alma10-greedy-300__b826d4696566",
     "alma-7b-flap40-gen-pair-ru": "alma-7b-flap40-gen-pair-ru__alma10-greedy-300__1d9fd6c3607b",
+    "alma-7b-flap40-gen-pair-ru-lora": "alma-7b-flap40-gen-pair-ru-lora__alma10-greedy-300__015779b6a3bc",
     "alma-7b-flap40-gen-pair-zh": "alma-7b-flap40-gen-pair-zh__alma10-greedy-300__133d94eabf9c",
+    "alma-7b-flap40-gen-pair-zh-lora": "alma-7b-flap40-gen-pair-zh-lora__alma10-greedy-300__8c68e6b4f9c9",
     "alma-7b-flap40-ref-dir-cs-en": "alma-7b-flap40-ref-dir-cs-en__alma10-greedy-300__2ef5fa9eef8c",
     "alma-7b-flap40-ref-dir-de-en": "alma-7b-flap40-ref-dir-de-en__alma10-greedy-300__c4bd2cc1bdda",
     "alma-7b-flap40-ref-dir-en-cs": "alma-7b-flap40-ref-dir-en-cs__alma10-greedy-300__12c72fa6bd53",
@@ -3338,10 +4979,15 @@
     "alma-7b-slimgpt30-gen-multi": "alma-7b-slimgpt30-gen-multi__alma10-greedy-300__bc0d5fbe80b2",
     "alma-7b-slimgpt30-gen-multi-lora": "alma-7b-slimgpt30-gen-multi-lora__alma10-greedy-300__f19ce0350424",
     "alma-7b-slimgpt30-gen-pair-cs": "alma-7b-slimgpt30-gen-pair-cs__alma10-greedy-300__bfb0209fc273",
+    "alma-7b-slimgpt30-gen-pair-cs-lora": "alma-7b-slimgpt30-gen-pair-cs-lora__alma10-greedy-300__c715854f568a",
     "alma-7b-slimgpt30-gen-pair-de": "alma-7b-slimgpt30-gen-pair-de__alma10-greedy-300__f9680be1d7e5",
+    "alma-7b-slimgpt30-gen-pair-de-lora": "alma-7b-slimgpt30-gen-pair-de-lora__alma10-greedy-300__79c1d8fa83c5",
     "alma-7b-slimgpt30-gen-pair-is": "alma-7b-slimgpt30-gen-pair-is__alma10-greedy-300__24c21e587282",
+    "alma-7b-slimgpt30-gen-pair-is-lora": "alma-7b-slimgpt30-gen-pair-is-lora__alma10-greedy-300__09d43ced6dc2",
     "alma-7b-slimgpt30-gen-pair-ru": "alma-7b-slimgpt30-gen-pair-ru__alma10-greedy-300__54647443e763",
+    "alma-7b-slimgpt30-gen-pair-ru-lora": "alma-7b-slimgpt30-gen-pair-ru-lora__alma10-greedy-300__e202ece1140d",
     "alma-7b-slimgpt30-gen-pair-zh": "alma-7b-slimgpt30-gen-pair-zh__alma10-greedy-300__a1091d618f75",
+    "alma-7b-slimgpt30-gen-pair-zh-lora": "alma-7b-slimgpt30-gen-pair-zh-lora__alma10-greedy-300__bb2a9f6ba2a3",
     "alma-7b-slimgpt30-ref-dir-cs-en": "alma-7b-slimgpt30-ref-dir-cs-en__alma10-greedy-300__2c67dd42e6c9",
     "alma-7b-slimgpt30-ref-dir-de-en": "alma-7b-slimgpt30-ref-dir-de-en__alma10-greedy-300__d0180df4fb0f",
     "alma-7b-slimgpt30-ref-dir-en-cs": "alma-7b-slimgpt30-ref-dir-en-cs__alma10-greedy-300__c0a5ad21f273",
@@ -3435,8 +5081,8 @@
       "comet": {
         "baseline_score": 0.822115,
         "bootstrap_ci_95": [
-          0.012512,
-          0.017942
+          0.012634,
+          0.017871
         ],
         "delta": 0.015236,
         "directions": [
@@ -3451,12 +5097,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.837352
       },
+      "metricx": null,
       "system": {
         "calib": "ref",
         "method": "slimgpt",
@@ -3499,8 +5148,8 @@
       "comet": {
         "baseline_score": 0.829703,
         "bootstrap_ci_95": [
-          0.004679,
-          0.009937
+          0.004669,
+          0.009416
         ],
         "delta": 0.007176,
         "directions": [
@@ -3515,12 +5164,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.836879
       },
+      "metricx": null,
       "system": {
         "calib": "ref",
         "method": "slimgpt",
@@ -3563,8 +5215,8 @@
       "comet": {
         "baseline_score": 0.829929,
         "bootstrap_ci_95": [
-          0.004809,
-          0.009783
+          0.004631,
+          0.009697
         ],
         "delta": 0.007159,
         "directions": [
@@ -3579,12 +5231,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.837088
       },
+      "metricx": null,
       "system": {
         "calib": "ref",
         "method": "slimgpt",
@@ -3627,8 +5282,8 @@
       "comet": {
         "baseline_score": 0.78225,
         "bootstrap_ci_95": [
-          0.035439,
-          0.043851
+          0.03583,
+          0.043525
         ],
         "delta": 0.03964,
         "directions": [
@@ -3643,12 +5298,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.82189
       },
+      "metricx": null,
       "system": {
         "calib": "ref",
         "method": "slimgpt",
@@ -3691,8 +5349,8 @@
       "comet": {
         "baseline_score": 0.800253,
         "bootstrap_ci_95": [
-          0.023586,
-          0.03034
+          0.023458,
+          0.030179
         ],
         "delta": 0.026841,
         "directions": [
@@ -3707,12 +5365,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.827094
       },
+      "metricx": null,
       "system": {
         "calib": "ref",
         "method": "slimgpt",
@@ -3755,8 +5416,8 @@
       "comet": {
         "baseline_score": 0.801683,
         "bootstrap_ci_95": [
-          0.023333,
-          0.029668
+          0.02332,
+          0.029797
         ],
         "delta": 0.026539,
         "directions": [
@@ -3771,12 +5432,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.828222
       },
+      "metricx": null,
       "system": {
         "calib": "ref",
         "method": "slimgpt",
@@ -3819,8 +5483,8 @@
       "comet": {
         "baseline_score": 0.739284,
         "bootstrap_ci_95": [
-          0.047157,
-          0.057055
+          0.047909,
+          0.056065
         ],
         "delta": 0.052115,
         "directions": [
@@ -3835,12 +5499,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.791399
       },
+      "metricx": null,
       "system": {
         "calib": "ref",
         "method": "slimgpt",
@@ -3883,8 +5550,8 @@
       "comet": {
         "baseline_score": 0.755194,
         "bootstrap_ci_95": [
-          0.048889,
-          0.057743
+          0.048841,
+          0.057401
         ],
         "delta": 0.053083,
         "directions": [
@@ -3899,12 +5566,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.808277
       },
+      "metricx": null,
       "system": {
         "calib": "ref",
         "method": "slimgpt",
@@ -3947,8 +5617,8 @@
       "comet": {
         "baseline_score": 0.755214,
         "bootstrap_ci_95": [
-          0.048257,
-          0.056859
+          0.048033,
+          0.056247
         ],
         "delta": 0.052374,
         "directions": [
@@ -3963,12 +5633,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.807588
       },
+      "metricx": null,
       "system": {
         "calib": "ref",
         "method": "slimgpt",
@@ -4011,8 +5684,8 @@
       "comet": {
         "baseline_score": 0.820878,
         "bootstrap_ci_95": [
-          0.012176,
-          0.018051
+          0.012439,
+          0.017855
         ],
         "delta": 0.015143,
         "directions": [
@@ -4027,12 +5700,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.836021
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -4075,8 +5751,8 @@
       "comet": {
         "baseline_score": 0.82914,
         "bootstrap_ci_95": [
-          0.006164,
-          0.011236
+          0.005906,
+          0.010948
         ],
         "delta": 0.008587,
         "directions": [
@@ -4091,12 +5767,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.837728
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -4139,8 +5818,8 @@
       "comet": {
         "baseline_score": 0.830622,
         "bootstrap_ci_95": [
-          0.004054,
-          0.009137
+          0.004201,
+          0.008899
         ],
         "delta": 0.006634,
         "directions": [
@@ -4155,12 +5834,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.837256
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -4203,8 +5885,8 @@
       "comet": {
         "baseline_score": 0.782974,
         "bootstrap_ci_95": [
-          0.036162,
-          0.044066
+          0.03607,
+          0.044011
         ],
         "delta": 0.03993,
         "directions": [
@@ -4219,12 +5901,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.822905
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -4267,8 +5952,8 @@
       "comet": {
         "baseline_score": 0.800132,
         "bootstrap_ci_95": [
-          0.02396,
-          0.030885
+          0.024079,
+          0.030783
         ],
         "delta": 0.027516,
         "directions": [
@@ -4283,12 +5968,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.827648
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -4331,8 +6019,8 @@
       "comet": {
         "baseline_score": 0.800605,
         "bootstrap_ci_95": [
-          0.022416,
-          0.029748
+          0.022629,
+          0.029904
         ],
         "delta": 0.026119,
         "directions": [
@@ -4347,12 +6035,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.826724
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -4395,8 +6086,8 @@
       "comet": {
         "baseline_score": 0.739165,
         "bootstrap_ci_95": [
-          0.046532,
-          0.056073
+          0.047064,
+          0.055798
         ],
         "delta": 0.051378,
         "directions": [
@@ -4411,12 +6102,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.790543
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -4459,8 +6153,8 @@
       "comet": {
         "baseline_score": 0.754267,
         "bootstrap_ci_95": [
-          0.050457,
-          0.059554
+          0.050754,
+          0.059162
         ],
         "delta": 0.054977,
         "directions": [
@@ -4475,12 +6169,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.809244
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -4523,8 +6220,8 @@
       "comet": {
         "baseline_score": 0.755704,
         "bootstrap_ci_95": [
-          0.047824,
-          0.057086
+          0.048172,
+          0.056555
         ],
         "delta": 0.052356,
         "directions": [
@@ -4539,12 +6236,15 @@
           "en-ru",
           "en-zh"
         ],
+        "higher_is_better": true,
         "metric": "comet",
         "n_directions": 10,
         "n_samples": 1000,
+        "n_segments": 3000,
         "p_value": 0.000999,
         "system_score": 0.80806
       },
+      "metricx": null,
       "system": {
         "calib": "gen",
         "method": "slimgpt",
@@ -4555,6 +6255,7 @@
   ],
   "sparsity_curve": {
     "dense": 0.847379,
+    "dense_metricx": null,
     "rows": [
       {
         "calib": "ref",
@@ -4564,6 +6265,11 @@
           "40": 0.791399
         },
         "method": "slimgpt",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "multi"
       },
       {
@@ -4574,6 +6280,11 @@
           "40": 0.808277
         },
         "method": "slimgpt",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "pair"
       },
       {
@@ -4584,6 +6295,11 @@
           "40": 0.807589
         },
         "method": "slimgpt",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "dir"
       },
       {
@@ -4594,6 +6310,11 @@
           "40": 0.790543
         },
         "method": "slimgpt",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "multi"
       },
       {
@@ -4604,6 +6325,11 @@
           "40": 0.809244
         },
         "method": "slimgpt",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "pair"
       },
       {
@@ -4614,6 +6340,11 @@
           "40": 0.80806
         },
         "method": "slimgpt",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "dir"
       },
       {
@@ -4624,6 +6355,11 @@
           "40": 0.739284
         },
         "method": "flap",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "multi"
       },
       {
@@ -4634,6 +6370,11 @@
           "40": 0.755194
         },
         "method": "flap",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "pair"
       },
       {
@@ -4644,6 +6385,11 @@
           "40": 0.755214
         },
         "method": "flap",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "dir"
       },
       {
@@ -4654,6 +6400,11 @@
           "40": 0.739165
         },
         "method": "flap",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "multi"
       },
       {
@@ -4664,6 +6415,11 @@
           "40": 0.754267
         },
         "method": "flap",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "pair"
       },
       {
@@ -4674,6 +6430,11 @@
           "40": 0.755704
         },
         "method": "flap",
+        "metricx": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
         "scope": "dir"
       }
     ]
@@ -7998,6 +9759,12 @@
         }
       }
     }
+  },
+  "transfer_models": {
+    "dir": 120,
+    "pair": 60,
+    "rule": "specialists scored on all 10 directions only",
+    "specialists_with_a_run": 180
   },
   "warnings": []
 }
