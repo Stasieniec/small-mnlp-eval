@@ -24,6 +24,9 @@ datasets==2.13.1
 # transformers 4.30 imports pkg_resources, removed in setuptools 81. The same
 # trap as the COMET environment.
 setuptools<81
+# The mT5 tokenizer is converted from sentencepiece to a fast tokenizer at load,
+# which needs protobuf; transformers 4.30's generated protobuf module needs 3.20.x.
+protobuf==3.20.3
 # The framework itself, whose core dependencies are deliberately tiny so it
 # can be installed alongside these pins.
 -e .[surface]
