@@ -5,6 +5,8 @@
   multi model against the matching direction specialist, for each method.
 - ``overlap_dir_slimgpt40.png``: FFN-channel Jaccard between the ten SlimGPT
   direction subnetworks at 40 percent.
+- ``repair_grid.png``: method x sparsity x scope before and after repair,
+  generated calibration (needs the full set of repairs).
 
     ./.venv/bin/python scripts/grid_figures.py --out results/grid-2026-10-06
 """
@@ -117,6 +119,53 @@ def repair_figure(scores: dict, path: Path) -> None:
     plt.close(fig)
 
 
+def repair_grid_figure(scores: dict, path: Path) -> None:
+    """Method x sparsity x scope after repair, generated calibration."""
+    dense = macro(scores, "alma-7b")
+    rows = []
+    for method, label in (("slimgpt", "SlimGPT"), ("flap", "FLAP")):
+        for pct in (30, 40):
+            base = f"alma-7b-{method}{pct}-gen"
+            rows.append((f"{label} {pct}%, multi", method, base + "-multi", None))
+            rows.append((f"{label} {pct}%, 5 pair models", method, None, base + "-pair-{}"))
+    fig, ax = plt.subplots(figsize=(7.6, 4.4), facecolor=SURFACE)
+    style(ax)
+    ax.grid(axis="y", visible=False)
+    for y, (_label, method, multi, pair) in enumerate(reversed(rows)):
+        if multi:
+            before, after = macro(scores, multi), macro(scores, multi + "-lora")
+        else:
+            before = float(np.mean([scores[pair.format(LANGUAGE[d])][d] for d in DIRECTIONS]))
+            after = float(
+                np.mean([scores[pair.format(LANGUAGE[d]) + "-lora"][d] for d in DIRECTIONS])
+            )
+        color = COLOR[method]
+        ax.plot([before, after], [y, y], color=color, linewidth=2, solid_capstyle="round", zorder=2)
+        ax.scatter([before], [y], s=46, facecolor=SURFACE, edgecolor=color, linewidth=2, zorder=3)
+        ax.scatter([after], [y], s=46, color=color, edgecolor=SURFACE, linewidth=1.5, zorder=3)
+        ax.text(after + 0.0025, y, f"{after:.3f}", va="center", fontsize=8.5, color=INK)
+        ax.text(
+            before - 0.0025, y, f"{before:.3f}", va="center", ha="right", fontsize=8.5, color=INK_2
+        )
+    ax.axvline(dense, color=INK_2, linewidth=1)
+    ax.text(dense, len(rows) - 0.45, f"dense {dense:.4f}", ha="center", fontsize=8.5, color=INK_2)
+    ax.set_yticks(range(len(rows)), [row[0] for row in reversed(rows)], color=INK)
+    ax.set_xlim(0.715, 0.865)
+    ax.set_ylim(-0.6, len(rows) - 0.2)
+    ax.set_xlabel(
+        "macro COMET-22, ten directions (hollow: pruned, filled: + LoRA)", color=INK_2, fontsize=9
+    )
+    ax.set_title("LoRA repair, generated calibration", color=INK, fontsize=11, loc="left")
+    handles = [
+        plt.Line2D([], [], color=COLOR["slimgpt"], marker="o", linewidth=2, label="SlimGPT"),
+        plt.Line2D([], [], color=COLOR["flap"], marker="o", linewidth=2, label="FLAP"),
+    ]
+    ax.legend(handles=handles, frameon=False, fontsize=8.5, loc="upper left")
+    fig.tight_layout()
+    fig.savefig(path, dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+
+
 def per_direction_figure(scores: dict, path: Path) -> None:
     dense = scores["alma-7b"]
     configs = [
@@ -219,15 +268,29 @@ def overlap_figure(masks_path: Path, path: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", default="results/grid-2026-10-06")
+    parser.add_argument("--masks", default=None, help="subnetworks.npz; default <out>/")
     args = parser.parse_args()
     out = Path(args.out)
     plots = out / "plots"
     plots.mkdir(parents=True, exist_ok=True)
     scores = load(out)
-    repair_figure(scores, plots / "repair.png")
-    per_direction_figure(scores, plots / "per_direction_40.png")
-    overlap_figure(out / "subnetworks.npz", plots / "overlap_dir_slimgpt40.png")
-    print("wrote repair.png, per_direction_40.png, overlap_dir_slimgpt40.png")
+    figures = [
+        ("repair.png", lambda path: repair_figure(scores, path)),
+        ("repair_grid.png", lambda path: repair_grid_figure(scores, path)),
+        ("per_direction_40.png", lambda path: per_direction_figure(scores, path)),
+        (
+            "overlap_dir_slimgpt40.png",
+            lambda path: overlap_figure(Path(args.masks or out / "subnetworks.npz"), path),
+        ),
+    ]
+    for name, draw in figures:
+        # A figure whose systems are not all there yet is skipped, not fatal.
+        try:
+            draw(plots / name)
+        except (KeyError, FileNotFoundError) as exc:
+            print(f"skipped {name}: missing {exc}")
+            continue
+        print(f"wrote {name}")
     return 0
 
 

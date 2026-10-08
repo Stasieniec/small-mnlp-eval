@@ -237,6 +237,13 @@ Per-direction tables for every multi model are in [summary.md](summary.md), sect
   - It comes close to the unrepaired 30 percent pair models (0.828).
 - Own-pair results per pair: [repair.md](repair.md).
 
+**Added on 8 October.** 17 more repairs complete the comparison for generated
+calibration: FLAP 30 and 40 percent multi, and the pair models of SlimGPT 30 percent
+and FLAP 30 and 40 percent, each on its own pair. Their pilot scores are in
+[repair.md](repair.md) and [plots/repair_grid.png](plots/repair_grid.png). After repair
+the specialist gain mostly disappears. The full-suite analysis is in
+[../full-2026-10-08/README.md](../full-2026-10-08/README.md), section 3.7.
+
 ### 3.7 FLAP needs its own budget
 
 FLAP's adaptive structure search (AL-AM) was compared with a simpler budget that
@@ -273,6 +280,9 @@ weights, with identical selections. It refits by direct least squares from a ful
 forward pass.
 
 ## 4. For the full evaluation
+
+Done on 8 October 2026, for the complete table rather than a selection:
+[../full-2026-10-08/README.md](../full-2026-10-08/README.md).
 
 The pilot ranks the options; the full test sets decide the final numbers. Candidates:
 

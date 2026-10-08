@@ -1,0 +1,8 @@
+extends: alma-7b-flap40-gen-pair-is.yaml
+name: alma-7b-flap40-gen-pair-is-lora
+kwargs:
+  checkpoint: /scratch-shared/scur0560/checkpoints/alma-7b-flap40-gen-pair-is-lora
+compression:
+  repair: LoRA r=16 alpha=32 on all-linear, merged; 1 epoch over 3518 segments of
+    repair-multi-clean (en-is+is-en), lr 0.002, batch 128
+notes: alma-7b-flap40-gen-pair-is after LoRA repair. Written by mnlp-eval repair.
