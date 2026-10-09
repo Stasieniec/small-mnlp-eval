@@ -1,0 +1,14 @@
+% LoRA repair of multi models, full test sets
+\begin{tabular}{lrrrrrrrrrr}
+\toprule
+repaired model & COMET pruned & COMET repaired & COMET 95\% CI & COMET recovered \% & MetricX pruned & MetricX repaired & MetricX recovered \% & BLEU pruned & BLEU repaired & p (COMET / MetricX) \\
+\midrule
+flap30-gen-multi & 0.7823 & 0.8239 & [+0.0400, +0.0432] & 64 & 5.231 & 3.831 & 61 & 23.55 & 27.05 & $<$0.001 / $<$0.001 \\
+flap40-gen-multi & 0.7417 & 0.8113 & [+0.0677, +0.0714] & 66 & 6.665 & 4.252 & 65 & 20.17 & 25.91 & $<$0.001 / $<$0.001 \\
+flap40-ref-multi & 0.7414 & 0.8111 & [+0.0679, +0.0717] & 66 & 6.697 & 4.216 & 66 & 20.31 & 25.72 & $<$0.001 / $<$0.001 \\
+slimgpt20-ref-multi & 0.8361 & 0.8391 & [+0.0020, +0.0039] & 26 & 3.356 & 3.234 & 29 & 27.76 & 28.51 & $<$0.001 / $<$0.001 \\
+slimgpt30-gen-multi & 0.8227 & 0.8312 & [+0.0074, +0.0095] & 34 & 3.815 & 3.474 & 39 & 25.94 & 27.48 & $<$0.001 / $<$0.001 \\
+slimgpt40-gen-multi & 0.7937 & 0.8196 & [+0.0245, +0.0273] & 48 & 4.866 & 3.915 & 49 & 23.27 & 26.16 & $<$0.001 / $<$0.001 \\
+slimgpt40-ref-multi & 0.7931 & 0.8195 & [+0.0250, +0.0278] & 48 & 4.857 & 3.916 & 49 & 23.24 & 26.1 & $<$0.001 / $<$0.001 \\
+\bottomrule
+\end{tabular}

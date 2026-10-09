@@ -1,0 +1,11 @@
+% Efficiency benchmark, 29 September pilot
+\begin{tabular}{lrrrrrrr}
+\toprule
+system & params_b & resident_gib & peak_vram_b1_gib & tok_s_b1 & tok_s_b8 & first_token_ms & memory reduction x \\
+\midrule
+alma-7b & 6.74 & 12.55 & 12.68 & 38.1 & 239.6 & 29.3 & 1.0 \\
+alma-7b-slimgpt20-multi & 5.44 & 10.22 & 10.34 & 36.6 & 227.5 & 30.7 & 1.23 \\
+alma-7b-slimgpt20-multi-uniform & 5.47 & 10.19 & 10.3 & 36.5 & 225.9 & 30.8 & 1.23 \\
+alma-7b-slimgpt50-multi & 3.5 & 6.61 & 6.69 & 38.0 & 233.4 & 30.5 & 1.9 \\
+\bottomrule
+\end{tabular}

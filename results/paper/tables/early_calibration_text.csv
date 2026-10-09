@@ -1,0 +1,5 @@
+system,sparsity,calibration,bleu,chrf,comet,length_ratio,truncated_pct
+alma-7b,0.0,,30.35,51.14,0.8474,0.964,0.0
+alma-7b-slimgpt20-multi,0.2,"1,280 prompts",20.65,41.71,0.8148,0.909,0.1
+alma-7b-slimgpt20-multi-256,0.2,"2,560 prompts",21.22,42.28,0.8195,0.904,0.2
+alma-7b-slimgpt20-multi-target,0.2,"1,280 prompt+ref",28.33,49.33,0.8367,0.949,0.0
