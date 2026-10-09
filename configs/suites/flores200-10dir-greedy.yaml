@@ -1,3 +1,8 @@
+# NOT a valid test set for ALMA: ALMA-Human-Parallel (ALMA's fine-tuning data
+# and the pool calibration and repair draw from) contains the FLORES-200
+# sentences, so ALMA-7B was trained on them. See docs/experiment.md. Kept for
+# completeness only; the original intent follows.
+#
 # Out-of-domain check on the same ten directions.
 #
 # WMT test sets are news; FLORES-200 is Wikipedia-derived and covers every

@@ -1,0 +1,8 @@
+extends: alma-7b-slimgpt40-gen-multi.yaml
+name: alma-7b-slimgpt40-gen-multi-lora
+kwargs:
+  checkpoint: /scratch-shared/scur0560/checkpoints/alma-7b-slimgpt40-gen-multi-lora
+compression:
+  repair: LoRA r=16 alpha=32 on all-linear, merged; 1 epoch over 116900 segments of
+    repair-multi-clean (all ten directions), lr 0.002, batch 128
+notes: alma-7b-slimgpt40-gen-multi after LoRA repair. Written by mnlp-eval repair.

@@ -1,0 +1,8 @@
+# Pair-specific calibration for the final grid: zh only, both directions, 640
+# segments each, so 1,280 in all, the same total as multi-10dir. The grid
+# matches total calibration size across scopes (multi, pair, direction):
+# SlimGPT's weight update is fitted to the calibration Hessian, and the 256
+# segments of pair-zh left the earlier pair comparison confounded with size.
+extends: pair-zh.yaml
+name: pair-zh-640
+segments_per_direction: 640

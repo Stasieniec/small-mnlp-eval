@@ -1,0 +1,168 @@
+{
+  "aggregate": {
+    "behaviour": {
+      "budget_hit_rate": 0.0057,
+      "empty_rate": 0.0,
+      "length_ratio": 0.9789,
+      "off_target_rate": 0.0005,
+      "off_target_rate_among_scorable": 0.0005,
+      "on_target_rate": 0.9899,
+      "repetition_rate": 0.004,
+      "source_copy_rate": 0.0008,
+      "source_language_rate": 0.0005,
+      "truncation_rate": 0.0057,
+      "unverifiable_rate": 0.0096,
+      "wasted_token_fraction": 0.0103
+    },
+    "bleu": 21.5431,
+    "chrf2pp": 45.837,
+    "n_directions": 2
+  },
+  "computed_at": "2026-10-08T18:28:39+00:00",
+  "directions": {
+    "en-ru": {
+      "behaviour": {
+        "budget_hit_rate": 0.0054,
+        "empty_rate": 0.0,
+        "english_fallback_rate": null,
+        "length_ratio": 0.9268,
+        "lid": {
+          "backend": "py3langid",
+          "denominator": "n_segments for every rate except off_target_rate_among_scorable",
+          "languages": [
+            "ru",
+            "en"
+          ],
+          "min_characters": 12,
+          "n_scorable": 2008,
+          "n_segments": 2037,
+          "n_unverifiable": 29
+        },
+        "n_segments": 2037,
+        "off_target_rate": 0.001,
+        "off_target_rate_among_scorable": 0.001,
+        "off_target_rate_open": 0.0245,
+        "on_target_rate": 0.9848,
+        "parse_flag_rates": {
+          "repetition": 0.002
+        },
+        "repetition_rate": 0.002,
+        "source_copy_rate": 0.001,
+        "source_language_rate": 0.001,
+        "truncation_rate": 0.0054,
+        "unverifiable_rate": 0.0142,
+        "wasted_token_fraction": 0.0138
+      },
+      "metrics": {
+        "bleu": {
+          "extra": {
+            "brevity_penalty": 0.9767,
+            "hypothesis_length": 35633,
+            "precisions": [
+              46.2914,
+              21.0442,
+              11.3343,
+              6.3751
+            ],
+            "reference_length": 36472,
+            "token_length_ratio": 0.977,
+            "tokenizer": "13a"
+          },
+          "higher_is_better": true,
+          "score": 15.9093,
+          "signature": "nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.6.0"
+        },
+        "chrf2pp": {
+          "higher_is_better": true,
+          "score": 39.28,
+          "signature": "nrefs:1|case:mixed|eff:yes|nc:6|nw:2|space:no|version:2.6.0"
+        }
+      },
+      "n_segments": 2037
+    },
+    "ru-en": {
+      "behaviour": {
+        "budget_hit_rate": 0.006,
+        "empty_rate": 0.0,
+        "english_fallback_rate": null,
+        "length_ratio": 1.0311,
+        "lid": {
+          "backend": "py3langid",
+          "denominator": "n_segments for every rate except off_target_rate_among_scorable",
+          "languages": [
+            "en",
+            "ru"
+          ],
+          "min_characters": 12,
+          "n_scorable": 2006,
+          "n_segments": 2016,
+          "n_unverifiable": 10
+        },
+        "n_segments": 2016,
+        "off_target_rate": 0.0,
+        "off_target_rate_among_scorable": 0.0,
+        "off_target_rate_open": 0.0144,
+        "on_target_rate": 0.995,
+        "parse_flag_rates": {
+          "repetition": 0.006
+        },
+        "repetition_rate": 0.006,
+        "source_copy_rate": 0.0005,
+        "source_language_rate": 0.0,
+        "truncation_rate": 0.006,
+        "unverifiable_rate": 0.005,
+        "wasted_token_fraction": 0.0069
+      },
+      "metrics": {
+        "bleu": {
+          "extra": {
+            "brevity_penalty": 1.0,
+            "hypothesis_length": 41084,
+            "precisions": [
+              57.8546,
+              32.6968,
+              20.9004,
+              13.7973
+            ],
+            "reference_length": 38529,
+            "token_length_ratio": 1.0663,
+            "tokenizer": "13a"
+          },
+          "higher_is_better": true,
+          "score": 27.1768,
+          "signature": "nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.6.0"
+        },
+        "chrf2pp": {
+          "higher_is_better": true,
+          "score": 52.3939,
+          "signature": "nrefs:1|case:mixed|eff:yes|nc:6|nw:2|space:no|version:2.6.0"
+        }
+      },
+      "n_segments": 2016
+    }
+  },
+  "group": "surface",
+  "packages": {
+    "accelerate": "1.15.0",
+    "bitsandbytes": "0.50.2",
+    "datasets": "4.8.5",
+    "mnlp-eval": "0.1.0",
+    "numpy": "2.4.6",
+    "optimum": "2.3.0",
+    "peft": "0.21.1",
+    "py3langid": "0.4.0",
+    "pytorch-lightning": null,
+    "sacrebleu": "2.6.0",
+    "tokenizers": "0.21.4",
+    "torch": "2.14.0",
+    "transformers": "4.55.4",
+    "unbabel-comet": null,
+    "vllm": null
+  },
+  "run_id": "dac70c41832c",
+  "schema_version": 1,
+  "settings": {
+    "compute_ter": false,
+    "lid_backend": "auto"
+  }
+}

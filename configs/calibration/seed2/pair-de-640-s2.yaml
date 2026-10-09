@@ -1,0 +1,4 @@
+# pair-de-640 redrawn with seed 5678. Written by scripts/grid_seed2.py.
+extends: ../pair-de-640.yaml
+name: pair-de-640-s2
+seed: 5678

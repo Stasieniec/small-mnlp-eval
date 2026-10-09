@@ -1,0 +1,14 @@
+extends: alma-7b.yaml
+name: alma-7b-slimgpt40-ref-pair-ru
+baseline: alma-7b
+loader: custom
+entrypoint: recipes.pruned:load
+kwargs:
+  checkpoint: /scratch-shared/scur0560/checkpoints/alma-7b-slimgpt40-ref-pair-ru
+compression:
+  family: pruning
+  method: SlimGPT, log-increase budget, prompt+target calibration
+  nominal_sparsity: 0.4
+  pruned_for: en-ru,ru-en
+  subnetwork: subnetworks/alma-7b-slimgpt40-ref-pair-ru.json
+  calibration: data/calibration/pair-ru-640

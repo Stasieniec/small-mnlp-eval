@@ -149,6 +149,8 @@ disable_error_code = ["attr-defined"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Pruned model configs name a loader in recipes/, which is not installed.
+pythonpath = ["."]
 addopts = "-q --strict-markers"
 markers = [
   "gpu: requires a CUDA device",

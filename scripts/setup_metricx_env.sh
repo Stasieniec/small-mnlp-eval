@@ -23,7 +23,7 @@ else
 fi
 
 echo "Creating ${VENV}"
-uv venv --python 3.11 "${VENV}"
+uv venv --managed-python --python 3.11 "${VENV}"
 uv pip install --python "${VENV}/bin/python" -r envs/metricx-requirements.txt
 
 # The clone root, not the metricx24 subdirectory: the package is imported as

@@ -1,0 +1,4 @@
+# multi-10dir redrawn with seed 5678. Written by scripts/grid_seed2.py.
+extends: ../multi-10dir.yaml
+name: multi-10dir-s2
+seed: 5678

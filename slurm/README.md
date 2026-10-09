@@ -115,10 +115,9 @@ to say.
 
 **Cost per method.** FLAP is minutes: one forward pass and two vectors per
 projection. LLM-Pruner runs a backward pass, so budget under an hour and lower
-`batch_size` if it does not fit. SlimGPT is the expensive one, 12 to 15
-minutes on an A100 in the pilot, with two passes over the calibration set, a
-Hessian and Cholesky inverse per projection, and a per-column compensation
-sweep. `prune.sbatch` asks for four hours, which leaves room for larger
+`batch_size` if it does not fit. SlimGPT is the expensive one: per layer,
+three forward passes over the calibration set and a greedy float64
+compensation per projection (see docs/pruning.md). `prune.sbatch` asks for four hours, which leaves room for larger
 calibration sets and the checkpoint write.
 
 One 40 GB A100 is enough but not spacious for SlimGPT: the dense model is
@@ -194,10 +193,17 @@ BASELINE=alma-7b bash slurm/submit_sweep.sh \
 `submit_prune.sh` prints this command with the configs its jobs emitted, so it
 does not have to be assembled by hand.
 
-Per model the chain is: a generation array with one task per direction, then
+Per model the chain is: one generation job covering every direction, then
 efficiency, then scoring. The report waits on every scoring job. `BASELINE` is
 required, because every compression ratio, speedup and p-value is computed
 against it and the report silently drops all of them if it cannot find it.
+
+Generation loads each checkpoint once and reuses it across directions. Different
+models can still run in parallel. Set `GENERATION_MODE=direction` when submitting
+the sweep to use one array task per direction instead; this can finish an
+individual model sooner but repeats its checkpoint load for every direction.
+Both modes use the same suite and run identity and skip completed directions
+when resubmitted.
 
 Two things the scripts are careful about:
 
@@ -230,7 +236,7 @@ Run directories hold hypotheses, scores and manifests, not weights, so they are
 small.
 
 **Runs are idempotent.** A run's identity is a hash of its model, data and
-decode settings, so resubmitting an array after a partial failure skips the
+decode settings, so resubmitting generation after a partial failure skips the
 directions that already finished. Stage records are one file per direction, so
 concurrent tasks cannot overwrite one another. Add `--overwrite` to force
 regeneration. `bench` has no skip check and re-runs on resubmission.
@@ -258,3 +264,24 @@ table, and note that the report refuses to mix results from the two.
 72-core, 4-GPU node, which is the correct request shape. The `rome` partition
 bills in eighths of a 128-core node, so `report.sbatch` asks for 16 cores
 rather than 4 because they cost the same.
+
+
+## Generated calibration
+
+After building `data/calibration/multi-10dir` and prefetching ALMA, generate
+its shared greedy-response cache once:
+
+```bash
+mkdir -p slurm-logs
+sbatch slurm/calibration_generate.sbatch
+```
+
+The job loads the dense checkpoint once for all ten directions. Defaults use
+`configs/models/alma-7b.yaml`, `configs/suites/alma10-greedy.yaml`, and output
+`data/calibration/multi-10dir-generated`. Override `CALIBRATION_INPUT`,
+`CALIBRATION_OUT`, `DENSE_MODEL_CONFIG`, or `DECODE_SUITE` through `--export`.
+Resubmitting resumes completed directions after validation. Run one writer
+per output directory. Then set the pruning config's `calibration` to that
+cache, `calibration_text: prompt+generated`, `max_length: 768`, and optionally
+`directions: [de-en, en-de]` for a pair. Both SlimGPT and FLAP can reuse the
+same cache. See [the calibration details](../docs/pruning.md#dense-generated-translations).

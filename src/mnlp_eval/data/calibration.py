@@ -71,6 +71,11 @@ class CalibrationSpec:
     #: Prompt template applied to each source. Must match the one the model is
     #: evaluated under, or the calibration distribution is not the eval one.
     prompt: str = "alma"
+    #: A test set whose sources are removed before drawing. For the repair set,
+    #: which takes everything and so cannot avoid the two exact matches with
+    #: WMT22 by sampling. What was removed is listed in the manifest, and the
+    #: contamination check still runs on what remains.
+    exclude_test_sources: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CalibrationSpec:
@@ -141,8 +146,17 @@ def build_calibration_set(
     digest = hashlib.sha256()
     digest.update(f"{spec.dataset}\x00{spec.split}\x00{spec.prompt}".encode())
 
+    excluded: dict[str, Any] = {}
     for direction in spec.parsed_directions:
         pairs = _load_pairs(spec, direction)
+        if spec.exclude_test_sources:
+            test_sources = _test_sources(spec.exclude_test_sources, direction)
+            dropped = [pair for pair in pairs if pair[0].strip() in test_sources]
+            pairs = [pair for pair in pairs if pair[0].strip() not in test_sources]
+            excluded[str(direction)] = {
+                "n_removed": len(dropped),
+                "removed": [{"source": source, "target": text} for source, text in dropped],
+            }
         eligible = [
             (source, target_text)
             for source, target_text in pairs
@@ -203,12 +217,19 @@ def build_calibration_set(
             "min_source_chars": spec.min_source_chars,
             "max_source_chars": spec.max_source_chars,
             "prompt": spec.prompt,
+            "exclude_test_sources": spec.exclude_test_sources,
         },
         "prompt_fingerprint": prompt_hash(template),
         "fingerprint": digest.hexdigest()[:16],
         "total_segments": sum(entry["n_segments"] for entry in directions.values()),
         "directions": directions,
     }
+    if spec.exclude_test_sources:
+        manifest["excluded_test_sources"] = {
+            "dataset": spec.exclude_test_sources,
+            "total_removed": sum(entry["n_removed"] for entry in excluded.values()),
+            "directions": excluded,
+        }
     if contamination_check:
         manifest["contamination"] = _check_contamination(spec, target, contamination_check)
     atomic_write_json(target / "calibration.json", manifest)
@@ -255,6 +276,21 @@ def _load_pairs(spec: CalibrationSpec, direction: Direction) -> list[tuple[str, 
             raise ValueError(msg)
         pairs.append((str(source).strip(), str(target).strip()))
     return pairs
+
+
+def _test_sources(dataset: str, direction: Direction) -> set[str]:
+    """Every source sentence of one test-set direction, stripped.
+
+    Unlike the contamination check, an unreachable test set is an error here:
+    a set built to exclude the test sources must not be written without them.
+    """
+    from mnlp_eval.config import DataSpec
+    from mnlp_eval.data import load_testset
+
+    testset = load_testset(
+        DataSpec.from_dict({"dataset": dataset, "directions": [str(direction)]}), direction
+    )
+    return {source.strip() for source in testset.sources}
 
 
 def _check_contamination(spec: CalibrationSpec, target: Path, dataset: str) -> dict[str, Any]:

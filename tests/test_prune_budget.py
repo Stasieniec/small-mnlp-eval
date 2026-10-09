@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 
 from mnlp_eval.prune import PruneError
-from mnlp_eval.prune.budget import allocate, log_increase_ratios
+from mnlp_eval.prune.budget import FIRST_LAYER_SHARE, allocate, keep_counts, log_increase_ratios
 from mnlp_eval.prune.groups import LayerGroups
 
 
@@ -109,29 +109,41 @@ class TestLogIncrease:
     def test_the_ratios_average_to_the_target_and_rise_with_depth(self) -> None:
         ratios = log_increase_ratios(32, 0.2)
 
-        assert ratios[0] == 0.0
+        assert ratios[0] == pytest.approx(FIRST_LAYER_SHARE * 0.2)
         assert ratios == sorted(ratios)
         assert sum(ratios) / len(ratios) == pytest.approx(0.2)
-        # The figure quoted in the docstring and in docs/pruning.md.
-        assert ratios[-1] == pytest.approx(0.272, abs=1e-3)
+        # The figures quoted in the docstring and in docs/pruning.md.
+        assert ratios[-1] == pytest.approx(0.254, abs=1e-3)
+        assert log_increase_ratios(32, 0.4)[-1] == pytest.approx(0.508, abs=1e-3)
+
+    def test_it_reproduces_the_papers_figure_at_fifty_percent(self) -> None:
+        # SlimGPT Figure 4, LLaMA-7B: 0.125 at the first layer, 0.656 at the
+        # last. The plotted curve averages 0.516 rather than 0.5; held to an
+        # exact mean, the last layer comes out a little lower.
+        ratios = log_increase_ratios(32, 0.5)
+
+        assert ratios[0] == pytest.approx(0.125)
+        assert ratios[-1] == pytest.approx(0.635, abs=1e-3)
 
     def test_it_follows_the_papers_logarithmic_shape(self) -> None:
         import math
 
         ratios = log_increase_ratios(8, 0.3)
 
+        first, last = ratios[0], ratios[-1]
         for index, ratio in enumerate(ratios):
-            assert ratio == pytest.approx(ratios[-1] * math.log(index + 1) / math.log(8))
+            expected = first + (last - first) * math.log(index + 1) / math.log(8)
+            assert ratio == pytest.approx(expected)
 
-    def test_the_first_layer_keeps_everything_and_the_last_loses_most(self) -> None:
-        groups = [mha(index, num_heads=8, intermediate=16) for index in range(4)]
+    def test_the_first_layer_loses_least_and_the_last_loses_most(self) -> None:
+        groups = [mha(index, num_heads=8, intermediate=64) for index in range(4)]
 
-        plan = allocate(flat(4, 8), flat(4, 16), groups, sparsity=0.25, allocation="log-increase")
+        plan = allocate(flat(4, 8), flat(4, 64), groups, sparsity=0.25, allocation="log-increase")
 
         kept = [len(layer.channels) for layer in plan]
-        assert kept[0] == 16
+        assert kept[0] == 64 - round(64 * FIRST_LAYER_SHARE * 0.25)
         assert kept == sorted(kept, reverse=True)
-        assert sum(kept) == pytest.approx(48, abs=2)
+        assert sum(kept) == pytest.approx(192, abs=2)
 
     def test_scores_decide_which_units_go_but_not_how_many(self) -> None:
         groups = [mha(0), mha(1)]
@@ -139,6 +151,7 @@ class TestLogIncrease:
 
         plan = allocate(heads, flat(2, 8), groups, sparsity=0.25, allocation="log-increase")
 
+        # Layer 0 loses round(4 * 0.0625) = 0 heads, layer 1 round(4 * 0.4375) = 2.
         assert plan[0].heads == (0, 1, 2, 3)
         assert plan[1].heads == (2, 3)
 
@@ -193,6 +206,8 @@ def test_sparsity_zero_keeps_everything() -> None:
         ({"sparsity": 1.0}, "fraction removed"),
         ({"sparsity": -0.1}, "fraction removed"),
         ({"allocation": "magic"}, "is not one of"),
+        # FLAP's own search over per-column scores, never a budget over these.
+        ({"allocation": "al-am"}, "flap's own structure search"),
     ],
 )
 def test_a_bad_budget_is_refused(kwargs: dict[str, object], expected: str) -> None:
@@ -209,3 +224,25 @@ def test_scores_that_do_not_match_the_model_are_refused() -> None:
 
     with pytest.raises(PruneError, match="cover 1 layers but the model has 2"):
         allocate(flat(1, 4), flat(1, 8), [mha(0), mha(1)], sparsity=0.5)
+
+
+class TestKeepCounts:
+    def test_it_matches_what_allocate_keeps(self) -> None:
+        groups = [mha(index, num_heads=8, intermediate=64) for index in range(4)]
+        for allocation in ("uniform", "log-increase"):
+            plan = allocate(flat(4, 8), flat(4, 64), groups, sparsity=0.3, allocation=allocation)
+
+            heads, channels = keep_counts(groups, sparsity=0.3, allocation=allocation)
+
+            assert heads == [len(layer.heads) for layer in plan]
+            assert channels == [len(layer.channels) for layer in plan]
+
+    def test_flaps_own_search_is_refused(self) -> None:
+        with pytest.raises(PruneError, match="flap's own structure search"):
+            keep_counts([mha(0), mha(1)], sparsity=0.25, allocation="al-am")
+
+    def test_global_needs_scores(self) -> None:
+        groups = [mha(0), mha(1)]
+
+        with pytest.raises(PruneError, match="scores"):
+            keep_counts(groups, sparsity=0.25, allocation="global")

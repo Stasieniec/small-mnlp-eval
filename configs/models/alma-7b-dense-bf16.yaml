@@ -1,0 +1,7 @@
+# ALMA-7B from the bfloat16 safetensors copy on scratch (slurm/setup_dense_bf16.sbatch),
+# the dense model every grid prune job and the generated-calibration caches read.
+# Bit-identical to haoranxu/ALMA-7B loaded in bfloat16, so its translations are
+# the dense baseline's; it loads in a third of the time of the Hub's float32 shards.
+extends: alma-7b.yaml
+name: alma-7b-dense-bf16
+model_name_or_path: /scratch-shared/scur0560/models/alma-7b-bf16

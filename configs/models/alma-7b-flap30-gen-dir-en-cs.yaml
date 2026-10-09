@@ -1,0 +1,14 @@
+extends: alma-7b.yaml
+name: alma-7b-flap30-gen-dir-en-cs
+baseline: alma-7b
+loader: custom
+entrypoint: recipes.pruned:load
+kwargs:
+  checkpoint: /scratch-shared/scur0560/checkpoints/alma-7b-flap30-gen-dir-en-cs
+compression:
+  family: pruning
+  method: FLAP, al-am budget, prompt+generated calibration
+  nominal_sparsity: 0.3
+  pruned_for: en-cs
+  subnetwork: subnetworks/alma-7b-flap30-gen-dir-en-cs.json
+  calibration: data/calibration/dir-en-cs-1280-generated

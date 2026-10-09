@@ -6,7 +6,8 @@
 #SBATCH --time=08:00:00
 #SBATCH --output=slurm-logs/generate-%A_%a.out
 #
-# One array task per direction, all contributing to ONE run.
+# One job generates all directions with one model load. When submitted as an
+# array, each task generates one direction, all contributing to ONE run.
 #
 # The direction is resolved here from the suite rather than passed in, because
 # commas inside an `sbatch --export` value are Slurm's own delimiter between
@@ -35,18 +36,23 @@ export HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-1}
 export HF_DATASETS_OFFLINE=${HF_DATASETS_OFFLINE:-1}
 export TOKENIZERS_PARALLELISM=false
 
-mapfile -t PAIRS < <(./.venv/bin/mnlp-eval suite-directions --suite "${SUITE_CONFIG}")
-INDEX=${SLURM_ARRAY_TASK_ID:-0}
-if (( INDEX >= ${#PAIRS[@]} )); then
-    echo "array task ${INDEX} exceeds the ${#PAIRS[@]} direction(s) in ${SUITE_CONFIG}" >&2
-    exit 1
+DIRECTION_ARGS=()
+DIRECTION=all
+if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
+    mapfile -t PAIRS < <(./.venv/bin/mnlp-eval suite-directions --suite "${SUITE_CONFIG}")
+    INDEX=${SLURM_ARRAY_TASK_ID}
+    if (( INDEX >= ${#PAIRS[@]} )); then
+        echo "array task ${INDEX} exceeds the ${#PAIRS[@]} direction(s) in ${SUITE_CONFIG}" >&2
+        exit 1
+    fi
+    DIRECTION="${PAIRS[INDEX]}"
+    DIRECTION_ARGS=(--only-direction "${DIRECTION}")
 fi
-DIRECTION="${PAIRS[INDEX]}"
 
 echo "model=${MODEL_CONFIG} suite=${SUITE_CONFIG} direction=${DIRECTION}"
 
 ./.venv/bin/mnlp-eval generate \
     --model "${MODEL_CONFIG}" \
     --suite "${SUITE_CONFIG}" \
-    --only-direction "${DIRECTION}" \
+    "${DIRECTION_ARGS[@]}" \
     --deterministic-check "${DETERMINISTIC_CHECK:-0}"
