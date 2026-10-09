@@ -26,7 +26,7 @@ jobs:
       - name: Install
         run: |
           uv venv --python 3.11
-          uv pip install -e ".[surface,dev]"
+          uv pip install -e ".[surface,dev,report]"
 
       - name: Lint
         run: |
@@ -37,7 +37,7 @@ jobs:
         run: uv run mypy
 
       - name: Tests
-        run: uv run pytest tests/ -q -m "not gpu and not network and not slow"
+        run: uv run pytest tests/ -q -m "not gpu and not network and not slow and not torch"
 
       - name: Style guard
         run: uv run python scripts/check_style.py
@@ -78,11 +78,11 @@ jobs:
       - name: Pre-commit hooks
         run: uv run --with pre-commit pre-commit run --all-files
 
-  # The generation loop is the only place hypotheses are reordered, and its
-  # tests need torch (though no GPU and no model download). A misalignment
-  # there pairs every hypothesis with the wrong reference, so it is worth a
-  # separate job and a CPU-only torch wheel.
-  generation-loop:
+  # Tests marked torch need torch and transformers, though no GPU and no model
+  # download: the generation loop, where a misalignment would pair every
+  # hypothesis with the wrong reference, and the pruning criteria, compaction
+  # and repair, run on tiny random models. CPU-only torch wheel.
+  torch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,8 +95,8 @@ jobs:
       - name: Install with CPU torch
         run: |
           uv venv --python 3.11
-          uv pip install -e ".[surface,dev]"
           uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+          uv pip install -e ".[surface,dev,prune]"
 
       - name: Tests
-        run: uv run pytest tests/ -q -m "not gpu and not network and not slow"
+        run: uv run pytest tests/ -q -m "torch and not gpu and not network and not slow"
