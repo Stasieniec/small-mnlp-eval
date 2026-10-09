@@ -1,0 +1,14 @@
+# Allocation ablation: FLAP with the separate head/channel global budget at
+# 20 percent, gen calibration, multi scope. Read against
+# alma-7b-flap20-gen-multi (al-am, the official structure search).
+name: alma-7b-flap20-gen-multi-global
+method: flap
+allocation: global
+sparsity: 0.2
+calibration: data/calibration/multi-10dir-generated
+calibration_text: prompt+generated
+model_name_or_path: /scratch-shared/scur0560/models/alma-7b-bf16
+dtype: bfloat16
+batch_size: 4
+max_length: 768
+seed: 1234

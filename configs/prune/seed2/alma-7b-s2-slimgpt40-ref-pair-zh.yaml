@@ -1,0 +1,15 @@
+# Seed-5678 replicate of alma-7b-slimgpt40-ref-pair-zh: calibration redrawn, all else equal. Written by scripts/grid_seed2.py.
+name: alma-7b-s2-slimgpt40-ref-pair-zh
+method: slimgpt
+allocation: log-increase
+sparsity: 0.4
+calibration: data/calibration/pair-zh-640-s2
+calibration_text: prompt+target
+directions:
+- en-zh
+- zh-en
+model_name_or_path: /scratch-shared/scur0560/models/alma-7b-bf16
+dtype: bfloat16
+batch_size: 4
+max_length: 768
+seed: 5678

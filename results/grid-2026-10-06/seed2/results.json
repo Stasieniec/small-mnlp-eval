@@ -1,0 +1,3085 @@
+{
+  "behaviour_multi": {
+    "FLAP gen 20%": {
+      "budget_hit_rate": null,
+      "empty_rate": null,
+      "length_ratio": null,
+      "off_target_rate": null,
+      "repetition_rate": null,
+      "source_copy_rate": null,
+      "truncation_rate": null
+    },
+    "FLAP gen 30%": {
+      "budget_hit_rate": null,
+      "empty_rate": null,
+      "length_ratio": null,
+      "off_target_rate": null,
+      "repetition_rate": null,
+      "source_copy_rate": null,
+      "truncation_rate": null
+    },
+    "FLAP gen 40%": {
+      "budget_hit_rate": null,
+      "empty_rate": null,
+      "length_ratio": null,
+      "off_target_rate": null,
+      "repetition_rate": null,
+      "source_copy_rate": null,
+      "truncation_rate": null
+    },
+    "FLAP ref 20%": {
+      "budget_hit_rate": null,
+      "empty_rate": null,
+      "length_ratio": null,
+      "off_target_rate": null,
+      "repetition_rate": null,
+      "source_copy_rate": null,
+      "truncation_rate": null
+    },
+    "FLAP ref 30%": {
+      "budget_hit_rate": null,
+      "empty_rate": null,
+      "length_ratio": null,
+      "off_target_rate": null,
+      "repetition_rate": null,
+      "source_copy_rate": null,
+      "truncation_rate": null
+    },
+    "FLAP ref 40%": {
+      "budget_hit_rate": null,
+      "empty_rate": null,
+      "length_ratio": null,
+      "off_target_rate": null,
+      "repetition_rate": null,
+      "source_copy_rate": null,
+      "truncation_rate": null
+    },
+    "SlimGPT gen 20%": {
+      "budget_hit_rate": null,
+      "empty_rate": null,
+      "length_ratio": null,
+      "off_target_rate": null,
+      "repetition_rate": null,
+      "source_copy_rate": null,
+      "truncation_rate": null
+    },
+    "SlimGPT gen 30%": {
+      "budget_hit_rate": null,
+      "empty_rate": null,
+      "length_ratio": null,
+      "off_target_rate": null,
+      "repetition_rate": null,
+      "source_copy_rate": null,
+      "truncation_rate": null
+    },
+    "SlimGPT gen 40%": {
+      "budget_hit_rate": null,
+      "empty_rate": null,
+      "length_ratio": null,
+      "off_target_rate": null,
+      "repetition_rate": null,
+      "source_copy_rate": null,
+      "truncation_rate": null
+    },
+    "SlimGPT ref 20%": {
+      "budget_hit_rate": 0.00033,
+      "empty_rate": 0.0,
+      "length_ratio": 0.96205,
+      "off_target_rate": 0.00434,
+      "repetition_rate": 0.00033,
+      "source_copy_rate": 0.00333,
+      "truncation_rate": 0.00033
+    },
+    "SlimGPT ref 30%": {
+      "budget_hit_rate": 0.00066,
+      "empty_rate": 0.0,
+      "length_ratio": 0.95277,
+      "off_target_rate": 0.00366,
+      "repetition_rate": 0.0,
+      "source_copy_rate": 0.00233,
+      "truncation_rate": 0.00066
+    },
+    "SlimGPT ref 40%": {
+      "budget_hit_rate": 0.00265,
+      "empty_rate": 0.0,
+      "length_ratio": 0.94698,
+      "off_target_rate": 0.003,
+      "repetition_rate": 0.00066,
+      "source_copy_rate": 0.002,
+      "truncation_rate": 0.00265
+    },
+    "dense (alma-7b)": {
+      "budget_hit_rate": 0.0,
+      "empty_rate": 0.0,
+      "length_ratio": 0.9642,
+      "off_target_rate": 0.00267,
+      "repetition_rate": 0.0,
+      "source_copy_rate": 0.00166,
+      "truncation_rate": 0.0
+    }
+  },
+  "bootstrap": {
+    "n_samples": 1000,
+    "seed": 12345
+  },
+  "coverage": {
+    "complete": 48,
+    "expected": 48,
+    "lora_complete": 0,
+    "lora_systems": 0,
+    "manifest_found": true,
+    "missing": 0,
+    "partial": 0,
+    "partial_systems": {},
+    "status_counts": {}
+  },
+  "dense": {
+    "bleu": 30.35114,
+    "chrf": 51.139,
+    "comet": 0.847379,
+    "run": "alma-7b__alma10-greedy-300__63d55369fea1",
+    "system": "alma-7b"
+  },
+  "generated_at": "2026-10-06 19:36 UTC",
+  "headline": [
+    {
+      "calib": "ref",
+      "dir": {
+        "bleu": 27.93426,
+        "chrf": 49.21315,
+        "comet": 0.836331,
+        "n_directions": {
+          "bleu": 10,
+          "chrf": 10,
+          "comet": 10
+        }
+      },
+      "dir_minus_multi_comet": {
+        "baseline_score": 0.83601,
+        "bootstrap_ci_95": [
+          -0.001771,
+          0.002361
+        ],
+        "delta": 0.000321,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.755245,
+        "system_score": 0.836331
+      },
+      "method": "slimgpt",
+      "multi": {
+        "bleu": 27.72736,
+        "chrf": 49.06794,
+        "comet": 0.83601,
+        "n_directions": {
+          "bleu": 10,
+          "chrf": 10,
+          "comet": 10
+        }
+      },
+      "pair": {
+        "bleu": 27.86923,
+        "chrf": 49.22252,
+        "comet": 0.838015,
+        "n_directions": {
+          "bleu": 10,
+          "chrf": 10,
+          "comet": 10
+        }
+      },
+      "pair_minus_multi_comet": {
+        "baseline_score": 0.83601,
+        "bootstrap_ci_95": [
+          -9.7e-05,
+          0.00392
+        ],
+        "delta": 0.002005,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.055944,
+        "system_score": 0.838015
+      },
+      "sparsity": 20
+    },
+    {
+      "calib": "ref",
+      "dir": {
+        "bleu": 26.11605,
+        "chrf": 47.74244,
+        "comet": 0.828231,
+        "n_directions": {
+          "bleu": 10,
+          "chrf": 10,
+          "comet": 10
+        }
+      },
+      "dir_minus_multi_comet": {
+        "baseline_score": 0.822345,
+        "bootstrap_ci_95": [
+          0.003368,
+          0.008578
+        ],
+        "delta": 0.005886,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.828231
+      },
+      "method": "slimgpt",
+      "multi": {
+        "bleu": 25.59646,
+        "chrf": 47.00564,
+        "comet": 0.822345,
+        "n_directions": {
+          "bleu": 10,
+          "chrf": 10,
+          "comet": 10
+        }
+      },
+      "pair": {
+        "bleu": 26.08162,
+        "chrf": 47.69234,
+        "comet": 0.826783,
+        "n_directions": {
+          "bleu": 10,
+          "chrf": 10,
+          "comet": 10
+        }
+      },
+      "pair_minus_multi_comet": {
+        "baseline_score": 0.822345,
+        "bootstrap_ci_95": [
+          0.001913,
+          0.006929
+        ],
+        "delta": 0.004438,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.001998,
+        "system_score": 0.826783
+      },
+      "sparsity": 30
+    },
+    {
+      "calib": "ref",
+      "dir": {
+        "bleu": 24.12326,
+        "chrf": 45.82861,
+        "comet": 0.809368,
+        "n_directions": {
+          "bleu": 10,
+          "chrf": 10,
+          "comet": 10
+        }
+      },
+      "dir_minus_multi_comet": {
+        "baseline_score": 0.795371,
+        "bootstrap_ci_95": [
+          0.010822,
+          0.017364
+        ],
+        "delta": 0.013997,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.809368
+      },
+      "method": "slimgpt",
+      "multi": {
+        "bleu": 23.23667,
+        "chrf": 44.79013,
+        "comet": 0.795371,
+        "n_directions": {
+          "bleu": 10,
+          "chrf": 10,
+          "comet": 10
+        }
+      },
+      "pair": {
+        "bleu": 24.00512,
+        "chrf": 45.79154,
+        "comet": 0.806705,
+        "n_directions": {
+          "bleu": 10,
+          "chrf": 10,
+          "comet": 10
+        }
+      },
+      "pair_minus_multi_comet": {
+        "baseline_score": 0.795371,
+        "bootstrap_ci_95": [
+          0.007899,
+          0.014274
+        ],
+        "delta": 0.011335,
+        "directions": [
+          "cs-en",
+          "de-en",
+          "is-en",
+          "ru-en",
+          "zh-en",
+          "en-cs",
+          "en-de",
+          "en-is",
+          "en-ru",
+          "en-zh"
+        ],
+        "metric": "comet",
+        "n_directions": 10,
+        "n_samples": 1000,
+        "p_value": 0.000999,
+        "system_score": 0.806706
+      },
+      "sparsity": 40
+    },
+    {
+      "calib": "gen",
+      "dir": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "dir_minus_multi_comet": null,
+      "method": "slimgpt",
+      "multi": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair_minus_multi_comet": null,
+      "sparsity": 20
+    },
+    {
+      "calib": "gen",
+      "dir": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "dir_minus_multi_comet": null,
+      "method": "slimgpt",
+      "multi": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair_minus_multi_comet": null,
+      "sparsity": 30
+    },
+    {
+      "calib": "gen",
+      "dir": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "dir_minus_multi_comet": null,
+      "method": "slimgpt",
+      "multi": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair_minus_multi_comet": null,
+      "sparsity": 40
+    },
+    {
+      "calib": "ref",
+      "dir": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "dir_minus_multi_comet": null,
+      "method": "flap",
+      "multi": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair_minus_multi_comet": null,
+      "sparsity": 20
+    },
+    {
+      "calib": "ref",
+      "dir": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "dir_minus_multi_comet": null,
+      "method": "flap",
+      "multi": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair_minus_multi_comet": null,
+      "sparsity": 30
+    },
+    {
+      "calib": "ref",
+      "dir": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "dir_minus_multi_comet": null,
+      "method": "flap",
+      "multi": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair_minus_multi_comet": null,
+      "sparsity": 40
+    },
+    {
+      "calib": "gen",
+      "dir": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "dir_minus_multi_comet": null,
+      "method": "flap",
+      "multi": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair_minus_multi_comet": null,
+      "sparsity": 20
+    },
+    {
+      "calib": "gen",
+      "dir": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "dir_minus_multi_comet": null,
+      "method": "flap",
+      "multi": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair_minus_multi_comet": null,
+      "sparsity": 30
+    },
+    {
+      "calib": "gen",
+      "dir": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "dir_minus_multi_comet": null,
+      "method": "flap",
+      "multi": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair": {
+        "bleu": null,
+        "chrf": null,
+        "comet": null,
+        "n_directions": {
+          "bleu": 0,
+          "chrf": 0,
+          "comet": 0
+        }
+      },
+      "pair_minus_multi_comet": null,
+      "sparsity": 40
+    }
+  ],
+  "manifest": "configs/grid/manifest-seed2.json",
+  "multi_per_direction": {
+    "FLAP gen 20%": {
+      "bleu": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      },
+      "comet": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      }
+    },
+    "FLAP gen 30%": {
+      "bleu": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      },
+      "comet": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      }
+    },
+    "FLAP gen 40%": {
+      "bleu": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      },
+      "comet": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      }
+    },
+    "FLAP ref 20%": {
+      "bleu": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      },
+      "comet": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      }
+    },
+    "FLAP ref 30%": {
+      "bleu": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      },
+      "comet": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      }
+    },
+    "FLAP ref 40%": {
+      "bleu": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      },
+      "comet": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      }
+    },
+    "SlimGPT gen 20%": {
+      "bleu": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      },
+      "comet": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      }
+    },
+    "SlimGPT gen 30%": {
+      "bleu": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      },
+      "comet": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      }
+    },
+    "SlimGPT gen 40%": {
+      "bleu": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      },
+      "comet": {
+        "cs-en": null,
+        "de-en": null,
+        "en-cs": null,
+        "en-de": null,
+        "en-is": null,
+        "en-ru": null,
+        "en-zh": null,
+        "is-en": null,
+        "ru-en": null,
+        "zh-en": null
+      }
+    },
+    "SlimGPT ref 20%": {
+      "bleu": {
+        "cs-en": 38.1116,
+        "de-en": 28.2469,
+        "en-cs": 22.83,
+        "en-de": 24.5596,
+        "en-is": 21.4293,
+        "en-ru": 22.6013,
+        "en-zh": 30.2734,
+        "is-en": 36.233,
+        "ru-en": 34.9805,
+        "zh-en": 18.008
+      },
+      "comet": {
+        "cs-en": 0.841234,
+        "de-en": 0.830569,
+        "en-cs": 0.851424,
+        "en-de": 0.843187,
+        "en-is": 0.826012,
+        "en-ru": 0.844857,
+        "en-zh": 0.837186,
+        "is-en": 0.859762,
+        "ru-en": 0.835729,
+        "zh-en": 0.790137
+      }
+    },
+    "SlimGPT ref 30%": {
+      "bleu": {
+        "cs-en": 35.5754,
+        "de-en": 26.7463,
+        "en-cs": 20.0809,
+        "en-de": 23.1737,
+        "en-is": 18.6268,
+        "en-ru": 20.5119,
+        "en-zh": 28.2289,
+        "is-en": 33.1032,
+        "ru-en": 32.7285,
+        "zh-en": 17.189
+      },
+      "comet": {
+        "cs-en": 0.836635,
+        "de-en": 0.8299,
+        "en-cs": 0.838387,
+        "en-de": 0.829019,
+        "en-is": 0.803927,
+        "en-ru": 0.826054,
+        "en-zh": 0.81295,
+        "is-en": 0.846745,
+        "ru-en": 0.828466,
+        "zh-en": 0.771364
+      }
+    },
+    "SlimGPT ref 40%": {
+      "bleu": {
+        "cs-en": 33.9017,
+        "de-en": 25.63,
+        "en-cs": 17.7296,
+        "en-de": 20.7515,
+        "en-is": 15.7378,
+        "en-ru": 17.791,
+        "en-zh": 23.0224,
+        "is-en": 31.7858,
+        "ru-en": 30.4791,
+        "zh-en": 15.5378
+      },
+      "comet": {
+        "cs-en": 0.825251,
+        "de-en": 0.821479,
+        "en-cs": 0.782147,
+        "en-de": 0.801697,
+        "en-is": 0.757451,
+        "en-ru": 0.800328,
+        "en-zh": 0.756583,
+        "is-en": 0.842236,
+        "ru-en": 0.813417,
+        "zh-en": 0.753118
+      }
+    },
+    "dense (alma-7b)": {
+      "bleu": {
+        "cs-en": 41.9853,
+        "de-en": 31.3168,
+        "en-cs": 24.9305,
+        "en-de": 27.9915,
+        "en-is": 23.7506,
+        "en-ru": 25.006,
+        "en-zh": 33.5024,
+        "is-en": 38.2493,
+        "ru-en": 36.937,
+        "zh-en": 19.842
+      },
+      "comet": {
+        "cs-en": 0.852433,
+        "de-en": 0.83921,
+        "en-cs": 0.870304,
+        "en-de": 0.852964,
+        "en-is": 0.841839,
+        "en-ru": 0.861081,
+        "en-zh": 0.850735,
+        "is-en": 0.862663,
+        "ru-en": 0.846423,
+        "zh-en": 0.796135
+      }
+    }
+  },
+  "plots": [
+    "results/grid-2026-10-06/seed2/plots/comet_vs_sparsity.png",
+    "results/grid-2026-10-06/seed2/plots/transfer_dir_s20.png",
+    "results/grid-2026-10-06/seed2/plots/transfer_pair_s20.png",
+    "results/grid-2026-10-06/seed2/plots/transfer_dir_s30.png",
+    "results/grid-2026-10-06/seed2/plots/transfer_pair_s30.png",
+    "results/grid-2026-10-06/seed2/plots/transfer_dir_s40.png",
+    "results/grid-2026-10-06/seed2/plots/transfer_pair_s40.png",
+    "results/grid-2026-10-06/seed2/plots/structure_multi.png"
+  ],
+  "ref_vs_gen": [
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 40
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 40
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 40
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 40
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 40
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 40
+      }
+    }
+  ],
+  "repair": [],
+  "runs": {
+    "alma-7b": "alma-7b__alma10-greedy-300__63d55369fea1",
+    "alma-7b-s2-slimgpt20-ref-dir-cs-en": "alma-7b-s2-slimgpt20-ref-dir-cs-en__alma10-greedy-300__9e15865599d7",
+    "alma-7b-s2-slimgpt20-ref-dir-de-en": "alma-7b-s2-slimgpt20-ref-dir-de-en__alma10-greedy-300__118d106fa524",
+    "alma-7b-s2-slimgpt20-ref-dir-en-cs": "alma-7b-s2-slimgpt20-ref-dir-en-cs__alma10-greedy-300__64707eddc38b",
+    "alma-7b-s2-slimgpt20-ref-dir-en-de": "alma-7b-s2-slimgpt20-ref-dir-en-de__alma10-greedy-300__3590d0af0bf3",
+    "alma-7b-s2-slimgpt20-ref-dir-en-is": "alma-7b-s2-slimgpt20-ref-dir-en-is__alma10-greedy-300__81871a1c270d",
+    "alma-7b-s2-slimgpt20-ref-dir-en-ru": "alma-7b-s2-slimgpt20-ref-dir-en-ru__alma10-greedy-300__093ca594935a",
+    "alma-7b-s2-slimgpt20-ref-dir-en-zh": "alma-7b-s2-slimgpt20-ref-dir-en-zh__alma10-greedy-300__954f4eb637a7",
+    "alma-7b-s2-slimgpt20-ref-dir-is-en": "alma-7b-s2-slimgpt20-ref-dir-is-en__alma10-greedy-300__869a986b73e2",
+    "alma-7b-s2-slimgpt20-ref-dir-ru-en": "alma-7b-s2-slimgpt20-ref-dir-ru-en__alma10-greedy-300__b75b942f689f",
+    "alma-7b-s2-slimgpt20-ref-dir-zh-en": "alma-7b-s2-slimgpt20-ref-dir-zh-en__alma10-greedy-300__6acff349ca0c",
+    "alma-7b-s2-slimgpt20-ref-multi": "alma-7b-s2-slimgpt20-ref-multi__alma10-greedy-300__2224000a5f78",
+    "alma-7b-s2-slimgpt20-ref-pair-cs": "alma-7b-s2-slimgpt20-ref-pair-cs__alma10-greedy-300__5403e7fdba3e",
+    "alma-7b-s2-slimgpt20-ref-pair-de": "alma-7b-s2-slimgpt20-ref-pair-de__alma10-greedy-300__7aa2b594f7c3",
+    "alma-7b-s2-slimgpt20-ref-pair-is": "alma-7b-s2-slimgpt20-ref-pair-is__alma10-greedy-300__ad09f3ab421a",
+    "alma-7b-s2-slimgpt20-ref-pair-ru": "alma-7b-s2-slimgpt20-ref-pair-ru__alma10-greedy-300__e700e013b7c0",
+    "alma-7b-s2-slimgpt20-ref-pair-zh": "alma-7b-s2-slimgpt20-ref-pair-zh__alma10-greedy-300__5f0ef1b792bb",
+    "alma-7b-s2-slimgpt30-ref-dir-cs-en": "alma-7b-s2-slimgpt30-ref-dir-cs-en__alma10-greedy-300__c23377eb04b5",
+    "alma-7b-s2-slimgpt30-ref-dir-de-en": "alma-7b-s2-slimgpt30-ref-dir-de-en__alma10-greedy-300__653638979287",
+    "alma-7b-s2-slimgpt30-ref-dir-en-cs": "alma-7b-s2-slimgpt30-ref-dir-en-cs__alma10-greedy-300__4eb4e9fe78ad",
+    "alma-7b-s2-slimgpt30-ref-dir-en-de": "alma-7b-s2-slimgpt30-ref-dir-en-de__alma10-greedy-300__9bd72043fff7",
+    "alma-7b-s2-slimgpt30-ref-dir-en-is": "alma-7b-s2-slimgpt30-ref-dir-en-is__alma10-greedy-300__17d0a77d04c5",
+    "alma-7b-s2-slimgpt30-ref-dir-en-ru": "alma-7b-s2-slimgpt30-ref-dir-en-ru__alma10-greedy-300__0a725e15afe2",
+    "alma-7b-s2-slimgpt30-ref-dir-en-zh": "alma-7b-s2-slimgpt30-ref-dir-en-zh__alma10-greedy-300__e6a091992cb7",
+    "alma-7b-s2-slimgpt30-ref-dir-is-en": "alma-7b-s2-slimgpt30-ref-dir-is-en__alma10-greedy-300__99de0e7dcf94",
+    "alma-7b-s2-slimgpt30-ref-dir-ru-en": "alma-7b-s2-slimgpt30-ref-dir-ru-en__alma10-greedy-300__09856d7dbf17",
+    "alma-7b-s2-slimgpt30-ref-dir-zh-en": "alma-7b-s2-slimgpt30-ref-dir-zh-en__alma10-greedy-300__50758aa30ccf",
+    "alma-7b-s2-slimgpt30-ref-multi": "alma-7b-s2-slimgpt30-ref-multi__alma10-greedy-300__015ddfde4c72",
+    "alma-7b-s2-slimgpt30-ref-pair-cs": "alma-7b-s2-slimgpt30-ref-pair-cs__alma10-greedy-300__092a9c0db9cb",
+    "alma-7b-s2-slimgpt30-ref-pair-de": "alma-7b-s2-slimgpt30-ref-pair-de__alma10-greedy-300__1c556c8fea52",
+    "alma-7b-s2-slimgpt30-ref-pair-is": "alma-7b-s2-slimgpt30-ref-pair-is__alma10-greedy-300__6f19379cbda2",
+    "alma-7b-s2-slimgpt30-ref-pair-ru": "alma-7b-s2-slimgpt30-ref-pair-ru__alma10-greedy-300__0160198cedbe",
+    "alma-7b-s2-slimgpt30-ref-pair-zh": "alma-7b-s2-slimgpt30-ref-pair-zh__alma10-greedy-300__a726d979a6b6",
+    "alma-7b-s2-slimgpt40-ref-dir-cs-en": "alma-7b-s2-slimgpt40-ref-dir-cs-en__alma10-greedy-300__c53b696897d0",
+    "alma-7b-s2-slimgpt40-ref-dir-de-en": "alma-7b-s2-slimgpt40-ref-dir-de-en__alma10-greedy-300__52d9c16af22b",
+    "alma-7b-s2-slimgpt40-ref-dir-en-cs": "alma-7b-s2-slimgpt40-ref-dir-en-cs__alma10-greedy-300__197b5ce7b1d0",
+    "alma-7b-s2-slimgpt40-ref-dir-en-de": "alma-7b-s2-slimgpt40-ref-dir-en-de__alma10-greedy-300__5079c3f50b35",
+    "alma-7b-s2-slimgpt40-ref-dir-en-is": "alma-7b-s2-slimgpt40-ref-dir-en-is__alma10-greedy-300__2913eecb84e5",
+    "alma-7b-s2-slimgpt40-ref-dir-en-ru": "alma-7b-s2-slimgpt40-ref-dir-en-ru__alma10-greedy-300__a15ee95de035",
+    "alma-7b-s2-slimgpt40-ref-dir-en-zh": "alma-7b-s2-slimgpt40-ref-dir-en-zh__alma10-greedy-300__8fadb9598f16",
+    "alma-7b-s2-slimgpt40-ref-dir-is-en": "alma-7b-s2-slimgpt40-ref-dir-is-en__alma10-greedy-300__32880ffb018b",
+    "alma-7b-s2-slimgpt40-ref-dir-ru-en": "alma-7b-s2-slimgpt40-ref-dir-ru-en__alma10-greedy-300__c240ad02728a",
+    "alma-7b-s2-slimgpt40-ref-dir-zh-en": "alma-7b-s2-slimgpt40-ref-dir-zh-en__alma10-greedy-300__03f2896d267f",
+    "alma-7b-s2-slimgpt40-ref-multi": "alma-7b-s2-slimgpt40-ref-multi__alma10-greedy-300__df5470df22f3",
+    "alma-7b-s2-slimgpt40-ref-pair-cs": "alma-7b-s2-slimgpt40-ref-pair-cs__alma10-greedy-300__7fb8eeb0225a",
+    "alma-7b-s2-slimgpt40-ref-pair-de": "alma-7b-s2-slimgpt40-ref-pair-de__alma10-greedy-300__8c2272acefbd",
+    "alma-7b-s2-slimgpt40-ref-pair-is": "alma-7b-s2-slimgpt40-ref-pair-is__alma10-greedy-300__9763490e4c9f",
+    "alma-7b-s2-slimgpt40-ref-pair-ru": "alma-7b-s2-slimgpt40-ref-pair-ru__alma10-greedy-300__7907288944b5",
+    "alma-7b-s2-slimgpt40-ref-pair-zh": "alma-7b-s2-slimgpt40-ref-pair-zh__alma10-greedy-300__deeafb7353c9"
+  },
+  "runs_root": "runs",
+  "slimgpt_vs_flap": [
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 40
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 40
+      }
+    },
+    {
+      "baseline": {
+        "calib": "ref",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "ref",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 40
+      }
+    },
+    {
+      "baseline": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 20
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 20
+      }
+    },
+    {
+      "baseline": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 30
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 30
+      }
+    },
+    {
+      "baseline": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "multi",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "multi",
+        "sparsity": 40
+      }
+    },
+    {
+      "baseline": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "pair",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "pair",
+        "sparsity": 40
+      }
+    },
+    {
+      "baseline": {
+        "calib": "gen",
+        "method": "flap",
+        "scope": "dir",
+        "sparsity": 40
+      },
+      "bleu": null,
+      "comet": null,
+      "system": {
+        "calib": "gen",
+        "method": "slimgpt",
+        "scope": "dir",
+        "sparsity": 40
+      }
+    }
+  ],
+  "sparsity_curve": {
+    "dense": 0.847379,
+    "rows": [
+      {
+        "calib": "ref",
+        "comet": {
+          "20": 0.83601,
+          "30": 0.822345,
+          "40": 0.795371
+        },
+        "method": "slimgpt",
+        "scope": "multi"
+      },
+      {
+        "calib": "ref",
+        "comet": {
+          "20": 0.838015,
+          "30": 0.826783,
+          "40": 0.806705
+        },
+        "method": "slimgpt",
+        "scope": "pair"
+      },
+      {
+        "calib": "ref",
+        "comet": {
+          "20": 0.836331,
+          "30": 0.828231,
+          "40": 0.809368
+        },
+        "method": "slimgpt",
+        "scope": "dir"
+      },
+      {
+        "calib": "gen",
+        "comet": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
+        "method": "slimgpt",
+        "scope": "multi"
+      },
+      {
+        "calib": "gen",
+        "comet": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
+        "method": "slimgpt",
+        "scope": "pair"
+      },
+      {
+        "calib": "gen",
+        "comet": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
+        "method": "slimgpt",
+        "scope": "dir"
+      },
+      {
+        "calib": "ref",
+        "comet": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
+        "method": "flap",
+        "scope": "multi"
+      },
+      {
+        "calib": "ref",
+        "comet": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
+        "method": "flap",
+        "scope": "pair"
+      },
+      {
+        "calib": "ref",
+        "comet": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
+        "method": "flap",
+        "scope": "dir"
+      },
+      {
+        "calib": "gen",
+        "comet": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
+        "method": "flap",
+        "scope": "multi"
+      },
+      {
+        "calib": "gen",
+        "comet": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
+        "method": "flap",
+        "scope": "pair"
+      },
+      {
+        "calib": "gen",
+        "comet": {
+          "20": null,
+          "30": null,
+          "40": null
+        },
+        "method": "flap",
+        "scope": "dir"
+      }
+    ]
+  },
+  "structure": {
+    "alma-7b-s2-slimgpt20-ref-dir-cs-en": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-dir-cs-en/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-dir-de-en": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-dir-de-en/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-dir-en-cs": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-dir-en-cs/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-dir-en-de": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-dir-en-de/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-dir-en-is": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-dir-en-is/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-dir-en-ru": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-dir-en-ru/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-dir-en-zh": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-dir-en-zh/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-dir-is-en": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-dir-is-en/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-dir-ru-en": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-dir-ru-en/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-dir-zh-en": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-dir-zh-en/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-multi": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-multi/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-pair-cs": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-pair-cs/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-pair-de": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-pair-de/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-pair-is": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-pair-is/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-pair-ru": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-pair-ru/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt20-ref-pair-zh": {
+      "ffn_removed_frac": 0.1999994322311046,
+      "heads_removed_frac": 0.2021484375,
+      "params_removed": 1299812352,
+      "params_removed_frac_all": 0.19289584170404486,
+      "params_removed_frac_layers": 0.2007039313904068,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt20-ref-pair-zh/subnetwork.json",
+      "unit_sparsity": 0.200005661231884
+    },
+    "alma-7b-s2-slimgpt30-ref-dir-cs-en": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-dir-cs-en/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-dir-de-en": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-dir-de-en/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-dir-en-cs": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-dir-en-cs/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-dir-en-de": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-dir-en-de/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-dir-en-is": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-dir-en-is/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-dir-en-ru": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-dir-en-ru/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-dir-en-zh": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-dir-en-zh/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-dir-is-en": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-dir-is-en/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-dir-ru-en": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-dir-ru-en/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-dir-zh-en": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-dir-zh-en/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-multi": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-multi/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-pair-cs": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-pair-cs/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-pair-de": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-pair-de/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-pair-is": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-pair-is/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-pair-ru": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-pair-ru/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt30-ref-pair-zh": {
+      "ffn_removed_frac": 0.3000005677688954,
+      "heads_removed_frac": 0.298828125,
+      "params_removed": 1940287488,
+      "params_removed_frac_all": 0.28794416945622847,
+      "params_removed_frac_layers": 0.2995996508803886,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt30-ref-pair-zh/subnetwork.json",
+      "unit_sparsity": 0.29999716938405796
+    },
+    "alma-7b-s2-slimgpt40-ref-dir-cs-en": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-dir-cs-en/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-dir-de-en": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-dir-de-en/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-dir-en-cs": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-dir-en-cs/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-dir-en-de": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-dir-en-de/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-dir-en-is": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-dir-en-is/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-dir-en-ru": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-dir-en-ru/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-dir-en-zh": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-dir-en-zh/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-dir-is-en": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-dir-is-en/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-dir-ru-en": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-dir-ru-en/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-dir-zh-en": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-dir-zh-en/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-multi": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-multi/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-pair-cs": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-pair-cs/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-pair-de": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-pair-de/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-pair-is": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-pair-is/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-pair-ru": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-pair-ru/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    },
+    "alma-7b-s2-slimgpt40-ref-pair-zh": {
+      "ffn_removed_frac": 0.3999960256177325,
+      "heads_removed_frac": 0.3984375,
+      "params_removed": 2587029504,
+      "params_removed_frac_all": 0.38392251998485216,
+      "params_removed_frac_layers": 0.3994630388585307,
+      "params_total": 6738415616,
+      "sources": [
+        "subnetwork"
+      ],
+      "subnetwork": "/scratch-shared/scur0560/checkpoints/alma-7b-s2-slimgpt40-ref-pair-zh/subnetwork.json",
+      "unit_sparsity": 0.3999915081521739
+    }
+  },
+  "suite": "alma10-greedy-300",
+  "transfer": {
+    "flap20-gen": {
+      "dir_models": 0,
+      "dir_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "reverse": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_source": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_target": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      },
+      "multi_system": null,
+      "pair_models": 0,
+      "pair_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      }
+    },
+    "flap20-ref": {
+      "dir_models": 0,
+      "dir_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "reverse": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_source": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_target": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      },
+      "multi_system": null,
+      "pair_models": 0,
+      "pair_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      }
+    },
+    "flap30-gen": {
+      "dir_models": 0,
+      "dir_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "reverse": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_source": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_target": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      },
+      "multi_system": null,
+      "pair_models": 0,
+      "pair_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      }
+    },
+    "flap30-ref": {
+      "dir_models": 0,
+      "dir_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "reverse": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_source": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_target": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      },
+      "multi_system": null,
+      "pair_models": 0,
+      "pair_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      }
+    },
+    "flap40-gen": {
+      "dir_models": 0,
+      "dir_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "reverse": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_source": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_target": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      },
+      "multi_system": null,
+      "pair_models": 0,
+      "pair_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      }
+    },
+    "flap40-ref": {
+      "dir_models": 0,
+      "dir_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "reverse": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_source": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_target": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      },
+      "multi_system": null,
+      "pair_models": 0,
+      "pair_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      }
+    },
+    "slimgpt20-gen": {
+      "dir_models": 0,
+      "dir_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "reverse": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_source": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_target": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      },
+      "multi_system": null,
+      "pair_models": 0,
+      "pair_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      }
+    },
+    "slimgpt20-ref": {
+      "dir_models": 10,
+      "dir_summary": {
+        "other": {
+          "comet": 0.7978283249999999,
+          "minus_multi": -0.038181375000000004,
+          "n_cells": 40,
+          "n_paired": 40
+        },
+        "own": {
+          "comet": 0.8363308999999999,
+          "minus_multi": 0.00032119999999999924,
+          "n_cells": 10,
+          "n_paired": 10
+        },
+        "reverse": {
+          "comet": 0.8368072999999999,
+          "minus_multi": 0.0007975999999999872,
+          "n_cells": 10,
+          "n_paired": 10
+        },
+        "same_source": {
+          "comet": 0.7820282999999999,
+          "minus_multi": -0.058504899999999985,
+          "n_cells": 20,
+          "n_paired": 20
+        },
+        "same_target": {
+          "comet": 0.82722,
+          "minus_multi": -0.00426620000000002,
+          "n_cells": 20,
+          "n_paired": 20
+        }
+      },
+      "multi_system": "alma-7b-s2-slimgpt20-ref-multi",
+      "pair_models": 5,
+      "pair_summary": {
+        "other": {
+          "comet": 0.806002225,
+          "minus_multi": -0.030007475,
+          "n_cells": 40,
+          "n_paired": 40
+        },
+        "own": {
+          "comet": 0.8380145999999999,
+          "minus_multi": 0.0020049000000000204,
+          "n_cells": 10,
+          "n_paired": 10
+        }
+      }
+    },
+    "slimgpt30-gen": {
+      "dir_models": 0,
+      "dir_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "reverse": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_source": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_target": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      },
+      "multi_system": null,
+      "pair_models": 0,
+      "pair_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      }
+    },
+    "slimgpt30-ref": {
+      "dir_models": 10,
+      "dir_summary": {
+        "other": {
+          "comet": 0.7548213250000001,
+          "minus_multi": -0.067523375,
+          "n_cells": 40,
+          "n_paired": 40
+        },
+        "own": {
+          "comet": 0.8282306,
+          "minus_multi": 0.005885900000000032,
+          "n_cells": 10,
+          "n_paired": 10
+        },
+        "reverse": {
+          "comet": 0.8242229,
+          "minus_multi": 0.0018781999999999965,
+          "n_cells": 10,
+          "n_paired": 10
+        },
+        "same_source": {
+          "comet": 0.70630895,
+          "minus_multi": -0.11575844999999996,
+          "n_cells": 20,
+          "n_paired": 20
+        },
+        "same_target": {
+          "comet": 0.81860755,
+          "minus_multi": -0.004014450000000008,
+          "n_cells": 20,
+          "n_paired": 20
+        }
+      },
+      "multi_system": "alma-7b-s2-slimgpt30-ref-multi",
+      "pair_models": 5,
+      "pair_summary": {
+        "other": {
+          "comet": 0.7624138250000001,
+          "minus_multi": -0.059930874999999995,
+          "n_cells": 40,
+          "n_paired": 40
+        },
+        "own": {
+          "comet": 0.8267827000000001,
+          "minus_multi": 0.004438000000000009,
+          "n_cells": 10,
+          "n_paired": 10
+        }
+      }
+    },
+    "slimgpt40-gen": {
+      "dir_models": 0,
+      "dir_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "reverse": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_source": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "same_target": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      },
+      "multi_system": null,
+      "pair_models": 0,
+      "pair_summary": {
+        "other": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        },
+        "own": {
+          "comet": null,
+          "minus_multi": null,
+          "n_cells": 0,
+          "n_paired": 0
+        }
+      }
+    },
+    "slimgpt40-ref": {
+      "dir_models": 10,
+      "dir_summary": {
+        "other": {
+          "comet": 0.6866449999999998,
+          "minus_multi": -0.1087257,
+          "n_cells": 40,
+          "n_paired": 40
+        },
+        "own": {
+          "comet": 0.8093676999999999,
+          "minus_multi": 0.013997000000000015,
+          "n_cells": 10,
+          "n_paired": 10
+        },
+        "reverse": {
+          "comet": 0.7986416000000001,
+          "minus_multi": 0.003270900000000021,
+          "n_cells": 10,
+          "n_paired": 10
+        },
+        "same_source": {
+          "comet": 0.5966843999999999,
+          "minus_multi": -0.1829568,
+          "n_cells": 20,
+          "n_paired": 20
+        },
+        "same_target": {
+          "comet": 0.8000908499999999,
+          "minus_multi": -0.011009349999999968,
+          "n_cells": 20,
+          "n_paired": 20
+        }
+      },
+      "multi_system": "alma-7b-s2-slimgpt40-ref-multi",
+      "pair_models": 5,
+      "pair_summary": {
+        "other": {
+          "comet": 0.7000171,
+          "minus_multi": -0.0953536,
+          "n_cells": 40,
+          "n_paired": 40
+        },
+        "own": {
+          "comet": 0.8067055,
+          "minus_multi": 0.011334800000000023,
+          "n_cells": 10,
+          "n_paired": 10
+        }
+      }
+    }
+  },
+  "warnings": []
+}

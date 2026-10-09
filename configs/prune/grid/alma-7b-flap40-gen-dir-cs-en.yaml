@@ -1,0 +1,13 @@
+# Grid: flap al-am, 40% removed, prompt+generated calibration, pruned for cs-en. Written by scripts/grid.py configs.
+name: alma-7b-flap40-gen-dir-cs-en
+method: flap
+allocation: al-am
+sparsity: 0.4
+calibration: data/calibration/dir-cs-en-1280-generated
+calibration_text: prompt+generated
+directions: [cs-en]
+model_name_or_path: /scratch-shared/scur0560/models/alma-7b-bf16
+dtype: bfloat16
+batch_size: 4
+max_length: 768
+seed: 1234

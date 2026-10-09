@@ -1,0 +1,4 @@
+# pair-ru-640 redrawn with seed 5678. Written by scripts/grid_seed2.py.
+extends: ../pair-ru-640.yaml
+name: pair-ru-640-s2
+seed: 5678

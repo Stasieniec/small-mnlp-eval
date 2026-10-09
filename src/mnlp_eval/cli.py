@@ -398,6 +398,19 @@ def command_run_dir(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_calibration_generate(args: argparse.Namespace) -> int:
+    from mnlp_eval.data.generated_calibration import generate_calibration
+
+    manifest = generate_calibration(
+        args.calibration,
+        ModelSpec.from_dict(load_yaml_config(args.model)),
+        SuiteSpec.from_dict(load_yaml_config(args.decode_suite)),
+        args.out,
+    )
+    print(json.dumps(manifest, indent=2))
+    return 0
+
+
 def command_calibration(args: argparse.Namespace) -> int:
     """Build the calibration and repair data the pruning runs share."""
     from mnlp_eval.data.calibration import CalibrationSpec, build_calibration_set
@@ -452,14 +465,18 @@ def command_prune(args: argparse.Namespace) -> int:
         config_dir=Path(args.model_config_dir),
     )
 
-    achieved = manifest["unit_sparsity"]
+    # FLAP's al-am budgets parameters, trading heads against channels, so its
+    # unit count is not what it promised; every other budget prunes heads and
+    # channels to the same fraction, where the two coincide.
+    measure = "parameter_sparsity" if spec.allocation == "al-am" else "unit_sparsity"
+    achieved = manifest[measure]
     if abs(achieved - spec.sparsity) > 0.05:
         # Rounding to whole heads and channels moves the figure a little. A
         # large gap means the budget could not be met, and a sweep whose
         # members are not at the sparsity they claim compares nothing.
         return _fail(
-            f"asked for sparsity {spec.sparsity} but kept units imply {achieved}. "
-            "Check the per-layer floors against the requested budget."
+            f"asked for sparsity {spec.sparsity} but the kept units imply {measure} "
+            f"{achieved}. Check the per-layer floors against the requested budget."
         )
     print(json.dumps(manifest, indent=2, sort_keys=True))
     return 0
@@ -724,6 +741,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="override, for example --set segments_per_direction=256",
     )
     calibration.set_defaults(handler=command_calibration)
+
+    calibration_gen = subparsers.add_parser(
+        "calibration-generate", help="cache dense greedy translations for pruning calibration"
+    )
+    calibration_gen.add_argument(
+        "--calibration", required=True, help="existing union calibration set"
+    )
+    calibration_gen.add_argument("--model", required=True, help="dense model YAML config")
+    calibration_gen.add_argument("--decode-suite", required=True, help="greedy suite YAML config")
+    calibration_gen.add_argument("--out", required=True, help="generated cache directory")
+    calibration_gen.set_defaults(handler=command_calibration_generate)
 
     prune = subparsers.add_parser(
         "prune", help="select and compact a subnetwork from a dense checkpoint"

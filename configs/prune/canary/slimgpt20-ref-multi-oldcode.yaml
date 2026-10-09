@@ -1,0 +1,16 @@
+# Canary: the pre-fix SlimGPT (main at 6befdfb: one-sided compensation,
+# position-biased scores, log-increase from r_0 = 0) on the grid's
+# slimgpt20-ref-multi setting. Run by slurm/canary_oldcode.sbatch from a
+# worktree of main; read against alma-7b-slimgpt20-ref-multi to measure what
+# the fix is worth.
+name: alma-7b-slimgpt20-ref-multi-oldcode
+method: slimgpt
+model_name_or_path: /scratch-shared/scur0560/models/alma-7b-bf16
+calibration: data/calibration/multi-10dir
+calibration_text: prompt+target
+sparsity: 0.2
+allocation: log-increase
+dtype: bfloat16
+batch_size: 4
+max_length: 768
+seed: 1234

@@ -1,0 +1,7 @@
+# LoRA repair of alma-7b-flap40-gen-pair-is on its own directions (en-is, is-en), ALMA's recipe (RepairSpec defaults). Written by scripts/grid.py repairs.
+name: alma-7b-flap40-gen-pair-is-lora
+source: configs/models/alma-7b-flap40-gen-pair-is.yaml
+data: data/calibration/repair-multi-clean
+directions:
+- en-is
+- is-en

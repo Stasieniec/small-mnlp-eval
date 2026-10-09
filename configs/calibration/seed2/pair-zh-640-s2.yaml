@@ -1,0 +1,4 @@
+# pair-zh-640 redrawn with seed 5678. Written by scripts/grid_seed2.py.
+extends: ../pair-zh-640.yaml
+name: pair-zh-640-s2
+seed: 5678
