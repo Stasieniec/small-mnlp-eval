@@ -124,7 +124,7 @@ def main() -> int:
             if all(name in masks for name in pair_names):
                 lines += ["", f"## {method} {calib} {pct}%: pair models, {title}", ""]
                 lines += matrix_md(
-                    pair_names + [f"{base}-multi"], LANGUAGES + ["multi"], masks, part
+                    [*pair_names, f"{base}-multi"], [*LANGUAGES, "multi"], masks, part
                 )
             dir_names = [f"{base}-dir-{d}" for d in DIRECTIONS]
             if all(name in masks for name in dir_names):
