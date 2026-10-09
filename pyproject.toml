@@ -72,7 +72,7 @@ prune = [
   "peft>=0.12",
 ]
 vllm = ["vllm>=0.6"]
-report = ["matplotlib>=3.8"]
+report = ["matplotlib>=3.8", "pandas>=2.1"]
 dev = [
   "ruff>=0.6",
   "mypy>=1.11",

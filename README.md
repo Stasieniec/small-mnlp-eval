@@ -21,6 +21,10 @@ LoRA repairs.
 - pilot: [results/grid-2026-10-06/README.md](results/grid-2026-10-06/README.md);
 - decisions and job log: [docs/overnight-2026-10-06.md](docs/overnight-2026-10-06.md).
 
+Every number, table and figure for the paper, recomputed from the committed scores
+(significance tests included): [notebooks/final_results.ipynb](notebooks/final_results.ipynb).
+It also writes the tables (CSV, LaTeX) and figures (PDF, PNG) to `results/paper/`.
+
 Full test sets (WMT22, WMT21 for Icelandic; 17,471 segments), greedy decoding. COMET-22
 with BLEU in brackets, macro over the ten directions. Pair and dir translate each
 direction with the matching specialist. Dense ALMA-7B: 0.8475 (30.32), MetricX-24 2.937.
@@ -77,7 +81,8 @@ configs/prune/           one YAML per pruning run
 configs/repair/          one YAML per repair run
 configs/suites/          alma10-greedy, alma10-beam5, alma10-greedy-300 (pilot)
 slurm/                   job scripts and submit_*.sh
-notebooks/, results/     pilot results
+notebooks/               final_results (all paper numbers), pilot_results (29 September)
+results/                 scores and reports of every run; paper/ holds the exported tables and figures
 docs/                    experiment, protocol, pruning, subnetworks, environments
 tests/                   no GPU, no network, no weights
 ```

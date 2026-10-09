@@ -1,0 +1,7 @@
+method,sparsity,heads removed %,FFN channels removed %,attn+MLP params removed %,all params removed %,params kept (B)
+flap,20,2.8,28.5,20.0,19.2,5.44
+flap,30,11.5,39.2,30.0,28.8,4.8
+flap,40,27.5,46.2,40.0,38.4,4.15
+slimgpt,20,20.2,20.0,20.1,19.3,5.44
+slimgpt,30,29.9,30.0,30.0,28.8,4.8
+slimgpt,40,39.8,40.0,39.9,38.4,4.15
