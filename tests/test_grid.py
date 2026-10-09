@@ -667,6 +667,8 @@ class Pipeline:
             "SLURM_JOB_ID": job_id,
             "SLURM_JOB_PARTITION": "gpu_a100",
             "SLURMD_NODENAME": "gcn1",
+            # Slurm always sets it and the job script uses it under set -u.
+            "USER": os.environ.get("USER", "scur0000"),
             "GRID_NAME": NAME,
             "GRID_MODE": "prune",
             "PRUNE_CONFIG": f"configs/prune/grid/{NAME}.yaml",
@@ -727,8 +729,9 @@ class TestPipelineScript:
     def test_dry_run_takes_the_lock_cancels_the_twin_and_finishes(self, pipeline: Pipeline) -> None:
         result = pipeline.run("100", dry=True)
         assert result.returncode == 0, result.stdout
-        assert f"scancel -u {os.environ.get('USER', '')} --name=g-{NAME} --state=PENDING" in (
-            pipeline.calls.read_text()
+        assert (
+            f"scancel -u {os.environ.get('USER', 'scur0000')} --name=g-{NAME} --state=PENDING"
+            in (pipeline.calls.read_text())
         )
         assert "[dry-run]" in result.stdout
         assert pipeline.cli_calls() == []
