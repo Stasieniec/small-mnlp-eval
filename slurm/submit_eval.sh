@@ -11,8 +11,7 @@
 # partition (PARTITIONS, default "gpu_a100 gpu_h100"), slurm/eval_directions.sbatch;
 # DRY_RUN=1 prints the commands.
 # ALL_DIRECTIONS=1 evaluates every name on every direction (transfer matrices).
-# Never queue a model twice with different directions: both jobs write one run
-# directory, and the first to score would leave partial scores the other skips.
+# Do not queue a model twice with different directions: both write one run directory.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p slurm-logs/eval
@@ -36,8 +35,7 @@ print("" if entry is None or entry["scope"] == "multi" else "+".join(entry["prun
 PY
 )
     fi
-    # Realistic limits, so the jobs can backfill into gaps on a full cluster.
-    # H100 nodes run this host-bound workload slower; the limits allow for that.
+    # Short limits so jobs can backfill; H100 nodes are slower on this workload.
     if [[ -z "${DIRECTIONS}" ]]; then
         TIME=${TIME_ALL:-01:45:00}
     elif [[ "${DIRECTIONS}" == *+* ]]; then

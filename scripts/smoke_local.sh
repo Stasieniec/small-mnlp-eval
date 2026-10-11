@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
-# End-to-end check on a small local slice. Runs on 6 GB of VRAM in a couple of
-# minutes, and on CPU given patience.
+# End-to-end check on a small local slice, a few minutes on a 6 GB GPU.
 #
-# Two models on purpose. opus-mt-de-en is a real MT system, so its scores prove
-# the metric pipeline is wired correctly; a harness that has only ever seen a
-# prompted 0.5B model cannot distinguish "pipeline correct" from "pipeline
-# broken". Qwen2.5-0.5B-Instruct then exercises the prompted decoder-only path,
-# including hypothesis extraction from a model that keeps talking past the
-# translation.
+# opus-mt-de-en is a real MT system, so its scores check the metric pipeline.
+# Qwen2.5-0.5B-Instruct covers the prompted decoder-only path and hypothesis
+# extraction.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -28,9 +24,7 @@ fi
 export HF_HUB_DISABLE_PROGRESS_BARS=1
 export TOKENIZERS_PARALLELISM=false
 
-# Start clean. Keying runs by model name collapses same-model different-run
-# directories, so a stale directory from an earlier suite could satisfy the
-# assertions while the current pipeline was broken.
+# Start clean: the assertions key runs by model name.
 rm -rf "${RUNS_ROOT}" "${REPORT_DIR}"
 
 echo "=== environment ==="
@@ -77,12 +71,11 @@ echo "=== neural metrics, if the COMET environment exists ==="
 COMET_EXPECTED=0
 if [[ -x ./.venv-comet/bin/mnlp-eval ]]; then
     COMET_EXPECTED=1
-    # A smaller COMET batch keeps the 580M metric model inside 6 GB alongside
-    # whatever else the card is holding.
+    # Smaller COMET batch to fit in 6 GB.
     ./.venv-comet/bin/mnlp-eval --runs-root "${RUNS_ROOT}" score \
         --groups neural --set comet_batch_size=8
 else
-    echo "skipped: .venv-comet not found, see docs/environments.md"
+    echo "skipped: .venv-comet not found, see README.md"
 fi
 export COMET_EXPECTED
 
@@ -120,9 +113,8 @@ else:
     scores = json.loads((reference / "scores.surface.json").read_text())
     bleu = scores["aggregate"]["bleu"]
     behaviour = scores["aggregate"]["behaviour"]
-    # A real MT system on WMT22 de-en lands near the low thirties. A broken
-    # pipeline, a mangled prompt or a misaligned reference file would show up
-    # as single digits, which is the failure this threshold catches.
+    # A real MT system on WMT22 de-en scores around 30; a broken pipeline would
+    # be in single digits.
     check(bleu > 20, f"reference BLEU is plausible: {bleu}")
     check(behaviour["empty_rate"] == 0.0, "reference produced no empty output")
     check(behaviour["on_target_rate"] == 1.0, "reference stayed on target on every segment")
@@ -140,8 +132,6 @@ else:
 
     bench = json.loads((reference / "bench.json").read_text())
     bits = bench["static"]["bits_per_parameter_resident"]
-    # float32 must read 32 bits per parameter. If this drifts, the size
-    # accounting that every compression ratio depends on is wrong.
     check(31.0 < bits < 33.0, f"float32 reads 32 bits per parameter: {bits}")
 
 half = runs.get("opus-mt-de-en-fp16")
@@ -151,10 +141,8 @@ if half is not None and reference is not None:
     check(15.0 < bits < 17.0, f"float16 reads 16 bits per parameter: {bits}")
     full = json.loads((reference / "bench.json").read_text())["static"]
     ratio = full["resident_weight_bytes"] / bench["static"]["resident_weight_bytes"]
-    # Not exactly 2: buffers that stay fp32 and allocator granularity move it
-    # slightly, and the report quotes the ratio to two decimals anyway.
+    # Not exactly 2: some buffers stay fp32.
     check(1.95 < ratio < 2.05, f"fp16 halves resident size: {ratio:.4f}x")
-    # The actual compression-fidelity claim the two-model design sets up.
     half_bleu = json.loads((half / "scores.surface.json").read_text())["aggregate"]["bleu"]
     reference_bleu = json.loads((reference / "scores.surface.json").read_text())[
         "aggregate"
@@ -164,9 +152,7 @@ if half is not None and reference is not None:
         f"fp16 quality matches fp32: {half_bleu} against {reference_bleu}",
     )
 
-# The neural stage is not allowed to pass by doing nothing. score exits zero
-# when a metric group is unavailable, so a broken COMET environment would
-# otherwise slip through under set -e.
+# score exits 0 when a metric group is unavailable, so check the files exist.
 if os.environ.get("COMET_EXPECTED") == "1":
     for name, path in sorted(runs.items()):
         scores = path / "scores.neural.json"
@@ -184,9 +170,8 @@ prompted = runs.get("qwen2.5-0.5b-instruct")
 if prompted is not None:
     scores = json.loads((prompted / "scores.surface.json").read_text())
     behaviour = scores["aggregate"]["behaviour"]
-    # The prompted model is not fine-tuned to stop after the translation, so it
-    # fills the token budget with commentary. Extraction should recover a clean
-    # hypothesis regardless, which is the whole point of that code path.
+    # The prompted model keeps talking after the translation; extraction should
+    # still recover a hypothesis.
     check(behaviour["empty_rate"] == 0.0, "prompted model yielded parseable output")
     check(behaviour["wasted_token_fraction"] > 0.1, "trailing commentary was detected")
 

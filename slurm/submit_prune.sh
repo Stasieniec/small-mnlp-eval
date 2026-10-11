@@ -8,16 +8,8 @@
 #   JOB=$(bash slurm/submit_prune.sh configs/prune/x.yaml | awk '{print $2}')
 # gives the job id to chain repair or evaluation on with AFTER=.
 #
-# PARTITION=gpu_h100 overrides the partition in prune.sbatch, for a run that
-# ran out of memory on a 40 GB A100.
-#
-# The jobs are independent: each reads the dense checkpoint and writes its own
-# subnetwork, so they run in parallel rather than in a chain.
-#
-# This deliberately does not chain into slurm/submit_sweep.sh. The evaluation
-# sweep is well over a hundred GPU-hours, and the achieved sparsity and the
-# overlap between the three subnetworks are worth looking at before spending
-# it. The follow-up command is printed at the end.
+# PARTITION=gpu_h100 overrides the partition in prune.sbatch.
+# The jobs are independent. The follow-up sweep command is printed at the end.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -25,12 +17,12 @@ mkdir -p slurm-logs subnetworks
 
 CLI=./.venv/bin/mnlp-eval
 if [[ ! -x "${CLI}" ]]; then
-    echo "mnlp-eval not found at ${CLI}; see slurm/README.md" >&2
+    echo "mnlp-eval not found at ${CLI}; see README.md" >&2
     exit 1
 fi
 
 if [[ $# -eq 0 ]]; then
-    # Every experiment config, not the smoke-* plumbing checks.
+    # Skip the smoke-* configs.
     CONFIGS=()
     for CONFIG in configs/prune/*.yaml; do
         [[ "$(basename "${CONFIG}")" == smoke-* ]] || CONFIGS+=("${CONFIG}")
@@ -41,10 +33,7 @@ fi
 
 PRUNE_OUT=${PRUNE_OUT:-/scratch-shared/${USER}/checkpoints}
 
-# Every config names the calibration set it needs. Checking here turns a
-# missing set into a failure now rather than four hours into a GPU job, and
-# `mnlp-eval calibration` needs the Hub, so it cannot be fixed from a
-# compute node.
+# Check the calibration sets exist; building one needs the Hub (login node).
 MISSING=()
 for CONFIG in "${CONFIGS[@]}"; do
     CALIBRATION=$("${CLI}" prune-spec --spec "${CONFIG}" --field calibration)
@@ -62,7 +51,7 @@ fi
 
 MODEL_CONFIGS=()
 for CONFIG in "${CONFIGS[@]}"; do
-    # Validates the spec and fails before queueing if it is broken.
+    # Also validates the spec.
     NAME=$("${CLI}" prune-spec --spec "${CONFIG}" --field name)
     JOB=$(
         sbatch --parsable \
@@ -72,7 +61,7 @@ for CONFIG in "${CONFIGS[@]}"; do
             slurm/prune.sbatch
     )
     echo "  ${NAME} -> job ${JOB}, checkpoint ${PRUNE_OUT}/${NAME}" >&2
-    # Alone on stdout, so a caller can chain on it: NAME JOB
+    # stdout: NAME JOB
     echo "${NAME} ${JOB}"
     MODEL_CONFIGS+=("configs/models/${NAME}.yaml")
 done

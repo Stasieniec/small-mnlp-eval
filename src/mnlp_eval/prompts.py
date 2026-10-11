@@ -1,10 +1,4 @@
-"""Prompt templates, and a hash that pins prompt behaviour into a manifest.
-
-Comparing a compressed model against a baseline is only meaningful if both saw
-byte-identical prompts. Every run records :func:`prompt_hash`, which is derived
-from rendering a fixed set of probe inputs, so any edit to a template changes
-the recorded hash and the two runs stop being comparable by construction.
-"""
+"""Prompt templates, and a hash of their rendered output that each run records."""
 
 from __future__ import annotations
 
@@ -52,9 +46,8 @@ class PromptTemplate(abc.ABC):
 class AlmaPrompt(PromptTemplate):
     """The prompt used by ALMA and ALMA-R.
 
-    Byte-identical to ``get_prompt`` in ``utils/utils.py`` of ``fe1ixxu/ALMA``.
-    Note that the upstream README writes "into" while the upstream code writes
-    "to"; the code is what produced the published scores, so "to" is correct.
+    Same as ``get_prompt`` in ``utils/utils.py`` of ``fe1ixxu/ALMA`` (the code
+    says "to", the upstream README says "into").
     """
 
     name: ClassVar[str] = "alma"
@@ -69,21 +62,14 @@ class AlmaPrompt(PromptTemplate):
 
 
 class Alma2ChatPrompt(AlmaPrompt):
-    """The ALMA prompt wrapped in the model's chat template, as X-ALMA needs.
-
-    The wrapping itself is applied by the loader, which owns the tokenizer.
-    """
+    """The ALMA prompt wrapped in the model's chat template (X-ALMA). The loader applies it."""
 
     name: ClassVar[str] = "alma_chat"
     requires_chat_template: ClassVar[bool] = True
 
 
 class PassthroughPrompt(PromptTemplate):
-    """No prompt at all, for encoder-decoder models such as Marian and NLLB.
-
-    These models select the target language through a forced BOS token or a
-    dedicated checkpoint, not through the input text.
-    """
+    """No prompt, for encoder-decoder models such as Marian and NLLB."""
 
     name: ClassVar[str] = "passthrough"
 
@@ -120,9 +106,7 @@ def get_prompt(name: str) -> PromptTemplate:
         raise KeyError(msg) from None
 
 
-# Fixed probes. Chosen to exercise both translation directions and a
-# non-ASCII source. Changing this tuple invalidates every recorded prompt
-# hash, so it must stay frozen.
+# Fixed probe inputs for prompt_hash. Changing them changes every hash.
 _PROBES: Final[tuple[tuple[str, str], ...]] = (
     ("de-en", "Das ist ein Test."),
     ("en-de", "This is a test."),

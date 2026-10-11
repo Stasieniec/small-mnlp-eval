@@ -1,9 +1,4 @@
-"""The loader registry and the custom-loader contract.
-
-The custom loader is the promise the whole plugin story rests on: a pruned
-model with its own modelling code becomes a fully evaluated system by writing
-one function. These tests hold that contract in place.
-"""
+"""The loader registry and the custom-loader contract."""
 
 from __future__ import annotations
 
@@ -236,8 +231,7 @@ def test_missing_function_lists_available_names(recipe_dir: Path) -> None:
 
 
 def test_causal_translator_uses_left_padding() -> None:
-    # Right padding puts pad tokens between the prompt and the continuation,
-    # which silently corrupts decoder-only generation.
+    # Decoder-only generation needs left padding.
     spec = ModelSpec.from_dict(
         {"name": "x", "loader": "hf_causal", "model_name_or_path": "y", "prompt": "alma"}
     )

@@ -5,23 +5,12 @@
 #       configs/suites/alma10-greedy-300.yaml \
 #       configs/models/alma-7b.yaml configs/models/alma-7b-slimgpt50-multi.yaml
 #
-# Like submit_sweep.sh's default, this uses one generation job per model to
-# load its checkpoint once for all directions. The pilot job has a shorter
-# time limit and skips bench. BenchSpec is a fixed 128-segment protocol, so
-# its cost does not fall with the suite, and it asks for an exclusive four-GPU
-# node. Run slurm/bench.sbatch by hand when efficiency numbers are wanted.
+# One generation job per model. Bench is skipped (run slurm/bench.sbatch by
+# hand); scoring uses slurm/score.sbatch, scoped to one run with --run.
 #
-# Scoring reuses slurm/score.sbatch unchanged, which scopes itself to one run
-# with --run. That guard matters here: `score` with no --run reaches every run
-# directory on disk, including ones still generating.
-#
-# Two optional settings for chaining behind pruning and repair:
-#
-#   AFTER=<job id>  every generation job waits for that job to succeed. The
-#                   model config may then not exist yet: prune and repair
-#                   write it, and the generation job reads it when it starts.
-#   REPORT=0        queue no report job, for when several calls feed one
-#                   report submitted separately at the end.
+#   AFTER=<job id>  generation jobs wait for that job; the model config may
+#                   not exist yet (prune and repair write it).
+#   REPORT=0        queue no report job.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -29,7 +18,7 @@ mkdir -p slurm-logs
 
 CLI=./.venv/bin/mnlp-eval
 if [[ ! -x "${CLI}" ]]; then
-    echo "mnlp-eval not found at ${CLI}; see slurm/README.md" >&2
+    echo "mnlp-eval not found at ${CLI}; see README.md" >&2
     exit 1
 fi
 
@@ -53,8 +42,7 @@ echo "suite ${SUITE_CONFIG}: ${#PAIRS[@]} direction(s) [${PAIRS[*]}]"
 
 DEPENDENCY=()
 if [[ -n "${AFTER:-}" ]]; then
-    # Without the kill flag a failed upstream job leaves this one pending
-    # forever with reason DependencyNeverSatisfied.
+    # Without the kill flag a failed upstream job leaves this one pending forever.
     DEPENDENCY=(--dependency "afterok:${AFTER}" --kill-on-invalid-dep=yes)
 fi
 

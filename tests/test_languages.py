@@ -22,8 +22,7 @@ def test_tables_cover_the_same_languages() -> None:
 
 
 def test_alma_language_names_are_exact() -> None:
-    # These strings go into the prompt verbatim, so they are part of the
-    # evaluation protocol and must match fe1ixxu/ALMA.
+    # Used verbatim in the prompt; must match fe1ixxu/ALMA.
     assert lang_name("de") == "German"
     assert lang_name("is") == "Icelandic"
     assert lang_name("zh") == "Chinese"

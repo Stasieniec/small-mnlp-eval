@@ -7,10 +7,8 @@
 # GENERATION_MODE=direction uses an array with one task per direction instead.
 # The default, model, loads each checkpoint once for all directions.
 #
-# Per model the chain is: generate -> bench -> score. The report waits on
-# every scoring job. Nothing is passed through --export that contains a comma,
-# because commas are Slurm's delimiter between assignments inside an --export
-# value and silently truncate it.
+# Per model: generate, bench, score. The report waits on every scoring job.
+# No --export value may contain a comma (Slurm's separator).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -23,15 +21,14 @@ fi
 
 CLI=./.venv/bin/mnlp-eval
 if [[ ! -x "${CLI}" ]]; then
-    echo "mnlp-eval not found at ${CLI}; see slurm/README.md" >&2
+    echo "mnlp-eval not found at ${CLI}; see README.md" >&2
     exit 1
 fi
 
 SUITE_CONFIG="$1"
 shift
 
-# Resolving here validates the suite before anything is queued, and gives the
-# array size. The CLI is the single source of truth for the direction list.
+# Validates the suite and gives the array size.
 mapfile -t PAIRS < <("${CLI}" suite-directions --suite "${SUITE_CONFIG}")
 N_DIRECTIONS=${#PAIRS[@]}
 if (( N_DIRECTIONS == 0 )); then
@@ -55,7 +52,7 @@ echo "generation mode: ${GENERATION_MODE}"
 BASELINE=${BASELINE:-}
 SCORE_JOBS=()
 for MODEL_CONFIG in "$@"; do
-    # Validates the model config, and fails before queueing if it is broken.
+    # Also validates the model config.
     RUN_DIR=$("${CLI}" run-dir --model "${MODEL_CONFIG}" --suite "${SUITE_CONFIG}")
     NAME=$(basename "${MODEL_CONFIG}" .yaml)
     echo "  ${NAME} -> ${RUN_DIR}"

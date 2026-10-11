@@ -1,17 +1,8 @@
 """Typed configuration objects, YAML loading, and run identity.
 
-Every stage of the pipeline is driven by these objects, and a run's identity is
-a hash of the semantic subset of them. That gives two guarantees the project
-depends on:
-
-* jobs are idempotent, so a resubmitted Slurm array does not duplicate work;
-* two systems cannot be compared unless they were evaluated under identical
-  data and decoding settings, because differing settings produce different run
-  identities and the report stage refuses to mix them.
-
-Unknown keys are rejected rather than ignored. A typo in a teammate's YAML
-should fail immediately, not silently fall back to a default and quietly
-invalidate a comparison.
+A run id is a hash of the model, data and decoding settings, so reruns are
+idempotent and the report only compares runs with the same settings. Unknown
+config keys raise an error.
 """
 
 from __future__ import annotations
@@ -52,13 +43,10 @@ _VALID_DTYPES = frozenset({"float32", "float16", "bfloat16", "auto"})
 _VALID_QUANT_METHODS = frozenset(
     {"bitsandbytes", "gptq", "awq", "compressed_tensors", "hqq", "torchao"}
 )
-#: Compression families this project reports on. ``none`` is the baseline and
-#: is spelled out rather than left implicit, so a system with no compression
-#: block is distinguishable from one whose author forgot to fill it in.
+#: Compression families. ``none`` is the uncompressed baseline.
 _VALID_COMPRESSION_FAMILIES = frozenset({"none", "pruning", "quantization", "distillation"})
 
-#: Value of ``pruned_for`` meaning a subnetwork selected on data covering every
-#: direction at once, as opposed to one pair.
+#: Value of ``pruned_for`` for a subnetwork calibrated on all directions.
 MULTI_DIRECTIONAL = "multi"
 
 
@@ -71,14 +59,7 @@ _NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$")
 
 
 def _validate_name(value: str, context: str) -> None:
-    """Reject a name that cannot safely be part of a path.
-
-    Names are concatenated into the run directory name. A name containing a
-    slash produced a nested directory that ``discover_runs`` could not see, so
-    the run generated and scored but was silently absent from every table; a
-    name containing ``..`` wrote outside the runs root, which on shared cluster
-    scratch means into someone else's tree.
-    """
+    """Reject a name that cannot be used in the run directory name."""
     if not _NAME_PATTERN.match(value):
         msg = (
             f"{context}: name {value!r} is not usable as a directory component. "
@@ -125,8 +106,7 @@ class QuantizationSpec:
             )
             raise ConfigError(msg)
         options = payload.pop("options", None)
-        # Allow either a nested "options" mapping or inline keys, since inline
-        # reads better for the common bitsandbytes case.
+        # Options may be nested under "options" or given inline.
         merged = dict(options or {})
         merged.update(payload)
         return cls(method=method, options=merged)
@@ -134,17 +114,9 @@ class QuantizationSpec:
 
 @dataclass(frozen=True)
 class CompressionSpec:
-    """How a system was compressed, as reported rather than as executed.
+    """Description of how a system was compressed, used by the report.
 
-    Purely descriptive: none of it changes what the model computes, so none of
-    it takes part in run identity. Two configs that differ only here describe
-    the same system and share a run id, which is correct.
-
-    The report reads this block to answer the questions the experiment is
-    built around. Without ``pruned_for`` there is no way to tell a subnetwork
-    pruned on German data from one pruned on Icelandic data once both are
-    sitting in a runs directory, and the transfer matrix cannot be built at
-    all.
+    Not part of the run identity.
     """
 
     family: str = "none"
@@ -153,11 +125,9 @@ class CompressionSpec:
     #: ``"multi"`` for a subnetwork selected on all ten directions, or a list of
     #: the directions its calibration data came from.
     pruned_for: str | list[str] = MULTI_DIRECTIONAL
-    #: Path to a subnetwork descriptor, for the overlap analysis. See
-    #: docs/subnetworks.md.
+    #: Path to a subnetwork descriptor, for the overlap analysis.
     subnetwork: str | None = None
-    #: What repair was applied after pruning, for example a LoRA rank and the
-    #: data it was trained on. Free text, quoted verbatim in the report.
+    #: Repair applied after pruning (free text, shown in the report).
     repair: str = ""
     #: Path to the calibration config used to select the subnetwork.
     calibration: str | None = None
@@ -180,12 +150,10 @@ class CompressionSpec:
         if self.nominal_sparsity is not None and not 0.0 <= self.nominal_sparsity < 1.0:
             msg = (
                 f"compression: nominal_sparsity must be in [0, 1), got {self.nominal_sparsity}. "
-                "It is the fraction removed, not the fraction kept."
+                "It is the fraction removed."
             )
             raise ConfigError(msg)
         for direction in self.target_directions():
-            # Rejects a typo here rather than in the report, where an
-            # unmatched direction silently empties the transfer matrix.
             pair_language(direction)
 
     @property
@@ -236,8 +204,7 @@ class AdapterSpec:
 class ModelSpec:
     """Everything needed to build one translation system.
 
-    ``name`` and ``notes`` are labels and take no part in run identity, so
-    renaming a system does not orphan its existing runs.
+    ``name`` and ``notes`` are not part of the run identity.
     """
 
     name: str
@@ -270,9 +237,7 @@ class ModelSpec:
             payload["quantization"] = QuantizationSpec.from_dict(raw_quant)
         if (raw_adapter := payload.get("adapter")) is not None:
             payload["adapter"] = AdapterSpec.from_dict(raw_adapter)
-        # Unlike the other nested specs this one has a non-None default, so the
-        # payload may already carry a built object, for example when a caller
-        # rebuilds a spec from another spec's fields.
+        # May already be a CompressionSpec.
         if isinstance(raw_compression := payload.get("compression"), dict):
             payload["compression"] = CompressionSpec.from_dict(raw_compression)
         spec = cls(**payload)
@@ -287,8 +252,6 @@ class ModelSpec:
                 f"{', '.join(sorted(_VALID_DTYPES))}"
             )
             raise ConfigError(msg)
-        # Fails fast on an unknown prompt name rather than at generation time,
-        # an hour into a Slurm job.
         try:
             get_prompt(self.prompt)
         except KeyError as exc:
@@ -343,9 +306,7 @@ class DataSpec:
         if not raw:
             msg = "data spec: 'directions' is required"
             raise ConfigError(msg)
-        # Sorted, so reordering a suite's direction list for readability does
-        # not change the run identity and orphan every existing run.
-        # parse_directions already rejects duplicates, so this loses nothing.
+        # Sorted so the order in the config does not affect the run identity.
         payload["directions"] = sorted(str(d) for d in parse_directions(raw))
         spec = cls(**payload)
         if spec.limit is not None and spec.limit <= 0:
@@ -362,12 +323,7 @@ class DataSpec:
 class DecodeSpec:
     """Decoding settings, shared by every system in a comparison.
 
-    ``do_sample`` defaults to false and must be enabled explicitly. Several
-    ALMA-family checkpoints ship a ``generation_config.json`` inherited from
-    Llama 2 that sets ``do_sample``, ``temperature`` and ``top_p``, so the
-    generator always passes these values explicitly rather than inheriting
-    them. ALMA's own README quick-start samples, while its evaluation scripts
-    use pure beam search; the scripts are what produced the published numbers.
+    Defaults follow ALMA's evaluation scripts (beam search, no sampling).
     """
 
     num_beams: int = 5
@@ -381,17 +337,11 @@ class DecodeSpec:
     seed: int = 42
     length_penalty: float = 1.0
     early_stopping: bool = False
-    # Pinned to neutral rather than inherited. Qwen2.5 ships
-    # repetition_penalty 1.1 in its generation config, which suppresses the
-    # degenerate-repetition collapse mode this framework measures as a
-    # behavioural metric. Inheriting it silently would mean the checkpoint
-    # decides how visible its own failure mode is.
+    # 1.0 overrides checkpoint defaults (Qwen2.5 ships 1.1).
     repetition_penalty: float = 1.0
     no_repeat_ngram_size: int = 0
-    # Length-bucketed batching is a large speed win but changes how much
-    # padding each sequence sees, which under beam search can perturb output.
-    # It is part of run identity so a bucketed run is never silently compared
-    # against an unbucketed one. Set false for the ALMA reproduction suite.
+    # Length-bucketed batching. Faster, but padding can change beam search
+    # output slightly. Set false for the ALMA reproduction suite.
     sort_by_length: bool = True
     respect_alma_source_length_override: bool = True
 
@@ -476,9 +426,8 @@ class SuiteSpec:
 class MetricsSpec:
     """Which metrics to compute, and with which checkpoints.
 
-    Groups map onto the three incompatible environments described in
-    docs/environments.md: ``surface`` runs anywhere, ``neural`` needs the COMET
-    environment, ``metricx`` needs the MetricX environment.
+    ``surface`` runs anywhere, ``neural`` needs the COMET environment and
+    ``metricx`` the MetricX environment.
     """
 
     groups: list[str] = field(default_factory=lambda: ["surface", "neural"])
@@ -502,8 +451,6 @@ class MetricsSpec:
             msg = f"metrics spec: unknown group(s) {', '.join(unknown)}"
             raise ConfigError(msg)
         if spec.bootstrap_seed == 0:
-            # sacreBLEU treats a zero seed as unseeded, so the surface
-            # p-values would silently stop being reproducible.
             msg = "metrics spec: bootstrap_seed must be non-zero (sacreBLEU treats 0 as unseeded)"
             raise ConfigError(msg)
         if spec.bootstrap_samples < 1:
@@ -514,12 +461,7 @@ class MetricsSpec:
 
 @dataclass(frozen=True)
 class BenchSpec:
-    """The efficiency measurement protocol.
-
-    Fixed subset, fixed token budget, warmup discarded, repeats taken. Batch
-    size 1 and a batched setting are both measured, because compression methods
-    trade off differently in the memory-bound and compute-bound regimes.
-    """
+    """The efficiency measurement protocol."""
 
     subset_size: int = 128
     batch_sizes: list[int] = field(default_factory=lambda: [1, 8])
@@ -527,13 +469,9 @@ class BenchSpec:
     repeats: int = 3
     max_new_tokens: int = 128
     direction: str = "de-en"
-    # Force min_new_tokens == max_new_tokens so latency does not reward a model
-    # for stopping early. See mnlp_eval.bench.efficiency for the reasoning.
+    # Force min_new_tokens == max_new_tokens.
     force_fixed_length: bool = True
-    # Walk every parameter to record the per-layer structure and the share of
-    # weights that are exactly zero. This is how a structurally pruned model
-    # reports what was removed rather than only how much. One reduction per
-    # tensor, negligible next to loading the model.
+    # Record per-layer structure and the share of exactly-zero weights.
     measure_structure: bool = True
 
     @classmethod
@@ -565,11 +503,7 @@ class RunConfig:
 
     @classmethod
     def from_manifest(cls, manifest: dict[str, Any], output_root: Path) -> RunConfig:
-        """Rebuild a run configuration from a manifest.
-
-        Lets the bench and score stages act on a run directory alone, which is
-        what a Slurm job chain has to work with.
-        """
+        """Rebuild a run configuration from a manifest."""
         config = cls(
             model=ModelSpec.from_dict(manifest["model"]),
             suite=SuiteSpec.from_dict(manifest["suite"]),
@@ -628,13 +562,7 @@ def _plain(value: Any) -> Any:
 
 
 class _StrictLoader(yaml.SafeLoader):
-    """SafeLoader that rejects duplicate mapping keys.
-
-    PyYAML silently takes the last value, so a file setting ``num_beams`` twice
-    quietly used the second. That is exactly the class of mistake the strict
-    unknown-key rejection exists to catch, so it should not slip through the
-    parser.
-    """
+    """SafeLoader that rejects duplicate mapping keys."""
 
 
 def _no_duplicate_keys(
@@ -656,10 +584,8 @@ _StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _n
 def load_yaml_config(path: str | Path, *, _seen: tuple[Path, ...] = ()) -> dict[str, Any]:
     """Load a YAML file, resolving an optional ``extends`` chain.
 
-    ``extends`` holds a path relative to the file that declares it. Values in
-    the child override the parent, and nested mappings are merged rather than
-    replaced. This keeps a compression sweep readable: one base model spec plus
-    a short file per variant.
+    ``extends`` is a path relative to the declaring file. Child values override
+    the parent's; nested mappings are merged.
     """
     resolved = Path(path).expanduser().resolve()
     if resolved in _seen:
@@ -682,10 +608,7 @@ def load_yaml_config(path: str | Path, *, _seen: tuple[Path, ...] = ()) -> dict[
     if parent_ref is None:
         return loaded
     if Path(str(parent_ref)).is_absolute():
-        msg = (
-            f"{resolved}: 'extends' must be relative to this file, not the absolute path "
-            f"{parent_ref!r}. An absolute path makes a config unusable on another machine."
-        )
+        msg = f"{resolved}: 'extends' must be relative to this file, got {parent_ref!r}."
         raise ConfigError(msg)
     parent = load_yaml_config(resolved.parent / str(parent_ref), _seen=(*_seen, resolved))
     return _deep_merge(parent, loaded)

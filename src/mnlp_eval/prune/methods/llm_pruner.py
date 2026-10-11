@@ -1,17 +1,8 @@
 """LLM-Pruner: first-order Taylor importance over coupled weight groups.
 
-To first order, zeroing a set of weights changes the loss by
-``sum_i w_i * dL/dw_i``, so a group scores as the absolute value of that sum.
-The sum goes inside the absolute value: the group is removed as a unit, and
-contributions that cancel cost nothing to lose.
-
-Needs gradients rather than a hook. They are enabled only on the prunable
-projections. Under grouped-query attention the key and value projections are
-not pruned, so their salience is left out of a head's score rather than
-attributed to every query head in the group.
-
-Reference: Ma et al., NeurIPS 2023. The paper's LoRA repair is a separate stage
-here, recorded in ``compression.repair``.
+Ma et al., NeurIPS 2023. A group scores ``|sum_i w_i * dL/dw_i|`` over all its weights. Under
+grouped-query attention, k_proj and v_proj are not pruned and are left out of
+the head score. The paper's LoRA step is the separate repair stage.
 """
 
 from __future__ import annotations
@@ -68,8 +59,7 @@ def _accumulate_salience(
         for module in modules.values():
             module.weight.requires_grad_(True)
 
-    # float32: a signed sum over hundreds of thousands of tokens, whose
-    # cancellation is the thing being measured and what bfloat16 would lose.
+    # Accumulate in float32.
     salience: list[dict[str, Any]] = [
         {
             name: torch.zeros_like(module.weight, dtype=torch.float32)
@@ -104,14 +94,7 @@ def _accumulate_salience(
 
 
 def _masked_labels(batch: dict[str, Any]) -> Any:
-    """Next-token targets, with every position a pad token touches excluded.
-
-    Masking the padded positions alone is not enough. The loss pairs logits at
-    ``i`` with the target at ``i + 1`` and the translators pad on the left, so
-    the last pad position predicts the first real token, from a pad embedding
-    attending to nothing. A target counts only when both it and the position
-    predicting it are real.
-    """
+    """Next-token targets, ignoring a target if it or the position predicting it is padding."""
     labels = batch["input_ids"].clone()
     mask = batch.get("attention_mask")
     if mask is None:

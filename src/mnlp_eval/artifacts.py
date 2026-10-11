@@ -1,12 +1,7 @@
-"""On-disk artifact formats and crash-safe writes.
+"""On-disk artifact formats and atomic writes.
 
-Stages communicate through files rather than function calls, because the three
-metric families in use have mutually incompatible dependency pins and cannot
-share a Python process. See docs/environments.md.
-
-Every write goes through a temporary file and an atomic rename. Slurm jobs get
-killed at wall-clock limits, and a half-written scores file that looks complete
-is worse than no file at all.
+Stages exchange files because the metric environments have incompatible
+dependencies. Every write goes through a temporary file and a rename.
 """
 
 from __future__ import annotations
@@ -33,12 +28,7 @@ __all__ = [
 
 @dataclass
 class Segment:
-    """One evaluated sentence, as stored in ``hyps/<direction>.jsonl``.
-
-    ``raw_output`` is retained deliberately. When a compressed model collapses,
-    the recovered hypothesis alone does not explain what happened, and
-    regenerating a 10,000 sentence run to find out is expensive.
-    """
+    """One evaluated sentence, as stored in ``hyps/<direction>.jsonl``."""
 
     index: int
     source: str
@@ -49,15 +39,11 @@ class Segment:
     parse_flags: list[str] = field(default_factory=list)
     n_source_tokens: int = 0
     n_generated_tokens: int = 0
-    #: Tokens generated after the hypothesis ended, which were discarded. A
-    #: model that will not stop talking costs real inference time without
-    #: affecting quality, so the two are reported separately.
+    #: Tokens generated after the hypothesis ended, which were discarded.
     n_wasted_tokens: int = 0
     #: Generation ran out of budget without emitting EOS.
     hit_token_budget: bool = False
-    #: The hypothesis itself was cut off, which is a quality problem. Distinct
-    #: from hit_token_budget: a model that finished the translation and then
-    #: kept generating hits the budget without truncating the translation.
+    #: The hypothesis itself was cut off by the token budget.
     truncated: bool = False
     source_truncated: bool = False
 
@@ -73,15 +59,8 @@ class Segment:
 def atomic_write_text(path: Path, text: str, *, fsync: bool = True) -> None:
     """Write ``text`` to ``path`` atomically, creating parent directories.
 
-    The temporary name comes from :func:`tempfile.mkstemp`, not from the
-    process id. A PID-derived name is only unique within one host, and Slurm
-    array tasks on different nodes collide: two writers shared a temp file, one
-    truncated the other's content and the survivor renamed an interleaving of
-    both over the target, while the loser died on a missing file. Measured at 1
-    corrupted manifest in 8 concurrent trials.
-
-    ``fsync`` flushes to disk before the rename so a node failure cannot leave
-    a durable rename pointing at unwritten content.
+    Uses a :func:`tempfile.mkstemp` name so concurrent jobs on different nodes
+    do not share a temp file. ``fsync`` flushes before the rename.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
@@ -121,12 +100,7 @@ def write_jsonl(path: Path, records: Iterable[Segment | dict[str, Any]]) -> int:
 
 
 def read_jsonl_dicts(path: Path) -> Iterator[dict[str, Any]]:
-    """Stream raw records from a JSON Lines file.
-
-    ``read_jsonl`` parses into :class:`Segment`, which is right for hypothesis
-    files and wrong for anything else the pipeline writes, such as calibration
-    records that carry a prompt instead of a hypothesis.
-    """
+    """Stream raw dict records from a JSON Lines file (see :func:`read_jsonl` for segments)."""
     with path.open(encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
             stripped = line.strip()
@@ -158,20 +132,12 @@ def read_jsonl(path: Path) -> Iterator[Segment]:
             try:
                 yield Segment.from_dict(payload)
             except TypeError as exc:
-                # A record missing required fields would otherwise surface as a
-                # bare TypeError from dataclass construction, with nothing to
-                # say which file or line produced it.
                 msg = f"{path}:{line_number}: incomplete segment record ({exc})"
                 raise ValueError(msg) from exc
 
 
 def write_lines(path: Path, values: Iterable[str]) -> int:
-    """Write one value per line, matching ALMA's plain-text output format.
-
-    Newlines inside a hypothesis would corrupt the line alignment that
-    sacreBLEU and ``comet-score`` rely on, so they are replaced with spaces.
-    The unmodified text stays available in the JSON Lines file.
-    """
+    """Write one value per line, as in ALMA's plain-text output. Newlines become spaces."""
     cleaned = [value.replace("\n", " ").replace("\r", " ") for value in values]
     atomic_write_text(path, "\n".join(cleaned) + ("\n" if cleaned else ""))
     return len(cleaned)

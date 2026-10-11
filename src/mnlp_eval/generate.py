@@ -1,9 +1,6 @@
-"""Stage A: produce hypotheses and write a self-describing run directory.
+"""Generate stage: translate the test set and write the run directory.
 
-Generation is deliberately separate from scoring. The metric libraries this
-project needs cannot share a process with the generation stack, and beyond that
-constraint the split means a finished run can be re-scored with a new metric
-years later without spending GPU hours regenerating it.
+Scoring is a separate stage since the metric libraries need their own environments.
 """
 
 from __future__ import annotations
@@ -110,15 +107,10 @@ def generate(
         overwrite: Regenerate directions whose hypothesis files already exist.
         deterministic_check: If positive, re-translate this many segments of
             the first direction at batch size 1 without length bucketing, and
-            report how often the result differs. Quantifies the effect of
-            padding on beam search instead of assuming it away.
-        only_directions: Generate just these directions of the suite, leaving
-            the rest for another process. Used to shard one run across a Slurm
-            array. It deliberately does not change the data specification, and
-            so does not change the run identity: every task contributes to the
-            same run rather than creating a one-direction run of its own.
-        translator: A prebuilt translator, used by tests to avoid loading a
-            real model.
+            report how often the result differs.
+        only_directions: Generate just these directions (one Slurm array task
+            per direction). The run identity is unchanged.
+        translator: A prebuilt translator (used by tests).
     """
     paths = RunPaths.for_config(config)
     paths.init_manifest(config)
@@ -189,8 +181,7 @@ def generate(
     if wanted is None:
         paths.record_stage("generate", payload)
     else:
-        # One record per direction, so concurrent array tasks never write the
-        # same file and no record can be lost to a read-modify-write race.
+        # One record per direction, so concurrent array tasks write separate files.
         for direction_name in sorted(wanted):
             shard = dict(payload)
             shard["directions"] = {
@@ -204,13 +195,7 @@ def generate(
 
 
 def resolve_decode_for_direction(decode: DecodeSpec, direction: Direction) -> DecodeSpec:
-    """Return the decode spec as it actually applies to one direction.
-
-    ALMA evaluates every direction at 256 source tokens except zh-en, which it
-    reruns at 512. Resolving that here means the manifest records the cap that
-    was really used, instead of leaving the exception implicit in the
-    translator.
-    """
+    """Return the decode spec for one direction (ALMA uses 512 source tokens for zh-en)."""
     if not decode.respect_alma_source_length_override:
         return decode
     resolved = max_source_length_for(direction, decode.max_source_length)
@@ -246,9 +231,7 @@ def _generate_direction(
     ):
         parsed = extract_hypothesis(output.raw_text, target_marker)
         flags.update(parsed.flags)
-        # The hypothesis was cut only if the budget ran out while still on the
-        # hypothesis line. If anything followed it, the line completed and the
-        # model simply carried on past the answer.
+        # Truncated only if the budget ran out on the hypothesis line itself.
         truncated = output.hit_token_budget and FLAG_EXTRA_LINES not in parsed.flags
         segments.append(
             Segment(
@@ -300,14 +283,7 @@ def _generate_direction(
 
 
 def _wasted_tokens(translator: Translator, output: SegmentOutput, hypothesis: str) -> int:
-    """Count tokens generated after the hypothesis ended.
-
-    An instruction-tuned model that was not fine-tuned to stop after the
-    translation will happily fill the whole token budget with commentary. Those
-    tokens cost inference time and contribute nothing, which makes this an
-    efficiency signal rather than a quality one, and it is one of the clearer
-    ways a poorly distilled student differs from ALMA.
-    """
+    """Count tokens generated after the hypothesis ended."""
     if not hypothesis or not output.n_generated_tokens:
         return 0
     position = output.raw_text.find(hypothesis)
@@ -327,12 +303,7 @@ def _deterministic_check(
     direction: Direction,
     limit: int,
 ) -> dict[str, Any]:
-    """Re-translate a slice unbatched and report how often output changes.
-
-    Length-bucketed batching gives every sequence a different amount of
-    padding, and beam search is not exactly invariant to that. Rather than
-    claiming the effect is negligible, the framework measures it.
-    """
+    """Re-translate a slice unbatched and report how often output changes (padding effect)."""
     testset = load_testset(config.suite.data, direction)
     sources: Sequence[str] = testset.sources[:limit]
     marker = get_prompt(config.model.prompt).target_marker(direction)

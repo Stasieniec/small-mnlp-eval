@@ -1,29 +1,10 @@
-"""The escape hatch for models that need their own loading code.
+"""Models loaded by a user-supplied entrypoint (e.g. pruned checkpoints).
 
-Structured pruning usually cannot be expressed as a checkpoint plus a config:
-the architecture itself changed, so loading needs the code that produced it.
-Rather than absorbing that code into the framework, a spec points at a function
-and the framework calls it.
-
-The contract is deliberately forgiving about the return value, because the
-point is that a teammate writes a handful of lines and gets the whole
-pipeline. Accepted returns:
-
-* a :class:`~mnlp_eval.models.base.Translator`, for full control
-* a ``(model, tokenizer)`` tuple, the common case
-* a mapping with ``model`` and ``tokenizer`` keys, optionally ``kind`` and
-  ``extra``
-
-Whatever is returned, the tokenizer must behave like a Hugging Face one. The
-generation loop reads ``pad_token_id``, ``eos_token_id``, ``eos_token`` and
-``padding_side``, and calls the object itself, ``pad()`` and ``decode()``. A
-bare callable is not enough, and the resulting AttributeError says nothing
-about this contract, so it is stated here.
-
-The ``checkpoint`` kwarg name is load-bearing when ``model_name_or_path`` is
-unset: it is what the framework inspects to find the checkpoint on disk, and
-naming it something else leaves checkpoint size, bits per parameter and the
-disk compression ratio empty.
+The entrypoint may return a :class:`~mnlp_eval.models.base.Translator`, a
+``(model, tokenizer)`` tuple, or a mapping with ``model`` and ``tokenizer``
+keys (optionally ``kind`` and ``extra``). The tokenizer must behave like a
+Hugging Face tokenizer. The ``checkpoint`` kwarg, if given, is used to measure
+the checkpoint on disk.
 """
 
 from __future__ import annotations
@@ -50,8 +31,7 @@ __all__ = ["load_custom"]
 
 def _import_entrypoint(entrypoint: str) -> Any:
     module_name, _, attribute = entrypoint.partition(":")
-    # A recipe usually lives in the repository checkout rather than an
-    # installed package, so the working directory has to be importable.
+    # Recipes live in the repository checkout.
     cwd = str(Path.cwd())
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
@@ -79,11 +59,7 @@ def _infer_kind(model: Any) -> str:
     return "causal"
 
 
-#: Fields the framework applies for the built-in loaders but cannot apply for
-#: a custom one, because the entrypoint owns loading. Setting them is almost
-#: always a mistake, and for a compression project a silently ignored
-#: `quantization:` block means evaluating an unquantized model under a
-#: quantized model's name.
+#: Fields only the built-in loaders apply; setting them with a custom loader is an error.
 _UNAPPLIED_FIELDS = (
     "dtype",
     "quantization",
@@ -152,9 +128,7 @@ def load_custom(spec: ModelSpec, prompt: PromptTemplate | None = None) -> Transl
 
     kind = kind or _infer_kind(model)
     translator_class = Seq2SeqTranslator if kind == "seq2seq" else CausalTranslator
-    # kwargs.checkpoint first: a pruned or repaired system extends the dense
-    # config and so inherits its model_name_or_path, and measuring that would
-    # report the dense model's disk size for every compressed one.
+    # kwargs.checkpoint first, since pruned configs inherit the dense model_name_or_path.
     checkpoint = spec.kwargs.get("checkpoint") or spec.model_name_or_path
     return translator_class(
         spec=spec,

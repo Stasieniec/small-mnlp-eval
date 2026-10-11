@@ -1,13 +1,9 @@
 """The calibration pass and the FLAP criterion.
 
-Statistics must ignore padding, or a pad activation the model would never see
-there shrinks the variance the criterion reads. And the bias compensation must
-recover the mean output it removed, which is why the method claims to work
-without fine-tuning; if it does not, the bias apparatus is dead weight.
-
-The ``al-am`` search is checked against what the official code does: squared
-attention scores, standardisation within each layer and module, heads weighed
-by parameter count, and a cut nearest the parameter budget.
+Statistics ignore padding, and the bias compensation restores the mean output.
+The ``al-am`` search follows the official code: squared attention scores,
+standardisation within each layer and module, heads weighted by parameter
+count, and a cut nearest the parameter budget.
 """
 
 from __future__ import annotations
@@ -115,8 +111,7 @@ class TestWithTorch:
         model = tiny_llama()
         groups = describe_layers(model)
         stats = collect_input_stats(model, iter(token_batches()))
-        # Freeze one FFN channel's fluctuation. FLAP's claim is that a channel
-        # which does not vary carries nothing a bias cannot replace.
+        # A channel with constant output can be replaced by a bias.
         entry = stats[model.model.layers[0].mlp.down_proj]
         entry.m2 = entry.m2.clone()
         entry.m2[7] = 0.0
@@ -196,8 +191,7 @@ class TestWithTorch:
         loaded, _ = load_model(tmp_path)
 
         assert abs(subnetwork.overall_sparsity - 0.5) < 0.05
-        # The compensation bias has to survive the round trip, or the loaded
-        # model is a different function from the one that was pruned.
+        # The compensation bias survives the round trip.
         assert loaded.model.layers[0].mlp.down_proj.bias is not None
         assert loaded.model.layers[0].self_attn.o_proj.bias is not None
 

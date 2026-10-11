@@ -1,13 +1,8 @@
 """LoRA repair of a pruned checkpoint.
 
-What matters, in order: the loss is taken on the reference and eos only, so
-repair teaches translation rather than prompt echoing; the repaired checkpoint
-keeps the pruned shapes and loads through the same recipe; and the emitted
-model config inherits everything from the pruned one except the checkpoint and
-the repair note, so the report pairs the two systems.
-
-Uses a real fast tokenizer built in memory, so the tokenizer save and load path
-is the production one. No GPU, network or weights.
+Loss on the reference and eos only; the repaired checkpoint keeps the pruned
+shapes; the emitted model config inherits from the pruned one. Uses a real
+fast tokenizer built in memory. No GPU, network or weights.
 """
 
 from __future__ import annotations
@@ -125,7 +120,7 @@ def test_length_grouping_uses_every_segment_exactly_once() -> None:
 
 
 def test_held_out_takes_an_english_sentence_with_all_its_translations() -> None:
-    """A split by record leaks: ALMA's data is multi-way parallel both ways."""
+    """ALMA's data is multi-way parallel, so the split is not by record."""
     records = []
     for index in range(40):
         english = f"english {index}"

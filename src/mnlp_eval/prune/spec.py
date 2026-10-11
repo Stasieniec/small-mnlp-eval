@@ -1,8 +1,7 @@
-"""What a pruning run is, and running it.
+"""Pruning run spec, and running it.
 
-Method, sparsity, allocation and calibration set are what tell two subnetworks
-apart. All four reach the descriptor and the emitted model config, so a run is
-interpretable without the config that produced it.
+Method, sparsity, allocation and calibration set are recorded in the
+descriptor and the generated model config.
 """
 
 from __future__ import annotations
@@ -83,7 +82,7 @@ class PruneSpec:
         if not 0.0 <= self.sparsity < 1.0:
             msg = (
                 f"prune spec: sparsity must be in [0, 1), got {self.sparsity}. "
-                "It is the fraction removed, not the fraction kept."
+                "It is the fraction removed."
             )
             raise ConfigError(msg)
         if self.calibration_text not in CALIBRATION_TEXTS:
@@ -212,8 +211,7 @@ def run_pruning(
     if "cache_fingerprint" in calibration_provenance:
         provenance["notes"] += f", cache {calibration_provenance['cache_fingerprint']}"
     provenance["notes"] += f"; removes {parameter_sparsity:.2%} of attention and MLP weights"
-    # Beside the weights, so the checkpoint carries its own shapes, and under
-    # subnetworks/, where the overlap analysis reads it.
+    # Written beside the weights (for loading) and under subnetworks/ (for overlap).
     for path in (target / "subnetwork.json", subnetwork_path):
         descriptor = write_descriptor(path, plan, groups, **provenance)
 
@@ -240,8 +238,6 @@ def run_pruning(
         "calibration_provenance": calibration_provenance,
         "requested_sparsity": spec.sparsity,
         "unit_sparsity": round(descriptor.overall_sparsity, 6),
-        # What al-am's sparsity means, and what makes it comparable with the
-        # unit budgets, under which it equals the unit sparsity up to rounding.
         "parameter_sparsity": round(parameter_sparsity, 6),
         "components": descriptor.summary()["components"],
     }
@@ -254,14 +250,14 @@ def _select(spec: PruneSpec, model: Any, groups: Any, batches: Any) -> Any:
     from mnlp_eval.prune.methods import flap, llm_pruner, slimgpt
 
     if spec.method == "slimgpt":
-        # SlimGPT compacts as it goes; see its module docstring.
+        # SlimGPT compacts as it goes.
         return slimgpt.prune(
             model, batches(), groups, sparsity=spec.sparsity, allocation=spec.allocation
         )
 
     if spec.method == "flap":
         if spec.allocation == flap.AL_AM:
-            # Before the calibration pass, so a grouped-query model fails fast.
+            # Check before the calibration pass.
             flap.require_multi_head(groups)
         stats = collect_input_stats(model, iter(batches()))
         if spec.allocation == flap.AL_AM:
@@ -287,11 +283,7 @@ def _select(spec: PruneSpec, model: Any, groups: Any, batches: Any) -> Any:
 def _parameter_sparsity(plan: Any, groups: Any) -> float:
     """Fraction of the decoder's attention and MLP projection weights removed.
 
-    Counted in units of the hidden size, which pruning never touches and which
-    every projection has on one side: a query head holds ``head_dim`` of them
-    in each of q_proj and o_proj, a key/value head ``head_dim`` in each of
-    k_proj and v_proj, an FFN channel one in each of gate_proj, up_proj and
-    down_proj. Biases, norms and embeddings are left out.
+    Counted in units of the hidden size. Biases, norms and embeddings are left out.
     """
     dense = kept = 0
     for group, layer in zip(groups, plan, strict=True):
@@ -305,15 +297,10 @@ def _parameter_sparsity(plan: Any, groups: Any) -> float:
 def _write_model_config(
     spec: PruneSpec, checkpoint: Path, subnetwork_dir: Path, config_dir: Path
 ) -> Path:
-    """Emit the model YAML that makes the checkpoint a system the harness runs.
+    """Write the model config for the pruned checkpoint into ``config_dir``.
 
-    It goes beside the other model configs, not into the checkpoint, because
-    ``extends`` resolves relative to the declaring file: a config sitting with
-    the weights on scratch could never find ``alma-7b.yaml``.
-
-    Always routes through the recipe loader. A uniform run would load without
-    it, but one path keeps the sweep from being two artifacts that fail
-    differently.
+    It extends ``alma-7b.yaml`` (resolved relative to the config file) and
+    loads through ``recipes.pruned:load``.
     """
     import yaml
 

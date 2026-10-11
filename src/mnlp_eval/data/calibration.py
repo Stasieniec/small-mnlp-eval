@@ -1,31 +1,10 @@
 """Deterministic calibration and repair sets drawn from ALMA's training data.
 
-Structured pruning picks which units to keep by running forward passes over a
-calibration set, and LoRA repair trains on one. Both therefore belong to the
-experimental design rather than to whoever happens to run the pruning script:
-if the multi-directional and the pair-specific subnetworks are calibrated on
-sets of different sizes, or drawn with different seeds, the comparison between
-them measures the calibration data as much as the pruning criterion.
-
-This module emits those sets once, deterministically, with a fingerprint, so
-every subnetwork in the sweep is selected on data that can be named in the
-report and rebuilt from the config.
-
-Two decisions worth stating:
-
-**Prompts, not bare sentences.** Each record carries the exact ALMA prompt the
-model sees at evaluation time. A pruning criterion calibrated on raw source
-sentences is calibrated on a distribution the model is never asked to run on,
-and the instruction prefix is a substantial fraction of a short segment.
-
-**Balanced by construction.** Every direction contributes exactly the same
-number of segments. Icelandic has 2,009 training pairs against Russian's
-15,000, so anything proportional would make the multi-directional calibration
-set almost free of the language the experiment cares about most.
-
-The one exception is a repair set. ``segments_per_direction: null`` takes every
-eligible segment, which is what ALMA's own LoRA recipe trains on, so a repaired
-model is fine-tuned on the distribution the dense model was.
+Each record holds the full ALMA prompt used at evaluation time. Calibration
+sets have the same number of segments per direction (Icelandic has 2,009
+training pairs, Russian 15,000). Repair sets use ``segments_per_direction: null``
+to take every eligible segment, as ALMA's LoRA recipe does. Each set is
+written with a manifest and a fingerprint.
 """
 
 from __future__ import annotations
@@ -63,18 +42,13 @@ class CalibrationSpec:
     #: None takes every eligible segment, unbalanced. For repair sets only.
     segments_per_direction: int | None = 128
     seed: int = 1234
-    #: Segments outside this source-character range are skipped before
-    #: sampling. Very short lines are titles and boilerplate, and very long
-    #: ones dominate a calibration batch's compute without adding coverage.
+    #: Source length range in characters; other segments are skipped.
     min_source_chars: int = 20
     max_source_chars: int = 600
-    #: Prompt template applied to each source. Must match the one the model is
-    #: evaluated under, or the calibration distribution is not the eval one.
+    #: Prompt template, the same one used at evaluation.
     prompt: str = "alma"
-    #: A test set whose sources are removed before drawing. For the repair set,
-    #: which takes everything and so cannot avoid the two exact matches with
-    #: WMT22 by sampling. What was removed is listed in the manifest, and the
-    #: contamination check still runs on what remains.
+    #: Test set whose sources are removed before drawing (used for the repair
+    #: set). Removed segments are listed in the manifest.
     exclude_test_sources: str | None = None
 
     @classmethod
@@ -109,7 +83,6 @@ class CalibrationSpec:
             msg = f"calibration spec: {exc.args[0]}"
             raise ConfigError(msg) from None
         for direction in self.parsed_directions:
-            # ALMA's parallel data is organised by English-centric pair.
             pair_language(direction)
 
     @property
@@ -132,11 +105,8 @@ def build_calibration_set(
 ) -> dict[str, Any]:
     """Write the calibration set described by ``spec`` and return its manifest.
 
-    ``contamination_check`` names a test set to check the drawn segments
-    against. ALMA's training and test data are separate releases, so a
-    collision would mean a mistake upstream or a mistake here, but the cost of
-    checking is one download and the cost of not checking is a result nobody
-    can defend. Pass None to skip it.
+    ``contamination_check`` names a test set to check the drawn sources against;
+    None skips the check.
     """
     target = out_dir / spec.name
     target.mkdir(parents=True, exist_ok=True)
@@ -170,14 +140,11 @@ def build_calibration_set(
                 f"{direction}: only {len(eligible)} of {len(pairs)} segments fall within "
                 f"[{spec.min_source_chars}, {spec.max_source_chars}] source characters, "
                 f"but {spec.segments_per_direction} are requested. Lower "
-                "segments_per_direction, or widen the character range. Do not raise it "
-                "for one direction only: the set is balanced by construction and an "
-                "uneven one silently changes what the pruning criterion optimises."
+                "segments_per_direction, or widen the character range."
             )
             raise ValueError(msg)
 
-        # Seeded per direction, so adding a direction to a suite does not
-        # change which segments the others drew.
+        # Seeded per direction so adding a direction does not change the others.
         rng = random.Random(f"{spec.seed}:{direction}")
         chosen = sorted(rng.sample(range(len(eligible)), wanted))
         records = [
@@ -239,11 +206,8 @@ def build_calibration_set(
 def _load_pairs(spec: CalibrationSpec, direction: Direction) -> list[tuple[str, str]]:
     """Read one direction out of an ALMA-style parallel corpus.
 
-    ALMA's parallel data is keyed by English-centric pair, so ``en-de`` and
-    ``de-en`` both live under the ``de-en`` config, and the rows hold a
-    ``translation`` struct rather than a column named after the direction. The
-    test sets use the other convention, which is why this does not reuse
-    ``data.loaders``.
+    Configs are keyed by English-centric pair (``en-de`` and ``de-en`` both
+    under ``de-en``) and rows hold a ``translation`` struct.
     """
     try:
         from datasets import load_dataset
@@ -279,11 +243,7 @@ def _load_pairs(spec: CalibrationSpec, direction: Direction) -> list[tuple[str, 
 
 
 def _test_sources(dataset: str, direction: Direction) -> set[str]:
-    """Every source sentence of one test-set direction, stripped.
-
-    Unlike the contamination check, an unreachable test set is an error here:
-    a set built to exclude the test sources must not be written without them.
-    """
+    """Every source sentence of one test-set direction, stripped. Raises if unreachable."""
     from mnlp_eval.config import DataSpec
     from mnlp_eval.data import load_testset
 
@@ -294,11 +254,7 @@ def _test_sources(dataset: str, direction: Direction) -> set[str]:
 
 
 def _check_contamination(spec: CalibrationSpec, target: Path, dataset: str) -> dict[str, Any]:
-    """Count calibration sources that also appear in the test set.
-
-    Anything above zero invalidates every quality number produced from a
-    subnetwork calibrated on this set, so it is checked rather than assumed.
-    """
+    """Count calibration sources that also appear in the test set."""
     from mnlp_eval.artifacts import read_jsonl_dicts
     from mnlp_eval.config import DataSpec
     from mnlp_eval.data import load_testset

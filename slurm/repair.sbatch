@@ -6,20 +6,11 @@
 #SBATCH --time=08:00:00
 #SBATCH --output=slurm-logs/repair-%j.out
 #
-# LoRA-repair one pruned checkpoint and merge the adapter into it. Once per
-# repair config, after the prune job that wrote its source.
+# LoRA-repair one pruned checkpoint and merge the adapter into it.
 #
-# The recipe is one epoch over every eligible segment of ALMA-Human-Parallel,
-# about a hundred thousand sequences. On one A100 that is an estimated one to
-# two hours for a 20 percent model and less for 50, with gradient
-# checkpointing keeping memory well under 40 GB. The eight-hour limit is
-# headroom for that estimate being wrong. The job prints a progress line every
-# ten optimizer steps with throughput and elapsed time, so the real figure is
-# in the log after the first few minutes.
-#
-# The job exits non-zero if held-out loss did not fall, after writing the
-# checkpoint and repair.json, so evaluation chained behind it with afterok
-# does not run on a repair that did nothing.
+# One epoch over ALMA-Human-Parallel (about 100k sequences), roughly one to two
+# hours on an A100. Exits non-zero if held-out loss did not fall, so afterok
+# jobs do not run.
 set -euo pipefail
 
 module load 2025

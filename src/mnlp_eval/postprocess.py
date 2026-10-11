@@ -1,15 +1,8 @@
-"""Turn raw model output into a single hypothesis, with an audit trail.
+"""Extract a single hypothesis from the generated continuation.
 
-ALMA's ``clean_outputstring`` recovers a translation by splitting the full
-decoded sequence on the target-language cue inside three nested ``try`` blocks,
-and returns an empty string when all of them fail. For a project whose subject
-is degradation that is the worst possible behaviour: a collapsed model scores a
-legitimate-looking zero.
-
-Here, extraction operates on the generated continuation only (the caller slices
-the prompt off by input length), and every hypothesis carries flags describing
-what had to be done to recover it. The counts surface in the behavioural
-metrics, so parsing trouble is reported rather than absorbed.
+Each hypothesis carries flags for the cleanup that was needed (skipped blank
+lines, echoed target cue, extra lines, trailing repetition). The flag counts
+are reported with the behavioural metrics.
 """
 
 from __future__ import annotations
@@ -110,12 +103,7 @@ def detect_repetition(
     min_repeats: int = 4,
     max_unit_tokens: int = 8,
 ) -> str | None:
-    """Return the repeated unit if ``text`` ends in a repeated n-gram.
-
-    Detects the classic collapse mode of aggressively compressed models, where
-    generation degenerates into a cycle. Returns the shortest repeating unit,
-    or ``None`` when the tail looks healthy.
-    """
+    """Return the shortest repeated unit if ``text`` ends in a repeated n-gram, else None."""
     tokens = text.split()
     if min_repeats < 2 or len(tokens) < min_repeats:
         return None

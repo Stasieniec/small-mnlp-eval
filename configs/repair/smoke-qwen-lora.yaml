@@ -1,8 +1,5 @@
-# Plumbing check for the repair stage, on the smoke-qwen-slimgpt20 checkpoint.
-# Trains on the de calibration set, which carries references too: about 240
-# segments, 30 optimizer steps, a minute or two. Its numbers mean nothing, so
-# the held-out gate is off; a few steps of noise must not cancel the smoke
-# evaluation chained behind it.
+# Smoke test for the repair stage on smoke-qwen-slimgpt20: about 240 segments,
+# 30 optimizer steps. The held-out loss check is off.
 name: smoke-qwen-slimgpt20-lora
 source: configs/models/smoke-qwen-slimgpt20.yaml
 data: data/calibration/pair-de

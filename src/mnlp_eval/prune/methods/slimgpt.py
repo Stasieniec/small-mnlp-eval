@@ -1,40 +1,20 @@
-"""SlimGPT: layer-wise structured pruning by optimal brain surgery.
+"""SlimGPT: layer-wise structured pruning by optimal brain surgery (Ling et al., NeurIPS 2024).
 
-A head is the ``head_dim`` columns of ``o_proj`` it writes into, and an FFN
-channel is one column of ``down_proj``. For a projection ``y = W x`` with
-damped input Hessian ``H = E[x x^T]``, removing the column set ``S`` and
-refitting every other column by least squares costs ``tr(W_S M^-1 W_S^T)`` in
-squared output error, for ``M = [H^-1]_SS``, and the refit is
-``W <- W - W_S M^-1 [H^-1]_S,:`` (equation 5 of the paper). Pruning here is
-that weight update, not a mask; without it this is an expensive ranking.
+A head is the ``head_dim`` columns of ``o_proj`` it writes into, an FFN channel
+one column of ``down_proj``. With damped input Hessian ``H = E[x x^T]`` and
+``M = [H^-1]_SS``, removing columns ``S`` costs ``tr(W_S M^-1 W_S^T)`` and the
+remaining columns are updated by ``W <- W - W_S M^-1 [H^-1]_S,:`` (eq. 5).
 
-Units go greedily. Each step re-scores every survivor against the current
-weights and the current inverse, which after removing ``S`` is the Schur
-complement ``H^-1 - [H^-1]_:,S M^-1 [H^-1]_S,:``, the inverse of the Hessian
-restricted to the survivors. Any sequence of such steps ends at the weights one
-joint removal of the final set would give, the least-squares optimum over all
-surviving columns, so the order decides only which units go. Heads leave one
-per step, or under grouped-query one per key/value group per step, since every
-group must keep the same number. Channels leave in batches of
-:data:`CHANNEL_BATCH`, scored once per batch.
+Units are removed greedily: after each step the survivors are re-scored on the
+updated weights and the Schur complement ``H^-1 - [H^-1]_:,S M^-1 [H^-1]_S,:``.
+Heads go one per step (one per key/value group under GQA), channels in batches
+of :data:`CHANNEL_BATCH`. Layers are pruned in order on the outputs of the
+already-pruned layers, and the FFN Hessian is taken after attention is pruned.
 
-No column order is involved. SparseGPT's Cholesky sweep, which an earlier
-version of this module used, compensates a column only with the columns after
-it and scores it on the trailing submatrix: the last heads of ``o_proj`` got no
-compensation at all and late columns looked more important than early ones.
-
-Pruning is sequential twice over. Layers go in order, each on the activations
-the already-pruned layers before it produce, and within a layer the FFN's
-Hessian is taken after the attention block has been pruned and compensated.
-Compensation solves for the error a projection makes given its actual input.
-
-Departures from the paper: its FFN batch shrinks from 1024 to 8 channels as
-the layer empties, where a fixed 128 is within noise in its ablation. Its
-per-layer schedule is the ``log-increase`` allocation in ``prune/budget.py``.
-``global`` is not the paper's: it ranks layers on single-shot costs taken from
-the dense model before anything is removed.
-
-Reference: Ling et al., NeurIPS 2024, after Frantar and Alistarh's SparseGPT.
+Differences from the paper: a fixed FFN batch of 128 (the paper shrinks it
+from 1024 to 8). The paper's per-layer schedule is the ``log-increase``
+allocation in ``prune/budget.py``; ``global`` is our addition and ranks layers
+on single-shot costs from the dense model.
 """
 
 from __future__ import annotations
@@ -50,12 +30,10 @@ from mnlp_eval.prune.groups import LayerGroups, decoder_layers
 
 __all__ = ["CHANNEL_BATCH", "DAMPING", "prune"]
 
-#: Ridge on the Hessian diagonal, as a fraction of its mean. A calibration set
-#: smaller than the input width leaves it singular. SparseGPT's default.
+#: Ridge on the Hessian diagonal, as a fraction of its mean (SparseGPT's default).
 DAMPING = 0.01
 
-#: FFN channels removed per greedy step. Each step costs a rank-128 downdate of
-#: an 11008-wide inverse on ALMA-7B, so one channel per step is unaffordable.
+#: FFN channels removed per greedy step.
 CHANNEL_BATCH = 128
 
 #: The projections whose input channels index a group, in forward order.
@@ -70,10 +48,9 @@ def prune(
     sparsity: float,
     allocation: str = "uniform",
 ) -> tuple[LayerPlan, ...]:
-    """Allocate, select, compensate and compact, and return what was kept.
+    """Allocate, select, compensate and compact each layer; return the kept units.
 
-    Does its own compaction, unlike the other two: a layer's compensation has
-    to be applied before the next layer sees its input.
+    Compacts as it goes, since each layer's input depends on the pruned layers before it.
     """
     layers = decoder_layers(model)
 
@@ -87,12 +64,8 @@ def prune(
             channel_scores=channel_scores,
         )
     else:
-        # These read only how many units a layer has, so there is no dense
-        # scoring pass.
         head_keep, channel_keep = keep_counts(groups, sparsity=sparsity, allocation=allocation)
 
-    # Captured afresh rather than kept from the scoring pass, so at most two
-    # sets of hidden states are alive at once.
     inputs = _layer_inputs(model, batches)
     plan: list[LayerPlan] = []
     for position, (layer, group, heads, channels) in enumerate(
@@ -114,12 +87,9 @@ def prune(
 def _dense_scores(
     model: Any, batches: Sequence[dict[str, Any]], groups: tuple[LayerGroups, ...]
 ) -> tuple[list[list[float]], list[list[float]]]:
-    """Single-shot removal costs on the dense model, for a global budget.
+    """Single-shot removal costs on the dense model, for the global budget.
 
-    A global budget compares layers before any of them is changed. The dense
-    activations have to be advanced as well: scoring every layer on the
-    embeddings ranks layers 1 onward on the wrong input, which is what the
-    first 50 percent pilot did and collapsed.
+    Each layer is scored on the dense outputs of the layers before it.
     """
     import torch
 
@@ -158,11 +128,7 @@ def _prune_layer(
     heads: int,
     channels: int,
 ) -> LayerPlan:
-    """Prune one layer's heads, then its channels, leaving cut columns zero.
-
-    A projection that loses nothing is not touched, so a layer kept whole is
-    bit-identical afterwards.
-    """
+    """Prune one layer's heads, then its channels, leaving cut columns zero."""
     import torch
 
     kept_heads = tuple(range(group.num_heads))
@@ -172,10 +138,8 @@ def _prune_layer(
         weight = projection.weight.data.to(torch.float64, copy=True)
         kept_heads = _prune_heads(weight, inverse, dead, group, heads)
         del inverse
-        # A zero o_proj column silences its head exactly: a head's q, k and v
-        # rows reach nothing but its own columns, and grouped-query keeps k
-        # and v whole. So the FFN Hessian below already sees the pruned
-        # attention block, and compaction can wait for the end of the layer.
+        # Zeroed o_proj columns silence the head, so the FFN Hessian below
+        # already sees the pruned attention block.
         projection.weight.data.copy_(weight)
         del weight
 
@@ -195,16 +159,10 @@ def _prune_layer(
 def _layer_inputs(
     model: Any, batches: Sequence[dict[str, Any]]
 ) -> list[tuple[Any, dict[str, Any], Any]]:
-    """Capture what enters the first decoder layer, with its keyword arguments.
+    """Capture the first decoder layer's input and keyword arguments per batch.
 
-    Running the whole model once per layer is the obvious way to get a layer's
-    input and is unaffordable. The mask, rotary embeddings and position ids are
-    captured once and replayed. The forward pass is abandoned at the first
-    layer, so nothing below it is computed.
-
-    The batch's own 2D padding mask travels alongside, because the mask inside
-    the keyword arguments is the expanded causal one and carries no separable
-    record of which positions were padding.
+    Also keeps the batch's 2D padding mask, since the mask in the kwargs is the
+    expanded causal one.
     """
     import torch
 
@@ -213,12 +171,11 @@ def _layer_inputs(
     padding: Any = None
 
     class Reached(Exception):
-        """Abandons the forward pass once the first layer's input is in hand."""
+        """Stops the forward pass at the first layer."""
 
     def hook(_module: Any, args: tuple[Any, ...], kwargs: dict[str, Any]) -> None:
         hidden = args[0] if args else kwargs["hidden_states"]
         rest = {key: value for key, value in kwargs.items() if key != "hidden_states"}
-        # A cache would grow across replays and change the second pass.
         rest.pop("past_key_value", None)
         rest.pop("past_key_values", None)
         rest["use_cache"] = False
@@ -250,14 +207,8 @@ def _hessians(
 ) -> dict[str, Any]:
     """Accumulate ``X X^T / tokens`` in float32 for the named projections.
 
-    Padding is excluded, as in collect.py. Left padding with ``pad_token =
-    eos_token`` makes the padded positions eos embeddings, and an unfiltered
-    ``X X^T`` tilts toward them; here that reaches further than it does in a
-    mean and a variance, because the Hessian drives the compensating weight
-    update as well as the ranking.
-
-    The forward pass stops at the last projection asked for, so an ``o_proj``
-    Hessian alone does not pay for the FFN.
+    Padding positions are excluded. The forward pass stops at the last
+    projection requested.
     """
     import torch
 
@@ -269,7 +220,7 @@ def _hessians(
     mask: Any = None
 
     class Collected(Exception):
-        """Abandons the layer's forward pass once every input asked for is in."""
+        """Stops the layer's forward pass once all inputs are collected."""
 
     def hook(name: str) -> Any:
         def capture(_module: Any, args: tuple[Any, ...]) -> None:
@@ -321,18 +272,10 @@ def _advance(
 
 
 def _inverse_hessian(hessian: Any) -> tuple[Any, Any]:
-    """``H^-1`` of the damped Hessian in float64, and which channels were dead.
+    """``H^-1`` of the damped Hessian in float64, and a mask of dead channels.
 
-    A channel that is zero throughout the calibration set leaves a zero on the
-    diagonal, which is not invertible. Neutralising its row and column is
-    SparseGPT's handling; they are zeroed again in the inverse, exactly rather
-    than to rounding, so no removal ever moves a dead column's weight. The cost
-    functions ignore that weight, which the calibration set never multiplies by
-    anything but zero, so a dead channel is free to remove.
-
-    float64 because the greedy loop downdates this matrix tens of times, and
-    because ``H`` is ill-conditioned: its condition number after damping is
-    bounded only by about 100 times its width.
+    Dead channels (zero diagonal) are handled as in SparseGPT, and their rows
+    and columns are zeroed in the inverse so they cost nothing to remove.
     """
     import torch
 
@@ -364,12 +307,7 @@ def _inverse_hessian(hessian: Any) -> tuple[Any, Any]:
 
 
 def _head_costs(weight: Any, inverse: Any, dead: Any, heads: Sequence[int], head_dim: int) -> Any:
-    """``tr(W_S M^-1 W_S^T)`` for each head's columns ``S``, batched over heads.
-
-    ``M`` is the head's diagonal block of the current inverse, so the cost is
-    that of removing the head with every other surviving column free to
-    compensate, whatever its position.
-    """
+    """``tr(W_S M^-1 W_S^T)`` for each head's columns ``S``, batched over heads."""
     import torch
 
     device = weight.device
@@ -392,8 +330,7 @@ def _head_costs(weight: Any, inverse: Any, dead: Any, heads: Sequence[int], head
 def _channel_costs(weight: Any, inverse: Any, dead: Any) -> Any:
     """``||W[:, j]||^2 / [H^-1]_jj`` per column, zero for a dead channel.
 
-    Undefined for a column already removed, whose row of the inverse is zero;
-    the caller masks those.
+    Undefined for removed columns; the caller masks those.
     """
     import torch
 
@@ -407,9 +344,7 @@ def _prune_heads(
     """Remove heads greedily down to ``keep``, compensating after each step.
 
     Updates ``weight`` and ``inverse`` in place and returns the kept heads.
-    Every step re-scores the survivors. Grouped-query attention removes the
-    cheapest survivor of every key/value group together, so the groups stay
-    even; multi-head removes the single cheapest.
+    Under GQA, the cheapest head of every key/value group goes in each step.
     """
     import torch
 
@@ -445,8 +380,7 @@ def _prune_channels(
     """Remove columns greedily down to ``keep``, ``batch`` at a time.
 
     Updates ``weight`` and ``inverse`` in place and returns the kept columns.
-    Each step re-scores the survivors and removes the cheapest batch jointly;
-    ties go to the lower index.
+    Ties go to the lower index.
     """
     import torch
 
@@ -470,15 +404,11 @@ def _prune_channels(
 
 
 def _remove_columns(weight: Any, inverse: Any, columns: Any) -> float:
-    """Remove ``columns`` jointly and compensate the rest exactly, in place.
+    """Remove ``columns`` jointly and update the rest in place.
 
-    ``W -= W_S M^-1 [H^-1]_S,:`` is the least-squares optimum over every other
-    column, and ``H^-1 -= [H^-1]_:,S M^-1 [H^-1]_S,:`` leaves the inverse of
-    the Hessian over the survivors, for ``M = [H^-1]_SS``. Both go through the
-    Cholesky factor of ``M``. The removed columns and their rows of the inverse
-    are then set to exactly zero, which they already are up to rounding.
-
-    Returns the cost, the increase in squared output error per token.
+    Applies ``W -= W_S M^-1 [H^-1]_S,:`` and ``H^-1 -= [H^-1]_:,S M^-1 [H^-1]_S,:``
+    with ``M = [H^-1]_SS``, via the Cholesky factor of ``M``. Returns the
+    increase in squared output error per token.
     """
     import torch
 
@@ -500,7 +430,7 @@ def _remove_columns(weight: Any, inverse: Any, columns: Any) -> float:
 
 
 def _check_costs(costs: Any, unit: str) -> None:
-    """Refuse costs that would rank units on a numerical failure."""
+    """Raise if any cost is non-finite or negative."""
     import torch
 
     if not bool(torch.isfinite(costs).all()) or bool((costs < 0).any()):

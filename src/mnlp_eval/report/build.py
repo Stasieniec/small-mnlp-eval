@@ -1,10 +1,6 @@
 """Assemble a report from a directory of runs.
 
-Runs are grouped by their measurement conditions, and each group becomes its
-own section. A group with more than one member is a comparison; a report
-containing more than one group means somebody evaluated systems under different
-settings, and saying so loudly is more useful than silently averaging over the
-difference.
+Runs are grouped by measurement settings, with one report section per group.
 """
 
 from __future__ import annotations
@@ -199,7 +195,7 @@ def _missing_notes(members: list[RunSummary]) -> list[str]:
     if missing_neural:
         lines.append(
             f"COMET scores are missing for: {', '.join(sorted(missing_neural))}. "
-            "Run the score stage in the COMET environment, see docs/environments.md."
+            "Run the score stage in the COMET environment (see README.md)."
         )
     if missing_bench:
         lines.append(
@@ -221,11 +217,7 @@ def _significance_table(
     """Paired bootstrap of every system against the baseline, per direction."""
     from mnlp_eval.metrics.significance import paired_bootstrap_surface
 
-    # Resolved the same way _find_baseline resolves it in tables.py. The two
-    # diverged: a typo'd --baseline made the ratio columns blank while the
-    # significance table quietly tested against the spec-declared baseline
-    # instead, so the reader compared ratios and p-values from different
-    # reference systems.
+    # Same resolution as _find_baseline in tables.py.
     reference = _resolve_baseline(members, baseline)
     if reference is None:
         return None
@@ -305,8 +297,6 @@ def _comet_delta(
             baseline_scores, candidate_scores, n_samples=n_samples, seed=seed
         )
     except (ImportError, ValueError):
-        # A missing numpy or a degenerate score list leaves the COMET column
-        # blank rather than failing the whole report.
         return None
 
 

@@ -1,4 +1,4 @@
-"""Three report figures from the grid's long.csv and subnetwork masks.
+"""Report figures from the grid's long.csv and subnetwork masks.
 
 - ``repair.png``: COMET before and after LoRA repair, one row per repaired system.
 - ``per_direction_40.png``: COMET minus dense per direction at 40 percent, the
@@ -38,7 +38,7 @@ DIRECTIONS = [
 ]
 LANGUAGE = {d: d.replace("en-", "").replace("-en", "") for d in DIRECTIONS}
 
-# Reference palette (dataviz skill): categorical slots 1-2, light surface, text tokens.
+# Colours: two categorical slots, light background.
 SURFACE = "#fcfcfb"
 INK = "#0b0b0b"
 INK_2 = "#52514e"
@@ -284,7 +284,7 @@ def main() -> int:
         ),
     ]
     for name, draw in figures:
-        # A figure whose systems are not all there yet is skipped, not fatal.
+        # Skip a figure whose systems are missing.
         try:
             draw(plots / name)
         except (KeyError, FileNotFoundError) as exc:

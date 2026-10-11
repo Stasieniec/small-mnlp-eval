@@ -1,11 +1,6 @@
-"""COMET-family metrics, run through the Python API rather than the CLI.
+"""COMET-family metrics through the Python API, keeping per-segment scores.
 
-ALMA scores COMET by shelling out to ``comet-score`` and reading the last line
-of stdout with ``tail -n 1``. Using the API instead keeps the per-segment
-scores, which is what makes bootstrap significance testing possible without
-re-running a 3.5 billion parameter metric model over the whole test set.
-
-Requires the COMET environment. See docs/environments.md.
+Requires the COMET environment.
 """
 
 from __future__ import annotations
@@ -17,29 +12,20 @@ from mnlp_eval.metrics.base import MetricScore
 
 __all__ = ["accepts_references", "clear_model_cache", "is_reference_free", "score_comet"]
 
-#: Loading a COMET checkpoint costs tens of seconds and several GB, so models
-#: are held across directions within one scoring process.
+#: Loaded models, reused across directions.
 _MODEL_CACHE: dict[str, Any] = {}
 
-#: Last-resort fallback for a checkpoint that exposes neither its input
-#: segments nor requires_references().
+#: Name-based fallback when a checkpoint exposes neither input segments nor
+#: requires_references().
 _REFERENCE_FREE_MARKERS = ("kiwi", "-qe", "_qe")
 
 
 def accepts_references(model_name: str, model: Any = None) -> bool:
     """Whether a checkpoint should be given the reference translation.
 
-    ``requires_references()`` is the wrong question, and asking it silently
-    downgraded XCOMET to quality estimation. In unbabel-comet 2.2.7,
-    ``UnifiedMetric.requires_references()`` returns true only when the model
-    was trained on ``["mt", "ref"]`` exactly, meaning it *cannot* work without
-    a reference. XCOMET is trained on ``["mt", "src", "ref"]``, so it
-    truthfully answers false, and dropping the reference on that basis made it
-    take its documented QE fallback branch: a plausible score on the same
-    scale, reported under the name of the reference-based metric.
-
-    The right question is whether the model accepts a reference at all, which
-    its input segments answer directly.
+    Checks ``hparams.input_segments`` first. ``requires_references()`` returns
+    false for XCOMET (trained on ``["mt", "src", "ref"]``) in unbabel-comet
+    2.2.7, even though it uses a reference.
     """
     segments = getattr(getattr(model, "hparams", None), "input_segments", None)
     if segments is not None:
@@ -63,19 +49,16 @@ def _load(model_name: str) -> Any:
         return _MODEL_CACHE[model_name]
     from comet import download_model, load_from_checkpoint
 
-    # download_model resolves from the local cache when HF_HUB_OFFLINE is set,
-    # which is how this runs on compute nodes without network access.
+    # Resolves from the local cache when HF_HUB_OFFLINE is set.
     try:
         checkpoint = download_model(model_name)
     except KeyError as exc:
-        # COMET raises "Model ... not supported by COMET" for ANY failure to
-        # fetch the checkpoint, including the usual one: a compute node with no
-        # network and a cache that does not hold it.
+        # COMET reports any fetch failure as "not supported by COMET".
         import os
 
         msg = (
-            f"COMET could not fetch {model_name}. Despite COMET's wording this is almost "
-            "always a missing cache entry, not an unsupported model: HF_HUB_OFFLINE="
+            f"COMET could not fetch {model_name}, usually because it is not in the "
+            "cache: HF_HUB_OFFLINE="
             f"{os.environ.get('HF_HUB_OFFLINE', 'unset')}, HF_HOME="
             f"{os.environ.get('HF_HOME', 'unset')}. Prefetch it on a login node with the "
             "same HF_HOME: .venv-comet/bin/mnlp-eval prefetch --metrics <metrics.yaml>"
@@ -111,13 +94,7 @@ def score_comet(
     batch_size: int = 32,
     gpus: int = 1,
 ) -> MetricScore:
-    """Score one direction with one COMET checkpoint.
-
-    Empty hypotheses are passed through unchanged rather than filtered. A
-    collapsed model should be penalised by the metric, not excused by the
-    harness, and the empty rate is reported separately so the cause stays
-    visible.
-    """
+    """Score one direction with one COMET checkpoint. Empty hypotheses are scored as is."""
     if len(sources) != len(hypotheses):
         msg = f"{len(sources)} sources but {len(hypotheses)} hypotheses"
         raise ValueError(msg)

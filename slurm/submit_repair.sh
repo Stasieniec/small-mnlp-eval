@@ -3,13 +3,11 @@
 #
 #   bash slurm/submit_repair.sh configs/repair/slimgpt-20-multi-lora.yaml [more.yaml ...]
 #
-# AFTER=<job id> makes every job wait for that job to succeed, which is how a
-# repair queues behind the prune job that writes its source checkpoint:
+# AFTER=<job id> makes every job wait for that job, e.g. the prune job:
 #
 #   AFTER=12345 bash slurm/submit_repair.sh configs/repair/slimgpt-20-multi-lora.yaml
 #
-# Prints one line per job, "<name> <job id>", after the human-readable ones,
-# so a caller can chain on it. PARTITION=gpu_h100 overrides the partition.
+# Prints "<name> <job id>" per job on stdout. PARTITION=gpu_h100 overrides the partition.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -17,7 +15,7 @@ mkdir -p slurm-logs
 
 CLI=./.venv/bin/mnlp-eval
 if [[ ! -x "${CLI}" ]]; then
-    echo "mnlp-eval not found at ${CLI}; see slurm/README.md" >&2
+    echo "mnlp-eval not found at ${CLI}; see README.md" >&2
     exit 1
 fi
 if [[ $# -eq 0 ]]; then
@@ -28,13 +26,12 @@ fi
 REPAIR_OUT=${REPAIR_OUT:-/scratch-shared/${USER}/checkpoints}
 DEPENDENCY=()
 if [[ -n "${AFTER:-}" ]]; then
-    # Without the kill flag a failed upstream job leaves this one pending
-    # forever with reason DependencyNeverSatisfied.
+    # Without the kill flag a failed upstream job leaves this one pending forever.
     DEPENDENCY=(--dependency "afterok:${AFTER}" --kill-on-invalid-dep=yes)
 fi
 
 for CONFIG in "$@"; do
-    # Validates the spec and fails before queueing if it is broken.
+    # Also validates the spec.
     NAME=$("${CLI}" repair-spec --spec "${CONFIG}" --field name)
     DATA=$("${CLI}" repair-spec --spec "${CONFIG}" --field data)
     SOURCE=$("${CLI}" repair-spec --spec "${CONFIG}" --field source)

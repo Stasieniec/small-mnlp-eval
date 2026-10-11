@@ -1,14 +1,7 @@
-"""How much two subnetworks agree on which units to keep.
+"""Overlap between subnetworks: Jaccard per component and layer, with its chance level.
 
-The number that matters is not the raw overlap. Two independently chosen
-subnetworks that each keep half of every layer already share half of what they
-keep, so a Jaccard index of 0.33 is what chance produces and reporting it as
-evidence of shared structure would be wrong. Every figure here is therefore
-paired with its chance expectation and the excess over it.
-
-Comparisons are per component and per layer as well as pooled, because
-"attention heads agree, FFN channels do not" is a finding and an average over
-the two hides it.
+Two random 50% selections already have a Jaccard of about 0.33, so each figure
+is reported with the chance expectation and the excess over it.
 """
 
 from __future__ import annotations
@@ -32,8 +25,7 @@ class OverlapResult:
     union: int
     jaccard: float
     chance_jaccard: float
-    #: Observed minus chance. Zero means the two selections agree no more than
-    #: two independent selections of the same sizes would.
+    #: Observed minus chance Jaccard.
     excess: float
     overlap_coefficient: float
     per_layer_jaccard: list[float]
@@ -59,11 +51,7 @@ class OverlapResult:
 
 
 def component_overlap(left: Component, right: Component) -> OverlapResult:
-    """Compare two selections of the same component type.
-
-    Positions are pooled across layers, so a head kept in layer 3 by one
-    subnetwork and in layer 7 by the other does not count as agreement.
-    """
+    """Compare two selections of the same component type, pooling (layer, index) positions."""
     if left.total != right.total:
         msg = (
             f"component {left.name!r} has {left.total} positions per layer in one "
@@ -114,11 +102,7 @@ def component_overlap(left: Component, right: Component) -> OverlapResult:
 def compare_subnetworks(
     subnetworks: list[Subnetwork],
 ) -> dict[str, Any]:
-    """Compare every pair, per component.
-
-    Returns a plain dictionary so the result can be written to JSON and read
-    by a notebook without importing anything from this package.
-    """
+    """Compare every pair, per component. Returns a JSON-serialisable dict."""
     if len(subnetworks) < 2:
         msg = "overlap analysis needs at least two subnetwork descriptors"
         raise ValueError(msg)

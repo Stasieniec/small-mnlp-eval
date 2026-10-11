@@ -63,16 +63,14 @@ def _resolve_model(spec: ModelSpec) -> tuple[ModelSpec, dict[str, Any]]:
     reference = str(spec.model_name_or_path)
     local = Path(reference).expanduser()
     if local.is_dir():
-        # Local checkpoints have no immutable Hub revision. Inventory detects edits
-        # without rereading GB of weights on every cache validation.
+        # Local checkpoints: record file sizes and mtimes to detect edits.
         inventory = {
             str(path.relative_to(local)): [path.stat().st_size, path.stat().st_mtime_ns]
             for path in sorted(local.rglob("*"))
             if path.is_file()
         }
         return spec, {"path": str(local.resolve()), "inventory": inventory}
-    # Offline jobs resolve the prefetched snapshot; online jobs resolve the current
-    # revision. Load that SHA afterwards so main cannot move between the two calls.
+    # Resolve the revision SHA once and load that exact revision.
     import os
 
     from huggingface_hub import snapshot_download
@@ -138,15 +136,11 @@ def generate_calibration(
     suite: SuiteSpec,
     out: str | Path,
 ) -> dict[str, Any]:
-    """Generate the union once, loading one dense model for all missing directions.
+    """Generate dense-model continuations for every missing direction of a calibration set.
 
-    The input directory is already the union (e.g. multi-10dir). A prompt that
-    repeats within a direction is translated once, but every input record keeps
-    its own cached record, so the generated arm holds exactly the records the
-    reference arm does. ALMA's parallel data has such repeats, sometimes with
-    different references (one in dir-ru-en-1280).
-    Completed directions survive interruptions. A mismatched cache requires a new
-    output directory, rather than silently mixing translations from different runs.
+    Repeated prompts within a direction are translated once, but every input
+    record gets its own output record. Completed directions are kept when
+    resuming; a cache with different settings needs a new output directory.
     """
     from mnlp_eval.prune.collect import refuse_contaminated
 

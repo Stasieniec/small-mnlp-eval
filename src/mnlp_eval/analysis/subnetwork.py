@@ -1,14 +1,7 @@
-"""Subnetwork descriptors: which units a pruning run decided to keep.
+"""Subnetwork descriptors: which units a pruning run kept.
 
-A pruned checkpoint records what survived but not which positions it came
-from, and the overlap half of RQ3 is entirely a question about positions. Two
-50 percent subnetworks have the same shape whether they kept the same heads or
-disjoint ones, so the selection has to be written down at pruning time. This
-module defines that file and refuses to load a malformed one.
-
-The format is deliberately dumb: JSON, integer indices, no framework types. A
-teammate's pruning script writes it in a few lines and the analysis never
-needs to import their code. See docs/subnetworks.md.
+A descriptor is a JSON file with integer indices per component and layer, written
+at pruning time and used for the overlap analysis (RQ3).
 """
 
 from __future__ import annotations
@@ -38,9 +31,8 @@ class SubnetworkError(ValueError):
 class Component:
     """One prunable unit type, and which of its positions were kept.
 
-    ``kept`` is keyed by layer index as a string, matching JSON's object keys.
-    A component that is not per-layer, whole layers being the obvious case,
-    uses the single key ``"*"``.
+    ``kept`` is keyed by layer index as a string. A component that is not
+    per-layer (e.g. whole layers) uses the single key ``"*"``.
     """
 
     name: str
@@ -79,13 +71,7 @@ class Subnetwork:
 
     @property
     def overall_sparsity(self) -> float:
-        """Sparsity across every component, weighted by position count.
-
-        A crude summary: it counts an attention head and an FFN channel as one
-        unit each, and they are not the same size. Reported so two descriptors
-        can be checked for being roughly comparable, not as a compression
-        ratio. Use the bench stage for that.
-        """
+        """Sparsity across every component, counting each unit (head or channel) as one."""
         kept = sum(component.n_kept for component in self.components.values())
         total = sum(component.n_total for component in self.components.values())
         return 1.0 - (kept / total) if total else 0.0
@@ -153,12 +139,7 @@ def load_subnetwork(path: str | Path) -> Subnetwork:
 
 
 def load_subnetworks(paths: list[str | Path]) -> list[Subnetwork]:
-    """Read several descriptors, rejecting duplicate names.
-
-    Two descriptors under one name would silently overwrite each other in the
-    overlap matrix, which reads as a subnetwork having perfect overlap with
-    itself under a different label.
-    """
+    """Read several descriptors, rejecting duplicate names."""
     loaded = [load_subnetwork(path) for path in paths]
     seen: dict[str, Path | None] = {}
     for subnetwork in loaded:
@@ -183,7 +164,6 @@ def _parse_component(name: str, value: Any, source: Path) -> Component:
 
     raw_kept = value.get("kept")
     if isinstance(raw_kept, list):
-        # A component that is not per-layer, such as whole layers.
         per_layer: dict[str, Any] = {"*": raw_kept}
     elif isinstance(raw_kept, dict):
         per_layer = raw_kept
@@ -218,9 +198,8 @@ def _parse_component(name: str, value: Any, source: Path) -> Component:
             raise SubnetworkError(msg)
         if not indices:
             msg = (
-                f"{source}: component {name!r} layer {layer!r} kept nothing. An empty "
-                "layer is a removed layer, which belongs in a 'layers' component "
-                "rather than as an empty entry here."
+                f"{source}: component {name!r} layer {layer!r} kept nothing. Record "
+                "removed layers in a 'layers' component."
             )
             raise SubnetworkError(msg)
         kept[str(layer)] = tuple(sorted(unique))

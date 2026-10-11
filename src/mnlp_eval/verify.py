@@ -1,13 +1,7 @@
-"""Test-set provenance check.
-
-The framework loads test sets from the Hub while ALMA's published numbers were
-produced from JSON files committed to their repository. If the two ever differ,
-every comparison with their tables is quietly wrong. This makes that a checkable
-claim rather than an assumption: it compares the Hub dataset against ALMA's own
-files, segment by segment, and reports the first difference it finds.
+"""Compare the Hub test set with ALMA's committed test files, segment by segment.
 
 ALMA's layout: ``human_written_data/<nonEnglish><en>/test.<src>-<tgt>.json``,
-a single JSON array of ``{"translation": {"<src>": ..., "<tgt>": ...}}`` objects.
+a JSON array of ``{"translation": {"<src>": ..., "<tgt>": ...}}`` objects.
 """
 
 from __future__ import annotations

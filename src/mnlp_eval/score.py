@@ -1,9 +1,7 @@
-"""Stage B: score an existing run directory.
+"""Score stage: read hypotheses and write one scores file per metric group.
 
-Reads hypotheses from disk and writes one scores file per metric group. Groups
-this interpreter cannot serve are recorded as pending rather than raising, so a
-scoring job in the generation environment still produces surface metrics and
-says plainly what is missing and why.
+Groups whose dependencies are not installed in this environment are recorded
+as pending.
 """
 
 from __future__ import annotations
@@ -42,18 +40,14 @@ def score_run(
     manifest = paths.read_manifest()
     directions = [parse_direction(item) for item in manifest["suite"]["data"]["directions"]]
 
-    # Refuse to score a run that has not finished generating. Scoring the
-    # subset that happens to be on disk produced a macro average over fewer
-    # directions than the table claimed, recorded it as completed, and then
-    # skipped rescoring it as "already scored".
+    # Refuse to score a run that has not finished generating.
     expected = {str(direction) for direction in directions}
     present = {str(direction) for direction in directions if paths.hyps_jsonl(direction).is_file()}
     if present != expected and not allow_partial:
         missing = ", ".join(sorted(expected - present)) or "none"
         msg = (
             f"{paths.root.name}: generation is incomplete, missing {missing}. "
-            "Scoring now would average over fewer directions than the suite claims. "
-            "Finish generation, or pass allow_partial to score the subset deliberately."
+            "Finish generation, or pass allow_partial to score the subset."
         )
         raise RuntimeError(msg)
 
@@ -125,13 +119,7 @@ def _score_group(
 def _score_neural(
     paths: RunPaths, metrics: MetricsSpec, directions: Sequence[Direction]
 ) -> dict[str, Any]:
-    """Score every direction with one COMET checkpoint before loading the next.
-
-    The loop is model-outer, direction-inner, and the cache is cleared between
-    models. With the checkpoint loop inside the direction loop and no eviction,
-    all three checkpoints in the full metrics config (580M, 580M and 3.5B) stayed
-    resident on the GPU after the first direction.
-    """
+    """Score every direction with one COMET checkpoint, then free it and load the next."""
     from mnlp_eval.metrics.comet import clear_model_cache
 
     per_direction: dict[str, Any] = {}
@@ -234,12 +222,7 @@ def _metricx_for(
 
 
 def _macro_average(per_direction: dict[str, Any]) -> dict[str, Any]:
-    """Unweighted mean over directions, the convention in MT result tables.
-
-    A metric is aggregated only if every scored direction reported it, so a
-    partially failed scoring pass cannot produce an average that silently
-    covers fewer directions than the table claims.
-    """
+    """Unweighted mean over directions, only for metrics every direction reported."""
     if not per_direction:
         return {}
 

@@ -1,24 +1,12 @@
 """Turning importance scores into a selection under a sparsity budget.
 
-``uniform`` gives every layer the same fraction, and is the only allocation
-that leaves every layer a width a stock ``LlamaConfig`` can describe.
-``global`` standardises within each layer, pools, and takes the best overall.
-``log-increase`` is SlimGPT's Incremental Pruning Ratio: the fraction removed
-rises logarithmically with depth, so early layers, whose errors every later
-layer inherits, lose the least.
+``uniform`` removes the same fraction from every layer. ``global`` standardises
+scores within each layer (z-score), pools them and keeps the best overall.
+``log-increase`` is SlimGPT's Incremental Pruning Ratio, where the fraction
+removed grows logarithmically with depth.
 
-Standardising before pooling is not optional: raw importance scales with
-activation magnitude, which grows with depth. It also means the allocation
-follows the *shape* of a layer's score distribution, not its level, since every
-layer comes out zero-mean. A layer loses more when it holds units clearly worse
-than the rest of its own, not when all of its units score badly.
-
-Heads and channels are budgeted separately. FLAP's own search, ``al-am``, pools
-the two and trades a head against its parameter count in channels; it needs
-FLAP's per-column scores, so it lives in ``prune/methods/flap.py`` and is
-refused here.
-
-Pure Python over floats, so this is testable without torch.
+Heads and channels are budgeted separately. FLAP's ``al-am`` search is in
+``prune/methods/flap.py``.
 """
 
 from __future__ import annotations
@@ -43,15 +31,11 @@ __all__ = [
 #: How a sparsity budget is spread over the layers.
 ALLOCATIONS = ("uniform", "global", "log-increase")
 
-#: Allocations that are one criterion's own structure search rather than a
-#: budget over its scores, and the method each belongs to. A prune spec accepts
-#: them only with that method; :func:`allocate` and :func:`keep_counts` never.
+#: Method-specific allocations and the method each belongs to. Not handled here.
 METHOD_ALLOCATIONS = {"al-am": "flap"}
 
 #: ``r_0`` of the Incremental Pruning Ratio as a share of the target sparsity.
-#: The paper does not state it, but the curve plotted in its Figure 4 (LLaMA-7B
-#: at 50 percent) fits equation 6 exactly with r_0 = 0.125, a quarter of the
-#: target.
+#: Not stated in the paper; Figure 4 (LLaMA-7B at 50%) fits r_0 = 0.125.
 FIRST_LAYER_SHARE = 0.25
 
 
@@ -108,9 +92,7 @@ def keep_counts(
 ) -> tuple[list[int], list[int]]:
     """How many heads and FFN channels each layer keeps, without choosing them.
 
-    For a criterion that picks units itself, layer by layer, once it knows how
-    many to keep. ``uniform`` and ``log-increase`` need no scores; ``global``
-    compares layers and so does.
+    Only ``global`` needs scores.
     """
     _check_budget(allocation, sparsity)
     if allocation == "global":
@@ -119,7 +101,7 @@ def keep_counts(
             raise PruneError(msg)
         heads, channels = head_scores, channel_scores
     else:
-        # Placeholders: these allocations read only how many units a layer has.
+        # Placeholders: only the unit counts are used.
         heads = [[0.0] * group.num_heads for group in groups]
         channels = [[0.0] * group.intermediate for group in groups]
     _check_shapes(heads, groups, "head", "num_heads")
@@ -159,7 +141,7 @@ def _counts(
         raw = [size - round(size * ratio) for size, ratio in zip(sizes, ratios, strict=True)]
     else:
         raw = _global_counts(scores, sparsity)
-    # A layer that keeps nothing is a removed layer, a different experiment.
+    # Every layer keeps at least one unit (one per key/value group under GQA).
     return [
         min(size, max(step, count if step == 1 else round(count / step) * step))
         for count, size, step in zip(raw, sizes, steps, strict=True)
@@ -170,12 +152,10 @@ def log_increase_ratios(layers: int, sparsity: float) -> list[float]:
     """Per-layer fractions removed under SlimGPT's Incremental Pruning Ratio.
 
     Equation 6 of Ling et al. (NeurIPS 2024):
-    ``r_i = r_0 + (r_last - r_0) * log(i + 1) / log(n)``. ``r_0`` is
-    :data:`FIRST_LAYER_SHARE` of the target, read off the paper's Figure 4, and
-    ``r_last`` is solved so the mean over layers equals ``sparsity``. Every
-    layer holds the same number of units in a dense Llama, so the mean ratio is
-    the overall unit sparsity. On ALMA-7B's 32 layers that is 0.05 rising to
-    0.254 at 20 percent, 0.075 to 0.381 at 30, and 0.10 to 0.508 at 40.
+    ``r_i = r_0 + (r_last - r_0) * log(i + 1) / log(n)``, with ``r_0`` =
+    :data:`FIRST_LAYER_SHARE` of the target and ``r_last`` chosen so the mean
+    equals ``sparsity``. On ALMA-7B's 32 layers: 0.05 to 0.254 at 20%, 0.075 to
+    0.381 at 30%, 0.10 to 0.508 at 40%.
     """
     if layers < 1:
         msg = "log-increase needs at least one layer"
@@ -195,11 +175,7 @@ def log_increase_ratios(layers: int, sparsity: float) -> list[float]:
 
 
 def _global_counts(scores: Sequence[Sequence[float]], sparsity: float) -> list[int]:
-    """Counts implied by pooling layer-standardised scores and taking the best.
-
-    Equivalent to a global top-k, since standardising within a layer is
-    monotone and preserves its internal order.
-    """
+    """Per-layer counts from a global top-k over layer-standardised scores."""
     pooled = [(value, index) for index, layer in enumerate(scores) for value in _standardise(layer)]
     total = len(pooled)
     keep = total - round(total * sparsity)
@@ -212,11 +188,7 @@ def _global_counts(scores: Sequence[Sequence[float]], sparsity: float) -> list[i
 
 
 def _standardise(values: Sequence[float]) -> list[float]:
-    """Centre and scale one layer's scores.
-
-    All-equal scores say nothing about which unit to drop, so they standardise
-    to zeros rather than winning or losing the budget on a rounding artifact.
-    """
+    """Centre and scale one layer's scores. All-equal scores give zeros."""
     spread = statistics.pstdev(values)
     if spread == 0.0:
         return [0.0] * len(values)

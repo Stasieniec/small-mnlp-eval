@@ -28,9 +28,7 @@ class CausalTranslator(Translator):
 
     @property
     def add_special_tokens(self) -> bool:
-        # A chat template already emits BOS, so letting the tokenizer add
-        # another one shifts every position by a token and quietly degrades
-        # output. Only relevant for X-ALMA style prompts.
+        # The chat template already emits BOS (X-ALMA style prompts).
         return not self.prompt.requires_chat_template
 
     def build_input(self, direction: Direction, source: str) -> str:
@@ -50,8 +48,6 @@ def load_hf_causal(spec: ModelSpec, prompt: PromptTemplate | None = None) -> Cau
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     prompt = prompt or get_prompt(spec.prompt)
-    # ModelSpec.validate already enforces this for every non-custom loader;
-    # restating it here keeps the guarantee local and checkable.
     if not spec.model_name_or_path:
         msg = f"model {spec.name}: loader {spec.loader!r} requires 'model_name_or_path'"
         raise ValueError(msg)
@@ -90,8 +86,6 @@ def load_hf_causal(spec: ModelSpec, prompt: PromptTemplate | None = None) -> Cau
         model = PeftModel.from_pretrained(model, spec.adapter.path, revision=spec.adapter.revision)
         extra["adapter"] = spec.adapter.path
         if spec.adapter.merge:
-            # Merging removes the adapter's runtime overhead, which would
-            # otherwise show up as a latency penalty unrelated to compression.
             model = model.merge_and_unload()
             extra["adapter_merged"] = True
 

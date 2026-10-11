@@ -1,12 +1,8 @@
 """SlimGPT's update against the closed-form optimum, and its greedy selection.
 
-Every weight update here has a closed form to compare against. Removing the
-columns ``S`` of ``W`` and refitting the rest under the damped Hessian ``Hd``
-minimises ``tr((W - W') Hd (W - W')^T)`` subject to ``W'[:, S] = 0``. Setting
-the gradient in the kept columns ``K`` to zero gives ``W'_K Hd_KK = W Hd_:,K``.
-A sweep that compensates a column only with the columns after it misses this
-for every set but a trailing one, and the last heads of ``o_proj`` then get no
-compensation at all, which is the bug these tests were written against.
+Removing columns ``S`` of ``W`` and refitting the rest under the damped Hessian
+``Hd`` minimises ``tr((W - W') Hd (W - W')^T)`` subject to ``W'[:, S] = 0``,
+which gives ``W'_K Hd_KK = W Hd_:,K`` for the kept columns ``K``.
 """
 
 from __future__ import annotations
@@ -132,8 +128,7 @@ def test_the_last_heads_are_compensated() -> None:
     naive = weight.clone()
     naive[:, removed] = 0.0
 
-    # A sweep in index order has no later column to push the last heads'
-    # error onto, so it equals naive zeroing there.
+    # A one-sided sweep would equal naive zeroing for the last heads.
     assert error(weight, updated, matrix) < 0.5 * error(weight, naive, matrix)
     assert not torch.allclose(updated[:, :24], weight[:, :24])
 
@@ -208,9 +203,8 @@ def test_head_selection_does_not_depend_on_position() -> None:
         inputs.index_select(1, columns), weight.index_select(1, columns)
     )
 
-    # Head i of the permuted layer is head order[i] of the original. Scoring
-    # on a trailing submatrix makes late heads look more important than
-    # early ones, which this catches.
+    # Head i of the permuted layer is head order[i] of the original, so scores
+    # must not depend on head position.
     assert torch.allclose(moved_single, single[torch.as_tensor(order)], rtol=1e-10)
     assert sorted(order[head] for head in moved_kept) == list(kept)
     assert moved_loss == pytest.approx(loss, rel=1e-10)
@@ -237,11 +231,7 @@ def test_channel_selection_does_not_depend_on_position() -> None:
 
 
 def twins(tokens: int, width: int, block: int) -> Any:
-    """Independent inputs, except that block 1 nearly duplicates block 0.
-
-    Either twin alone is nearly free to remove, since the other absorbs it.
-    Removing both is expensive, which a single-shot ranking cannot see.
-    """
+    """Independent inputs, except that block 1 nearly duplicates block 0."""
     import torch
 
     generator = torch.Generator().manual_seed(11)

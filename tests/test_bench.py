@@ -1,9 +1,4 @@
-"""FLOPs estimation and efficiency accounting.
-
-``bench/`` had no coverage at all, and a mutation halving the peak-FLOPS table
-or dropping the beam multiplier from the decode term survived the whole suite.
-Every compression ratio in the report divides by numbers computed here.
-"""
+"""FLOPs estimation and efficiency accounting."""
 
 from __future__ import annotations
 
@@ -27,9 +22,8 @@ def test_greedy_flops_are_two_per_parameter_per_token() -> None:
 
 
 def test_beam_search_multiplies_both_terms() -> None:
-    # transformers expands input_ids by the beam count BEFORE prefill, so
-    # prefill is beam-expanded too. Charging beams only against decode
-    # understated prefill by more than 5x in measurement.
+    # transformers expands input_ids by the beam count before prefill, so
+    # prefill is beam-expanded too.
     single = estimate_generation_flops(
         PARAMETERS, prefill_positions=100, generated_tokens=50, num_beams=1
     )
@@ -41,8 +35,7 @@ def test_beam_search_multiplies_both_terms() -> None:
 
 
 def test_padded_positions_drive_the_prefill_term() -> None:
-    # The estimate must use the padded batch width, not the sum of unpadded
-    # token counts, because prefill computes over the padding.
+    # Prefill computes over the padding, so use the padded batch width.
     unpadded = estimate_generation_flops(
         PARAMETERS, prefill_positions=33, generated_tokens=0, num_beams=1
     )
@@ -55,9 +48,7 @@ def test_padded_positions_drive_the_prefill_term() -> None:
 
 
 def test_encoder_decoder_returns_nothing_rather_than_a_wrong_number() -> None:
-    # Their cost splits between an encoder that runs once unexpanded and a
-    # decoder that runs beam-expanded, and non_embedding_parameters covers
-    # both, so one 2N figure would overstate decode roughly twofold.
+    # The encoder runs once unexpanded, the decoder beam-expanded.
     assert (
         estimate_generation_flops(
             PARAMETERS,
@@ -87,8 +78,6 @@ def test_zero_beams_is_treated_as_one() -> None:
     ],
 )
 def test_known_devices_resolve_to_their_vendor_peak(device: str, expected: float) -> None:
-    # A wrong peak silently corrupts every MFU number in a report, so the
-    # table is asserted rather than trusted.
     peak, _ = device_peak_flops(device)
     assert peak == expected
 
@@ -100,8 +89,6 @@ def test_unknown_device_reports_no_utilisation_and_says_why() -> None:
 
 
 def test_peak_table_holds_only_plausible_values() -> None:
-    # Guards against an entry being edited into a wrong order of magnitude,
-    # which would move every MFU figure without failing anything else.
     for name, value in DEVICE_PEAK_BF16_FLOPS.items():
         assert 1e13 <= value <= 2e15, f"{name} peak looks wrong: {value}"
 
@@ -111,7 +98,6 @@ def test_weight_footprint_is_the_allocator_delta() -> None:
 
 
 def test_weight_footprint_is_none_when_it_cannot_be_measured() -> None:
-    # Returning 0 wrote a fabricated size into bench.json as if it were real.
     assert _weight_footprint({}, {}) is None
     assert _weight_footprint({"allocated_bytes": None}, {"allocated_bytes": 5}) is None
 

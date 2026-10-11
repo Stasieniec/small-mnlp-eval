@@ -1,15 +1,6 @@
-"""Per-layer structure and sparsity of a loaded model.
+"""Per-layer structure and sparsity of a loaded model, read from its parameters.
 
-A subnetwork that drops a third of every FFN and one that drops eight whole
-layers can report the same parameter count while behaving nothing alike, so
-structured pruning needs the per-layer profile rather than a total.
-
-Everything is read from the loaded model rather than from its config, so a
-checkpoint whose config and tensors disagree is visible.
-
-No torch import: tensors are used through ``numel``, ``shape``, ``dtype`` and
-``count_nonzero``, which keeps this module importable in the metric
-environments and testable without a GPU.
+Does not import torch, so it works in the metric environments.
 """
 
 from __future__ import annotations
@@ -21,22 +12,16 @@ __all__ = ["STRUCTURE_SCHEMA_VERSION", "describe_structure"]
 
 STRUCTURE_SCHEMA_VERSION = 1
 
-#: Matches the index of a transformer layer inside a parameter name. The text
-#: before the index names the stack, so an encoder-decoder model's two stacks
-#: stay separate instead of collapsing into one list of doubled layers.
+#: Matches ``<stack>.<index>.<rest>`` in a parameter name.
 _LAYER_PATTERN = re.compile(r"^(?P<stack>.*?)\.(?P<index>\d+)\.(?P<rest>.*)$")
 
-#: Leaf module names by role, covering the architectures this project runs:
-#: Llama, which is what ALMA is, and the BART-style naming Marian and NLLB
-#: share. A model that names its projections differently reports parameter and
-#: zero counts as usual and leaves the structural fields null.
+#: Leaf module names by role, for Llama and BART-style (Marian, NLLB) naming.
 _ROLE_NAMES: dict[str, frozenset[str]] = {
     "attention_output": frozenset({"o_proj", "out_proj"}),
     "ffn_output": frozenset({"down_proj", "fc2"}),
 }
 
-#: Config fields worth recording next to the measured structure. A mismatch
-#: between the two is a bug in whoever produced the checkpoint.
+#: Config fields recorded next to the measured structure.
 _CONFIG_FIELDS = (
     "model_type",
     "hidden_size",
@@ -52,9 +37,7 @@ _CONFIG_FIELDS = (
 def describe_structure(model: Any, *, count_zeros: bool = True) -> dict[str, Any]:
     """Return the measured structure of ``model``.
 
-    ``count_zeros`` walks every floating-point parameter, which is the only
-    way to see a mask that was applied but never materialised. It costs one
-    reduction per tensor.
+    ``count_zeros`` counts zeros in every floating-point parameter.
     """
     config = getattr(model, "config", None)
     config_fields = {
@@ -186,9 +169,7 @@ def _describe_stack(layers: dict[int, dict[str, Any]], head_dim: int | None) -> 
     for index in sorted(layers):
         layer = layers[index]
         shapes = layer.pop("shapes")
-        # A Linear weight is stored as (out_features, in_features), so the
-        # inner width of a block is the input width of the module that leaves
-        # it: the attention output projection, and the FFN down projection.
+        # Inner widths are the in_features of o_proj and down_proj.
         attention_inner = _in_features(shapes.get("attention_output"))
         ffn_intermediate = _in_features(shapes.get("ffn_output"))
         record = {

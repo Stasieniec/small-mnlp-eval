@@ -1,13 +1,8 @@
 """How far the dense model's own translations are from the references it replaces.
 
-Reads every generated-calibration cache under data/calibration/*-generated and
-reports, per cache and direction, chrF++ and BLEU of the cached greedy
-translation against the record's reference, the share of exact matches,
-empty outputs and outputs that hit the token budget, and token counts.
-
-ALMA-7B was fine-tuned on these very pairs, so its greedy output may be close
-to the reference. If it is, a reference-versus-generated calibration contrast
-is small by construction, and this table is what says so.
+Per generated-calibration cache and direction: chrF++ and BLEU against the
+reference, exact matches, empty and truncated outputs, token counts. ALMA-7B
+was fine-tuned on these pairs, so the two may be close.
 
     ./.venv/bin/python scripts/calibration_diagnostics.py --out results/grid-2026-10-06
 """

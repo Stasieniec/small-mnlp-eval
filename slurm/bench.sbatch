@@ -7,16 +7,8 @@
 #SBATCH --time=02:00:00
 #SBATCH --output=slurm-logs/bench-%j.out
 #
-# Efficiency measurement, once per model, on an exclusive node.
-#
-# Exclusive because latency is the measurement. A quarter-node allocation
-# shares the physical GPU node with up to three other jobs, and the resulting
-# contention moves throughput by more than some compression methods do. The
-# run records SM clock, temperature and power draw so a throttled measurement
-# is at least visible, but the right fix is not to share.
-#
-# Separate from generation so it is measured once rather than once per
-# direction, and so generation can keep using a quarter node.
+# Efficiency measurement, once per model, on an exclusive node so other jobs
+# do not affect latency.
 set -euo pipefail
 
 module load 2025
@@ -29,9 +21,7 @@ cd "${SLURM_SUBMIT_DIR}"
 
 export HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-1}
 export TOKENIZERS_PARALLELISM=false
-# Pin to one GPU: the framework measures single-device latency, and leaving
-# four visible would let a device_map spread the model and change what is
-# being measured.
+# Single-device latency: keep device_map from spreading the model.
 export CUDA_VISIBLE_DEVICES=0
 
 ./.venv/bin/mnlp-eval bench \

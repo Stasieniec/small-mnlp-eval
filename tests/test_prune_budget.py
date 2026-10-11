@@ -1,11 +1,7 @@
 """Spreading a sparsity budget over the layers.
 
-An off-by-one here yields a model that is not at the sparsity it claims, which
-no downstream stage can detect: the report quotes the requested figure beside a
-measured one and a small gap reads as rounding.
-
-For ``global`` the property that matters is standardising before pooling, so
-its test uses layers with identical score shapes at wildly different scales.
+``global`` standardises scores before pooling, so its test uses layers with
+identical score shapes at very different scales.
 """
 
 from __future__ import annotations
@@ -112,7 +108,7 @@ class TestLogIncrease:
         assert ratios[0] == pytest.approx(FIRST_LAYER_SHARE * 0.2)
         assert ratios == sorted(ratios)
         assert sum(ratios) / len(ratios) == pytest.approx(0.2)
-        # The figures quoted in the docstring and in docs/pruning.md.
+        # The figures quoted in the docstring.
         assert ratios[-1] == pytest.approx(0.254, abs=1e-3)
         assert log_increase_ratios(32, 0.4)[-1] == pytest.approx(0.508, abs=1e-3)
 

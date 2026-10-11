@@ -1,8 +1,4 @@
-"""Test doubles.
-
-Kept in their own module rather than in conftest so that helper functions in a
-test file can import them directly.
-"""
+"""Test doubles, importable from test modules."""
 
 from __future__ import annotations
 
@@ -29,11 +25,7 @@ class FakeTokenizer:
 
 
 class StubTranslator(Translator):
-    """A translator that echoes canned output, bypassing the batching loop.
-
-    Lets the generate, score and report stages be exercised end to end with no
-    model.
-    """
+    """A translator that echoes canned output, bypassing the batching loop."""
 
     kind = "stub"
 
@@ -76,11 +68,7 @@ class StubTranslator(Translator):
 
 
 def tiny_llama(**overrides: Any) -> Any:
-    """A two-layer multi-head Llama, the architecture family ALMA-7B is.
-
-    Tiny and randomly initialised, so the pruning tests need no GPU, network or
-    weights. Seeded, since criterion tests compare two runs of one model.
-    """
+    """A tiny seeded two-layer multi-head Llama, ALMA-7B's architecture."""
     import torch
     from transformers import LlamaConfig, LlamaForCausalLM
 
@@ -102,11 +90,7 @@ def tiny_llama(**overrides: Any) -> Any:
 
 
 def tiny_qwen2(**overrides: Any) -> Any:
-    """A two-layer grouped-query Qwen2 with tied embeddings, as Qwen2.5-0.5B is.
-
-    Grouped-query and tied embeddings are the two cases that behave differently
-    from ALMA under pruning.
-    """
+    """A two-layer grouped-query Qwen2 with tied embeddings, as Qwen2.5-0.5B is."""
     import torch
     from transformers import Qwen2Config, Qwen2ForCausalLM
 
@@ -130,8 +114,7 @@ def tiny_qwen2(**overrides: Any) -> Any:
 def token_batches(count: int = 3, rows: int = 2, tokens: int = 6, pad: int = 0) -> list[Any]:
     """Calibration-shaped batches of random token ids with an attention mask.
 
-    ``pad`` masks that many leading positions, as the translators pad, so a
-    test can tell whether padded positions were excluded.
+    ``pad`` masks that many leading positions (left padding).
     """
     import torch
 

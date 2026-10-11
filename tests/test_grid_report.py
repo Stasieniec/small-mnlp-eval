@@ -1,16 +1,10 @@
-"""Tests for scripts/grid_report.py, the pruning-grid aggregator.
+"""Tests for scripts/grid_report.py on a fake grid manifest and run directories.
 
-The fixture builds a fake grid manifest and fake run directories with the same
-JSON layout as real runs. COMET levels are chosen so that only correct matching
-gives the expected composites: a direction model scores 0.85 on its own
-direction and 0.70 elsewhere, a pair model 0.82 on its two directions and 0.71
-elsewhere, every multi model 0.80, dense 0.86. BLEU is computed from the fake
-hypotheses with the project's own surface scorer, so the aggregator's
-hyps-versus-stored-BLEU check holds. MetricX-24, where a run has it, is
-20 * (1 - COMET level): an error score, lower is better (multi 4.0, dense 2.8).
-
-Two grids: a pilot-style one where every model has all ten directions, and a
-full-suite one where specialists are evaluated only on their own directions.
+COMET levels: a dir model 0.85 on its own direction and 0.70 elsewhere, a pair
+model 0.82 on its two directions and 0.71 elsewhere, multi 0.80, dense 0.86.
+MetricX-24 is 20 * (1 - COMET level). BLEU is computed from the fake hypotheses.
+Two grids: pilot-style (all ten directions everywhere) and full-suite
+(specialists on their own directions).
 """
 
 from __future__ import annotations
@@ -249,15 +243,13 @@ def grid(template: Path, tmp_path: Path) -> Path:
 def full_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """A full-suite grid of 33 manifest entries: specialists on their own directions.
 
-    SlimGPT gen 40% (MetricX on every run): multi on all ten directions, pair
-    models on their own pair, dir models on their own direction, except
-    dir-en-is, which (like the Tier-3 runs) has all ten. SlimGPT ref 40% multi
+    SlimGPT gen 40% (MetricX everywhere): multi on all ten, pair and dir models
+    on their own directions, except dir-en-is on all ten. SlimGPT ref 40% multi
     on all ten, with MetricX. FLAP ref 40% (no MetricX): multi on all ten, four
-    pair models on their own pair, pair-cs on cs-en only, no dir runs. Dense on
-    all ten with MetricX, and two repairs with MetricX: the gen multi model's
-    on all ten, pair-is's on its own pair. The manifest names the pilot suite,
-    as the real one does; the report is run with ``--suite alma10-greedy``.
-    Directions have FULL_SIZES segments, 6 to 24.
+    pair models on their own pair, pair-cs on cs-en only. Dense on all ten with
+    MetricX; repairs of the gen multi model (all ten) and pair-is (own pair).
+    The report runs with ``--suite alma10-greedy``. Directions have FULL_SIZES
+    segments, 6 to 24.
     """
     root = tmp_path_factory.mktemp("full")
     entries = full_config("slimgpt", "gen", 40) + full_config("flap", "ref", 40)

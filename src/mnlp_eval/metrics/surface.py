@@ -1,9 +1,4 @@
-"""sacreBLEU metrics, with signatures recorded for reproducibility.
-
-Signatures are not decoration. BLEU shifts between sacreBLEU releases and
-between tokenizers, so a score without its signature cannot be compared with a
-score from anywhere else, including ALMA's published tables.
-"""
+"""sacreBLEU metrics (BLEU, chrF++, TER), with signatures recorded."""
 
 from __future__ import annotations
 
@@ -38,8 +33,7 @@ def score_surface(
 
     bleu = BLEU(tokenize=tokenizer)
     bleu_result = bleu.corpus_score(list(hypotheses), [list(references)])
-    # get_signature() only works after scoring, since the signature records the
-    # number of references it actually saw.
+    # get_signature() only works after scoring.
     scores["bleu"] = MetricScore(
         name="bleu",
         score=round(bleu_result.score, 4),
@@ -47,10 +41,7 @@ def score_surface(
         extra={
             "precisions": [round(value, 4) for value in bleu_result.precisions],
             "brevity_penalty": round(bleu_result.bp, 4),
-            # Named for its unit. The behavioural block reports a
-            # corpus-level *character* ratio under the bare name
-            # "length_ratio", and the two differ by a few percent on any real
-            # corpus, so sharing one name invited quoting the wrong one.
+            # Token ratio; behaviour.py's length_ratio is in characters.
             "token_length_ratio": round(bleu_result.sys_len / bleu_result.ref_len, 4)
             if bleu_result.ref_len
             else None,

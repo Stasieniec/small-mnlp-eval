@@ -1,24 +1,9 @@
-"""Stage C: efficiency measurement under a fixed, documented protocol.
+"""Bench stage: efficiency measurement.
 
-Two decisions here matter more than the code:
-
-**Fixed token budget.** Every model is forced to generate exactly the same
-number of tokens (``min_new_tokens == max_new_tokens``). Without that, a model
-that stops early looks faster, and a compression method that shortens outputs
-would be credited with a speedup it did not deliver. Latency measured this way
-is a property of the model's arithmetic, not of its stopping behaviour. Natural
-throughput is already reported by the generate stage.
-
-**Two batch sizes.** Decoding a single sequence is memory-bandwidth bound,
-where weight-only quantization helps most; a large batch is compute bound,
-where dequantization overhead can make a quantized model slower than the
-baseline. Reporting one number would let a method look good or bad purely
-through the choice of batch size.
-
-The protocol follows current benchmarking practice: warmup iterations are
-discarded, several timed repeats are taken, the median and spread are reported,
-peak memory comes from both the allocator and NVML, and the device's clock and
-thermal state is captured, because these runs share a cluster.
+Every model generates the same number of tokens (``min_new_tokens ==
+max_new_tokens``), at each configured batch size. Warmup batches are discarded,
+the median of several repeats is reported, and peak memory is taken from both
+the torch allocator and NVML.
 """
 
 from __future__ import annotations
@@ -87,13 +72,7 @@ def _synchronize() -> None:
 
 
 def _nvml_process_memory() -> dict[str, Any]:
-    """Total device memory in use, including the CUDA context.
-
-    The allocator's peak excludes the context and any non-torch allocation,
-    which is typically a few hundred megabytes. Both figures are reported
-    because the allocator number is the right one for comparing model
-    footprints and the NVML number is the right one for capacity planning.
-    """
+    """Total device memory in use according to NVML (includes the CUDA context)."""
     try:
         import pynvml
     except ImportError:
@@ -130,9 +109,7 @@ def bench_run(
 ) -> dict[str, Any]:
     """Measure efficiency for one run and write ``bench.json``.
 
-    ``paths`` overrides where the result is written, so ``bench --run <dir>``
-    acts on the directory it was given rather than on one recomputed from the
-    slug.
+    ``paths`` overrides where the result is written (used by ``bench --run <dir>``).
     """
     paths = paths or RunPaths.for_config(config)
     paths.init_manifest(config)
@@ -219,13 +196,7 @@ def bench_run(
 
 
 def _measure_structure(translator: Translator, *, measure: bool) -> dict[str, Any] | None:
-    """Describe the loaded model's layer structure, or explain why not.
-
-    Never fatal. A model with unrecognised parameter names, or a backend that
-    holds no torch module at all, should still produce timings; losing the
-    structural profile is a smaller loss than losing the whole bench run an
-    hour into a job.
-    """
+    """Describe the loaded model's layer structure. Errors are recorded, not raised."""
     if not measure:
         return None
     model = getattr(translator, "model", None)
@@ -254,11 +225,7 @@ def _measure_structure(translator: Translator, *, measure: bool) -> dict[str, An
 
 
 def _weight_footprint(before: dict[str, int | None], after: dict[str, int | None]) -> int | None:
-    """Bytes the weights occupy, as the allocator delta across model loading.
-
-    Returns None on a machine without CUDA, or if either snapshot is missing a
-    reading, rather than producing a nonsense difference.
-    """
+    """Bytes the weights occupy, as the allocator delta across model loading (None without CUDA)."""
     start = before.get("allocated_bytes")
     end = after.get("allocated_bytes")
     if start is None or end is None:
@@ -283,8 +250,7 @@ def _measure_batch_size(
     )
     warmup_slice = sources[: max(batch_size * spec.warmup_batches, batch_size)]
 
-    # Force every model to emit exactly the same number of tokens, so latency
-    # measures arithmetic speed rather than how eagerly a model stops.
+    # Force a fixed number of generated tokens.
     forced = {"min_new_tokens": spec.max_new_tokens} if spec.force_fixed_length else {}
     original_generate_kwargs = translator.generate_kwargs
 
@@ -308,8 +274,7 @@ def _measure_batch_size(
             durations.append(time.perf_counter() - started)
             generated_tokens = sum(output.n_generated_tokens for output in outputs)
             source_tokens = sum(output.n_source_tokens for output in outputs)
-            # Prefill computes over the padded batch width, not the unpadded
-            # token count, and the padded width is what the estimate needs.
+            # The FLOPs estimate needs the padded prefill width.
             prefill_positions = sum(
                 output.n_padded_source_tokens or output.n_source_tokens for output in outputs
             )
@@ -373,8 +338,7 @@ def _measure_ttft(
 ) -> dict[str, Any]:
     """Prefill latency, measured as a single-token generation at batch size 1.
 
-    Not a streaming measurement, so it includes one decode step. Reported as a
-    prefill-dominated proxy rather than as an exact time to first token.
+    Includes one decode step, so it approximates time to first token.
     """
     decode = dataclasses.replace(
         config.suite.decode,

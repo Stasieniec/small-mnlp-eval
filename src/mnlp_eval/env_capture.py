@@ -1,12 +1,6 @@
-"""Capture the environment a run happened in.
+"""Record the software and hardware environment of a run.
 
-Efficiency numbers from a shared cluster are only comparable if you know what
-they were measured on. Clock throttling, a driver upgrade between job
-submissions, or a different attention backend all move latency by more than
-some compression methods do, so the run records enough state to notice.
-
-Nothing here may fail. A run on a machine without CUDA, without git, or without
-torch still needs to produce an env record.
+Works without CUDA, git or torch; missing parts are recorded as unavailable.
 """
 
 from __future__ import annotations
@@ -22,8 +16,7 @@ from typing import Any
 
 __all__ = ["capture_environment", "package_versions"]
 
-#: Packages worth recording. Absent ones are reported as null rather than
-#: omitted, so a diff between two env files lines up.
+#: Packages to record. Missing ones are recorded as null.
 _TRACKED_PACKAGES = (
     "mnlp-eval",
     "torch",
@@ -188,15 +181,7 @@ def capture_environment(*, include_pip_freeze: bool = True) -> dict[str, Any]:
 
 
 def _installed_distributions() -> list[str]:
-    """Every installed distribution and its version.
-
-    Read from importlib.metadata rather than by shelling out to pip. All three
-    environments are created with ``uv venv``, which does not install pip, so
-    ``python -m pip freeze`` failed and this field was silently null in every
-    env.json on the cluster. For a framework whose purpose is knowing what a
-    number was measured on, that was the one field that would answer which
-    torch, CUDA and bitsandbytes produced a given latency.
-    """
+    """Every installed distribution and its version, read with importlib.metadata."""
     entries: set[str] = set()
     for distribution in metadata.distributions():
         name = distribution.metadata["Name"]

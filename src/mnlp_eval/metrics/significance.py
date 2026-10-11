@@ -1,31 +1,12 @@
 """Paired bootstrap resampling against a baseline.
 
-A compression report full of deltas without significance tests invites the
-reader to over-read noise. A 0.3 BLEU drop on 1000 segments is not evidence of
-anything, and saying so is more useful than reporting it as a finding.
+* BLEU and chrF++ use sacreBLEU's ``PairedTest``, which recomputes the corpus
+  score from sufficient statistics on each resample (one-sided, centred on the
+  bootstrap mean).
+* Neural metrics resample the stored per-segment scores, with the two-sided
+  centred statistic ``P(|d_b - d| >= |d|)``.
 
-Two paths. Both are paired bootstrap tests and both are add-one smoothed, but
-they are **not the same estimator**, and a p-value from one is not directly
-comparable with a p-value from the other:
-
-* Surface metrics use sacreBLEU's own ``PairedTest``, which recomputes BLEU and
-  chrF++ from sufficient statistics on each resample. That is correct in a way
-  that averaging per-sentence BLEU is not, and it is what the MT literature
-  reports, so it is the right choice despite the incomparability. Its statistic
-  centres the absolute score difference on its own bootstrap mean and counts
-  one-sided.
-* Neural metrics are resampled from the per-segment scores stored at scoring
-  time, so no metric model has to be reloaded. Its statistic is the two-sided
-  centred difference, ``P(|d_b - d| >= |d|)``.
-
-The two are not the same estimator. Their rejection rates under the null
-differ, so a p-value from one is not directly comparable with a p-value from
-the other, and the report labels the columns accordingly.
-
-Both are genuinely paired: the same resampled segment indices are applied to
-both systems, which removes test-set difficulty as a source of variance and is
-why this test is far more sensitive than comparing independent confidence
-intervals.
+Both are add-one smoothed, but the two p-values are not directly comparable.
 """
 
 from __future__ import annotations
@@ -52,11 +33,7 @@ def paired_bootstrap_surface(
 ) -> dict[str, Any]:
     """Test a system against a baseline on BLEU and chrF++."""
     if seed == 0:
-        # sacreBLEU reads SACREBLEU_SEED then does `self._seed if self._seed
-        # else None`, so zero is falsy and silently means "draw entropy from
-        # the OS". The recorded signature would still claim seed 0, giving a
-        # provenance record that says seeded while the surface p-values change
-        # between identical runs.
+        # sacreBLEU treats seed 0 as unseeded.
         msg = (
             "bootstrap_seed 0 is not usable: sacreBLEU treats it as unseeded, so "
             "surface p-values would not be reproducible while claiming to be. "
@@ -64,9 +41,8 @@ def paired_bootstrap_surface(
         )
         raise ValueError(msg)
 
-    # sacreBLEU seeds its resampler from the environment, and reads it when
-    # PairedTest is constructed, so it has to be set before that and restored
-    # afterwards rather than leaking into the rest of the process.
+    # sacreBLEU reads its seed from the environment when PairedTest is
+    # constructed; restored afterwards.
     previous_seed = os.environ.get("SACREBLEU_SEED")
     os.environ["SACREBLEU_SEED"] = str(seed)
     from sacrebleu.metrics import BLEU, CHRF, TER
@@ -88,8 +64,7 @@ def paired_bootstrap_surface(
     if compute_ter:
         metrics["ter"] = TER()
 
-    # PairedTest takes a list of (name, hypotheses); the first entry is the
-    # baseline every other system is tested against.
+    # The first entry is the baseline.
     named_systems: list[tuple[str, Sequence[str]]] = [
         ("baseline", list(baseline_hypotheses)),
         ("system", list(system_hypotheses)),
@@ -117,8 +92,7 @@ def paired_bootstrap_surface(
         "metrics": {},
     }
     for metric_name, values in results.items():
-        # sacreBLEU puts the system names under a "System" key alongside the
-        # metric rows, so entries are filtered by shape, not by key name.
+        # Skip the "System" entry that holds the system names.
         if metric_name == "System" or len(values) < 2:
             continue
         baseline_result, system_result = values[0], values[1]
@@ -138,12 +112,8 @@ def paired_bootstrap_surface(
                 system_result.p_value is not None and system_result.p_value < 0.05
             ),
             "bootstrap_mean": _round(system_result.mean),
-            # A half-width around the system's own score, not an interval on
-            # the difference. Named to say so: the neural path's
-            # bootstrap_ci_95 is an interval on the delta.
+            # Half-width around the system's own score (not the delta).
             "bootstrap_score_ci_halfwidth": _round(system_result.ci),
-            # sacreBLEU returns signature objects here, not strings, and a
-            # signature object is not JSON serialisable.
             "signature": _signature_text(signatures.get(metric_name)),
         }
     return output
@@ -159,10 +129,7 @@ def bootstrap_segment_delta(
 ) -> dict[str, Any]:
     """Paired bootstrap on stored per-segment metric scores.
 
-    Uses the centred p-value, the same convention sacreBLEU applies: the share
-    of resamples whose deviation from the observed difference is at least as
-    large as the observed difference itself, with add-one smoothing so a
-    p-value of exactly zero is never reported from a finite number of samples.
+    p-value: share of resamples with ``|d_b - d| >= |d|``, add-one smoothed.
     """
     import numpy as np
 

@@ -1,8 +1,5 @@
-# Baseline reproduction suite: all ten WMT22 directions ALMA reports, with
-# length bucketing disabled and ALMA's own batch size, to keep padding as close
-# to their Trainer-based harness as possible. Used once, to measure the delta
-# between this framework and the published numbers. Exact bit-level agreement
-# is not expected; the recorded delta is the point.
+# Baseline reproduction suite: the ten WMT22 directions ALMA reports, with
+# length bucketing off and ALMA's batch size, to keep padding close to theirs.
 name: wmt22-alma-repro
 data:
   dataset: haoranxu/WMT22-Test

@@ -6,9 +6,8 @@
 #SBATCH --time=02:00:00
 #SBATCH --output=slurm-logs/grid/canary-oldcode-%j.out
 #
-# Prune with the pre-fix code from a worktree of main (OLD_TREE), then generate
-# and score with this checkout, so only the pruning code differs from the
-# grid's alma-7b-slimgpt20-ref-multi.
+# Prune with the code in OLD_TREE, then generate and score with this checkout,
+# for comparison with the grid's alma-7b-slimgpt20-ref-multi.
 set -euo pipefail
 module load 2025
 module load Python/3.13.1-GCCcore-14.2.0

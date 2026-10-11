@@ -1,54 +1,28 @@
-"""FLAP: fluctuation-based adaptive structured pruning.
+"""FLAP: fluctuation-based adaptive structured pruning (An et al., AAAI 2024).
 
-Scores a group by WIFV, ``Var(X_j) * ||W[:, j]||^2`` summed over its input
-channels: a channel that barely moves carries little however large it is,
-because a near-constant contribution can be absorbed into a bias.
+Scores input channels by WIFV, ``Var(X_j) * ||W[:, j]||^2``. Removed channels
+are compensated with a bias ``W[:, pruned] @ mean(X)`` on ``o_proj`` and
+``down_proj``, so no fine-tuning is needed.
 
-That is also the compensation. Removing channels loses
-``W[:, pruned] @ mean(X)`` from every output, which does not depend on the
-input, so adding it as a bias restores the mean output exactly and the method
-needs no fine-tuning. Both projections are built ``bias=False``, so one is
-created.
+Allocations: ``uniform``, ``global`` and ``log-increase`` (``prune/budget.py``)
+budget heads and channels separately. ``al-am`` is FLAP's adaptive structure
+search, following ``lib/prune.py`` of CASIA-IVA-Lab/FLAP at commit 3bb57db
+(lines 336 and 368-393):
 
-How many units each layer keeps is decided one of two ways. ``uniform``,
-``global`` and ``log-increase`` (``prune/budget.py``) take the per-head sums of
-:func:`score` and budget heads and channels separately, each to the requested
-fraction, as every criterion here is budgeted. ``al-am`` is FLAP's own adaptive
-structure search ("adaptive across layers and modules", the default
-``--structure`` of the official code), replicated from ``lib/prune.py`` of
-CASIA-IVA-Lab/FLAP at commit 3bb57db, lines 336 and 368-393:
-
-1. Each ``o_proj`` input column's WIFV is squared; ``down_proj``'s is not. The
-   paper does not mention it; the code does it before anything else.
-2. Columns are standardised within one layer and one module,
-   ``(s - mean) / std`` over that layer's ``o_proj`` or ``down_proj`` columns
-   (4096 and 11008 on ALMA-7B), with the Bessel-corrected ``torch.std``.
-3. A head scores the *mean* of its ``head_dim`` standardised columns.
-4. Every head and channel of every layer goes into one ranking. A head weighs
-   ``4 * head_dim / 3`` channels (512/3 at head_dim 128), their parameter
-   counts: a head holds ``hidden * head_dim`` in each of q, k, v and o, a
-   channel ``hidden`` in each of gate, up and down.
+1. ``o_proj`` column WIFV is squared, ``down_proj``'s is not.
+2. Columns are standardised per layer and module, ``(s - mean) / std`` with
+   Bessel-corrected ``torch.std``.
+3. A head scores the mean of its ``head_dim`` standardised columns.
+4. All heads and channels of all layers are ranked together. A head weighs
+   ``4 * head_dim / 3`` channels (parameter counts: q, k, v, o vs gate, up, down).
 5. The ranking is cut where the kept weight is nearest ``1 - sparsity`` of the
-   total. ``sparsity`` therefore means the fraction of the decoder's attention
-   and MLP weights removed, and heads and channels lose different fractions.
+   total, so sparsity is the fraction of attention and MLP weights removed.
 
-Departures, none of which moves more than a unit or two at ALMA scale. The
-code's weights are an integer tensor, so a head weighs 170 rather than 512/3;
-this uses the exact ratio, so the parameter fraction is the one requested. The
-code keeps units scoring strictly above the unit at the nearest cut, which
-drops that unit as well; this keeps it. The code would leave a layer with no
-heads or no channels; this keeps each layer's best of each and re-cuts the rest
-nearest the budget, and says so. The code hardcodes 128 and 512/3; this reads
-``head_dim``. The statistics are ``prune/collect.py``'s: the exact variance
-over non-padding tokens, where the code's running estimate drops the first
-sample's spread. A constant factor in the variance cancels in step 2, squared
-or not.
-
-Grouped-query attention is refused under ``al-am``: a query head there does not
-own key and value rows, so it does not weigh what step 4 says, and the official
-code never handles it.
-
-Reference: An et al., AAAI 2024.
+Differences from the official code (at most a unit or two at ALMA scale): exact
+head weight 512/3 instead of the integer 170; the unit at the cut is kept;
+a layer is never left with no heads or no channels; ``head_dim`` is read from
+the model; variance is exact over non-padding tokens. Grouped-query attention
+is not supported under ``al-am``.
 """
 
 from __future__ import annotations
@@ -73,8 +47,7 @@ __all__ = [
     "unit_costs",
 ]
 
-#: FLAP's adaptive structure search, by the allocation name a prune config uses.
-#: Registered in ``prune.budget.METHOD_ALLOCATIONS``.
+#: Allocation name of FLAP's adaptive structure search.
 AL_AM = "al-am"
 
 
@@ -95,10 +68,7 @@ def score(
 def al_am(
     model: Any, stats: dict[Any, InputStats], groups: Sequence[LayerGroups], *, sparsity: float
 ) -> tuple[LayerPlan, ...]:
-    """FLAP's adaptive structure search: which heads and channels every layer keeps.
-
-    Follow with :func:`compensate`, then ``compact_model``, as for any plan.
-    """
+    """FLAP's adaptive structure search. Follow with :func:`compensate`, then ``compact_model``."""
     require_multi_head(groups)
     attention = [_wifv(stats, model, group.index, "o_proj") for group in groups]
     ffn = [_wifv(stats, model, group.index, "down_proj") for group in groups]
@@ -147,8 +117,8 @@ def search_structure(
         head_scores.append(standardised.view(group.num_heads, group.head_dim).mean(1))
         channel_scores.append(_standardise(ffn))
 
-    # Heads, then channels, layer-major: the code's order, which decides only
-    # exact ties. ``owner`` and ``local`` map a ranked position back.
+    # Heads, then channels, layer-major (the official order, matters for ties).
+    # ``owner`` and ``local`` map a ranked position back.
     scores = torch.cat(head_scores + channel_scores)
     device = scores.device
     costs = torch.cat(
@@ -164,7 +134,6 @@ def search_structure(
 
     total = int(costs.sum())
     target = (1.0 - sparsity) * total
-    # Stable, so equal scores rank by position and the result is reproducible.
     order = torch.sort(scores, descending=True, stable=True).indices
     keep = torch.zeros_like(scores, dtype=torch.bool)
     keep[order[: _nearest_cut(costs[order], target, base=0)]] = True
@@ -172,8 +141,7 @@ def search_structure(
     counts = torch.bincount(owner[keep], minlength=len(sizes))
     starved = [index for index, count in enumerate(counts.tolist()) if count == 0]
     if starved:
-        # Each layer's best head and best channel, the first of its units in
-        # the ranking; the rest is cut again nearest the same budget.
+        # Force each layer's best head and channel, re-cut the rest.
         forced = torch.zeros_like(keep)
         forced[torch.stack([order[owner[order] == unit][0] for unit in range(len(sizes))])] = True
         rest = order[~forced[order]]
@@ -208,18 +176,12 @@ def search_structure(
 
 
 def unit_costs(group: LayerGroups) -> tuple[int, int]:
-    """What a head and an FFN channel weigh in the ranking, in ``hidden`` parameters.
-
-    Every projection has the unpruned hidden size on one side, so a
-    multi-head head holds ``head_dim`` rows or columns in each of q, k, v and o,
-    and a channel one in each of gate, up and down. The ratio is FLAP's 512/3
-    at head_dim 128; as integers, the cumulative sums are exact.
-    """
+    """Weight of a head and of an FFN channel in the ranking, in units of ``hidden`` parameters."""
     return 4 * group.head_dim, 3
 
 
 def require_multi_head(groups: Sequence[LayerGroups]) -> None:
-    """Refuse grouped-query attention, which the ``al-am`` weights do not describe."""
+    """Raise if any layer uses grouped-query attention."""
     grouped = [group.index for group in groups if group.is_grouped_query]
     if grouped:
         msg = (
@@ -237,12 +199,7 @@ def compensate(
     groups: tuple[LayerGroups, ...],
     plan: tuple[LayerPlan, ...],
 ) -> None:
-    """Install the bias that replaces what was removed.
-
-    Call before ``compact_model``, while the dense indices still line up. The
-    bias is in output space, which input-channel pruning leaves alone, so it
-    survives compaction.
-    """
+    """Add the compensation bias for the pruned channels. Call before ``compact_model``."""
     import torch
     from torch import nn
 
@@ -275,10 +232,9 @@ def compensate(
 
 
 def _nearest_cut(costs: Any, target: float, *, base: int) -> int:
-    """How many of the ranked units to keep so ``base`` plus their cost is nearest ``target``.
+    """Number of ranked units to keep so that ``base`` plus their cost is nearest ``target``.
 
-    Keeping none is a candidate too. Ties go to the shorter prefix, the first
-    minimum, as ``torch.argmin`` resolves the code's.
+    Ties go to the shorter prefix.
     """
     import torch
 
@@ -287,7 +243,7 @@ def _nearest_cut(costs: Any, target: float, *, base: int) -> int:
 
 
 def _columns(values: Any, expected: int, group: LayerGroups, suffix: str) -> Any:
-    """One layer's per-column WIFV as a flat float64 tensor, checked."""
+    """One layer's per-column WIFV as a flat float64 tensor."""
     import torch
 
     flat = torch.as_tensor(values).reshape(-1).double()
@@ -304,12 +260,7 @@ def _columns(values: Any, expected: int, group: LayerGroups, suffix: str) -> Any
 
 
 def _standardise(values: Any) -> Any:
-    """``(s - mean) / std`` over one layer's columns of one module.
-
-    ``torch.std``, so Bessel-corrected, as the code's. All-equal scores say
-    nothing about which unit to drop, and standardise to zeros where the code
-    would divide by zero.
-    """
+    """``(s - mean) / std`` with Bessel-corrected std. All-equal scores give zeros."""
     spread = values.std() if values.numel() > 1 else values.new_zeros(())
     if not bool(spread > 0):
         return values.new_zeros(values.shape)
@@ -318,7 +269,6 @@ def _standardise(values: Any) -> Any:
 
 def _wifv(stats: dict[Any, InputStats], model: Any, layer: int, suffix: str) -> Any:
     projection, entry = _stats_for(stats, model, layer, suffix)
-    # Column norms: how much of each channel's fluctuation reaches the output.
     return entry.variance * projection.weight.data.float().pow(2).sum(0)
 
 

@@ -1,9 +1,4 @@
-"""Shared helpers for building models from a :class:`ModelSpec`.
-
-Kept separate from the translator classes so that a custom loader written by a
-teammate can reuse the dtype, quantization, and checkpoint-resolution logic
-without inheriting anything.
-"""
+"""Helpers for building models from a :class:`ModelSpec`: dtype, quantization, checkpoints."""
 
 from __future__ import annotations
 
@@ -21,15 +16,11 @@ __all__ = [
     "resolve_dtype",
 ]
 
-#: Weight-file formats, in the order a checkpoint's primary format is chosen.
-#: Many Hub repositories ship the same weights more than once (PyTorch plus
-#: safetensors plus Flax), so summing every weight-ish file inflated the disk
-#: figure severalfold and corrupted the disk compression ratio. Only the first
-#: format present is counted.
+#: Weight-file formats in priority order. Only the first one present is counted,
+#: since many Hub repositories ship the same weights in several formats.
 _FORMAT_PRIORITY = (".safetensors", ".bin", ".pt", ".pth", ".gguf", ".ckpt")
 
-#: File stems that carry a weight suffix but are not model weights. Trainer
-#: state in particular is often several times the size of the model.
+#: File stems that carry a weight suffix but are not model weights.
 _NON_WEIGHT_STEMS = frozenset(
     {
         "training_args",
@@ -73,9 +64,8 @@ def default_device() -> str:
 def build_quantization_config(spec: ModelSpec) -> Any | None:
     """Translate a :class:`QuantizationSpec` into a transformers config object.
 
-    Returns ``None`` when the checkpoint already carries its own quantization
-    metadata and no overrides were requested, which is the normal case for
-    GPTQ, AWQ and compressed-tensors checkpoints.
+    Returns ``None`` when the checkpoint carries its own quantization metadata
+    (GPTQ, AWQ, compressed-tensors) and no overrides were given.
     """
     quant = spec.quantization
     if quant is None:
@@ -119,9 +109,8 @@ def build_quantization_config(spec: ModelSpec) -> Any | None:
 def resolve_checkpoint_dir(model_name_or_path: str, revision: str | None = None) -> str | None:
     """Return the local directory holding a checkpoint, if it can be found.
 
-    Works for a local path and for a Hub repository already present in the
-    cache. Returns ``None`` rather than raising, because checkpoint size is a
-    reported metric and not a precondition for evaluating a model.
+    Works for a local path or a Hub repository already in the cache; otherwise
+    returns ``None``.
     """
     candidate = Path(model_name_or_path).expanduser()
     if candidate.is_dir():
@@ -129,8 +118,6 @@ def resolve_checkpoint_dir(model_name_or_path: str, revision: str | None = None)
     try:
         from huggingface_hub import snapshot_download
 
-        # str() is not redundant: snapshot_download is typed Any when
-        # huggingface-hub is absent, which is the case in the lint environment.
         return str(snapshot_download(model_name_or_path, revision=revision, local_files_only=True))
     except Exception:
         return None
@@ -139,11 +126,8 @@ def resolve_checkpoint_dir(model_name_or_path: str, revision: str | None = None)
 def checkpoint_bytes(directory: str | Path | None) -> int | None:
     """Size of a checkpoint's weights on disk, counting one format only.
 
-    Follows symlinks, since the Hugging Face cache stores blobs separately from
-    the snapshot tree and the snapshot entries are links. Counts only the
-    highest-priority format present, so a repository shipping both
-    ``pytorch_model.bin`` and ``model.safetensors`` is not counted twice, and
-    skips trainer state that happens to share a weight suffix.
+    Follows symlinks (HF cache snapshots are links), counts only the
+    highest-priority format present and skips trainer state files.
     """
     if directory is None:
         return None

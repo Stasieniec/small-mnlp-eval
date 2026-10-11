@@ -6,26 +6,19 @@
 #SBATCH --time=04:00:00
 #SBATCH --output=slurm-logs/eval/%x-%j.out
 #
-# Generate and score one existing model on a suite, in one allocation,
-# optionally on a subset of its directions. For the full-suite evaluation of
-# chosen systems: a pair or direction specialist is evaluated only where it is
-# meant to be used, a multi model on everything.
+# Generate and score one model on a suite, optionally on a subset of its
+# directions, in one allocation.
 #
 #   sbatch --export=ALL,MODEL_CONFIG=configs/models/<name>.yaml,\
 #   SUITE_CONFIG=configs/suites/alma10-greedy.yaml,DIRECTIONS=de-en+en-de \
 #       slurm/eval_directions.sbatch
 #
-# DIRECTIONS is joined with "+", because a comma inside --export ends the
-# assignment (see generate.sbatch). Empty means every direction of the suite.
-# --only-direction keeps the suite's run identity, so a subset run lands in the
-# same run directory a full one would, and is scored with --allow-partial.
-# slurm/submit_eval.sh submits each system twice, to gpu_a100 and gpu_h100,
-# because Snellius refuses a shared job naming both partitions. The first twin
-# to start takes grid-state/full/locks/<name>, cancels the other while it is
-# pending, and runs; a twin that starts anyway finds the lock held by a live job
-# and exits 0. A lock whose owner has left the queue is stale and taken over.
-# H100 nodes generate at about two thirds of A100 speed here (host-bound), which
-# still beats waiting in a full A100 queue.
+# DIRECTIONS is joined with "+" (a comma ends an --export assignment); empty
+# means all. --only-direction keeps the run id, so a subset is scored with
+# --allow-partial.
+# slurm/submit_eval.sh submits each system to gpu_a100 and gpu_h100. The first
+# twin to start takes grid-state/full/locks/<name> and cancels the other; a
+# twin that finds the lock held by a live job exits 0.
 set -euo pipefail
 module load 2025
 module load Python/3.13.1-GCCcore-14.2.0

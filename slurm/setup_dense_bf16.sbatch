@@ -6,12 +6,8 @@
 #SBATCH --time=01:00:00
 #SBATCH --output=slurm-logs/setup/dense-bf16-%j.out
 #
-# One-off: write ALMA-7B as bfloat16 safetensors on scratch.
-#
-# The Hub checkpoint is float32 .bin shards, and loading them took eight of a
-# prune job's fifteen minutes in the pilot. Every job loads the dense model
-# with torch_dtype=bfloat16 anyway, so the copy holds exactly the tensors those
-# jobs already used; the check below compares every one of them.
+# One-off: write ALMA-7B as bfloat16 safetensors on scratch. The Hub checkpoint
+# is float32 .bin shards and slow to load. The copy is checked tensor by tensor.
 set -euo pipefail
 
 module load 2025

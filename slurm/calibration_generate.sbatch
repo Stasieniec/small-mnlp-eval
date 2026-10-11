@@ -17,8 +17,7 @@ CALIBRATION_OUT=${CALIBRATION_OUT:-data/calibration/multi-10dir-generated}
 DENSE_MODEL_CONFIG=${DENSE_MODEL_CONFIG:-configs/models/alma-7b.yaml}
 DECODE_SUITE=${DECODE_SUITE:-configs/suites/alma10-greedy.yaml}
 
-# A submission shell may not export HF_HOME. Resolve the repository's standard
-# scratch cache explicitly instead of silently falling back to ~/.cache.
+# Default to the scratch cache rather than ~/.cache.
 export HF_HOME=${HF_HOME:-/scratch-shared/${USER}/hf_home}
 export HF_HUB_CACHE=${HF_HOME}/hub
 printf 'HF_HOME=%s HF_HUB_CACHE=%s\n' "${HF_HOME}" "${HF_HUB_CACHE}"

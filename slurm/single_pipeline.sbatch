@@ -6,9 +6,7 @@
 #SBATCH --output=slurm-logs/grid/%x-%j.out
 #
 # Prune one config, then generate and score it on SUITE_CONFIG, in one
-# allocation. For canaries and one-off systems outside the grid manifest; the
-# grid itself goes through slurm/grid_pipeline.sbatch. Each stage is skipped
-# when its output exists.
+# allocation. For systems outside the grid manifest.
 set -euo pipefail
 module load 2025
 module load Python/3.13.1-GCCcore-14.2.0

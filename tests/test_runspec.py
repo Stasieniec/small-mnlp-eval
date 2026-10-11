@@ -36,8 +36,7 @@ def test_manifest_refuses_to_adopt_a_different_run(
 
 
 def test_manifest_round_trips_into_a_run_config(run_config: RunConfig) -> None:
-    # The bench and score stages act on a run directory alone, which is all a
-    # Slurm job chain has.
+    # The bench and score stages need only the run directory.
     paths = RunPaths.for_config(run_config)
     manifest = paths.init_manifest(run_config)
     restored = RunConfig.from_manifest(manifest, run_config.output_root)
@@ -55,9 +54,8 @@ def test_hand_edited_manifest_is_detected(run_config: RunConfig) -> None:
 
 
 def test_stage_records_live_outside_the_manifest(run_config: RunConfig) -> None:
-    # The manifest is the run's identity and is written once. Merging stage
-    # reports into it meant an unlocked read-modify-write, and concurrent
-    # Slurm array tasks lost records in every measured trial.
+    # The manifest is written once; stage records are separate files, so
+    # concurrent array tasks do not overwrite each other.
     paths = RunPaths.for_config(run_config)
     manifest = paths.init_manifest(run_config)
     assert "stages" not in manifest
@@ -90,9 +88,7 @@ def test_sharded_stage_records_do_not_share_a_file(run_config: RunConfig) -> Non
 def test_generate_is_incomplete_until_every_suite_direction_reports(
     model_spec: ModelSpec, local_testset: Path, tmp_path: Path
 ) -> None:
-    # Checking only that the records present are completed would call a
-    # half-finished shard set done, which is how a partially generated run got
-    # scored and reported as whole.
+    # Every expected shard must have a record, not only the ones present.
     from mnlp_eval.config import SuiteSpec
 
     suite = SuiteSpec.from_dict(
@@ -117,8 +113,6 @@ def test_generate_is_incomplete_until_every_suite_direction_reports(
 
 
 def test_concurrent_stage_writers_do_not_lose_records(run_config: RunConfig) -> None:
-    # The reason stage records are one file each rather than entries in a
-    # shared mutable manifest.
     import concurrent.futures
 
     paths = RunPaths.for_config(run_config)

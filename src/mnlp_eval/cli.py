@@ -1,18 +1,13 @@
-"""Command line interface.
+"""Command line interface (``mnlp-eval``).
 
-Four pipeline stages, ``generate``, ``bench``, ``score`` and ``report``, plus
-``run`` which chains the first three and ``prefetch`` which populates the cache
-before any of them. Then ``info`` to see what the current environment can do,
-``verify-testset`` to check test-set provenance against ALMA's own files, and
-``suite-directions`` and ``run-dir`` so a batch script can resolve what it
-needs without parsing configs itself, ``calibration`` to build the pruning and
-repair data, ``prune`` to select and compact a subnetwork, ``repair`` to train
-and merge a LoRA adapter on a pruned checkpoint, and ``overlap`` to compare
-subnetworks with each other.
+Pipeline stages: ``generate``, ``bench``, ``score``, ``report``, and ``run``
+for the first three. Pruning: ``calibration``, ``calibration-generate``,
+``prune``, ``repair``, ``overlap``. Helpers: ``prefetch``, ``info``,
+``verify-testset``, and ``suite-directions``, ``run-dir``, ``prune-spec``,
+``repair-spec`` for batch scripts.
 
-Configuration comes from YAML files. ``--set`` applies dotted-path overrides on
-top, which change the run identity as they should: an override is a different
-experiment, not a variant of the same one.
+Configs are YAML files; ``--set`` applies dotted-path overrides, which are
+part of the run identity.
 """
 
 from __future__ import annotations
@@ -60,10 +55,8 @@ def _apply_overrides(
 ) -> dict[str, Any]:
     """Apply ``a.b.c=value`` overrides, parsing values as YAML scalars.
 
-    ``allowed_roots`` guards the first path segment. Without it, an override
-    the command does not consume was written into an unread key and dropped in
-    silence, so ``--set decode.num_beams=1`` (missing the ``suite.`` prefix)
-    left a beam-5 run wearing a legitimate-looking run id.
+    ``allowed_roots`` restricts the first path segment, so an override with a
+    wrong prefix raises an error.
     """
     for override in overrides:
         if "=" not in override:
@@ -153,8 +146,7 @@ def _build_bench_spec(args: argparse.Namespace, config: RunConfig | None = None)
             f"{config.suite.name!r}, which covers {', '.join(config.suite.data.directions)}"
         )
         raise ConfigError(msg)
-    # Only the default was out of range, so pick a direction the suite covers
-    # rather than failing on a value the caller never set.
+    # Only the default direction is missing from the suite; use the first one.
     fallback = config.suite.data.directions[0]
     print(
         f"bench: suite {config.suite.name!r} does not cover the default direction "
@@ -165,12 +157,7 @@ def _build_bench_spec(args: argparse.Namespace, config: RunConfig | None = None)
 
 
 def _load_metrics(path: str | None, overrides: list[str] | None = None) -> MetricsSpec:
-    """Load a metrics config, applying ``--set`` overrides on top.
-
-    Overrides are useful for fitting a large metric model onto a small GPU
-    without editing a committed config, for example
-    ``--set comet_batch_size=8``.
-    """
+    """Load a metrics config, applying ``--set`` overrides on top."""
     if path is not None:
         payload = load_yaml_config(path)
     elif DEFAULT_METRICS_CONFIG.is_file():
@@ -270,13 +257,9 @@ def command_bench(args: argparse.Namespace) -> int:
     from mnlp_eval.bench import bench_run
 
     if args.run:
-        # The run's own manifest is authoritative here: benchmarking a model
-        # under different settings than it was generated with would produce
-        # efficiency numbers that do not describe the run they sit next to.
+        # Use the settings from the run's manifest and write into that directory.
         paths = RunPaths(Path(args.run))
         config = RunConfig.from_manifest(paths.read_manifest(), Path(args.run).parent)
-        # Act on the directory given, not on one recomputed from the slug,
-        # so that a renamed or archived run is benchmarked in place.
         bench_run(config, _build_bench_spec(args, config), paths=paths)
         print(paths.bench)
         return 0
@@ -309,8 +292,7 @@ def command_score(args: argparse.Namespace) -> int:
                 allow_partial=args.allow_partial,
             )
         except RuntimeError as exc:
-            # One unfinished run must not abort scoring for the others, which
-            # is the normal case while a sweep is still generating.
+            # Skip unfinished runs and keep scoring the others.
             print(f"  skipped: {exc}", file=sys.stderr)
             failures += 1
     if failures and failures == len(targets):
@@ -344,10 +326,7 @@ def command_run(args: argparse.Namespace) -> int:
     from mnlp_eval.score import score_run
 
     config = _build_run_config(args)
-    # Resolve every configuration before generating. A bad metrics path or an
-    # invalid bench spec used to surface after generation finished, which for
-    # the six-direction suite is three to six A100-hours before a
-    # missing-file error.
+    # Load every config before generating, so errors show up early.
     bench_spec = None if args.no_bench else _build_bench_spec(args, config)
     metrics = _load_metrics(args.metrics)
     groups = (
@@ -375,12 +354,7 @@ def command_run(args: argparse.Namespace) -> int:
 
 
 def command_suite_directions(args: argparse.Namespace) -> int:
-    """Print a suite's directions, one per line.
-
-    Exists so a batch script can index into them by array task id without
-    passing a comma-separated list through ``sbatch --export``, where commas
-    are the delimiter between assignments and silently truncate the value.
-    """
+    """Print a suite's directions, one per line (for Slurm array scripts)."""
     suite = SuiteSpec.from_dict(load_yaml_config(args.suite))
     for direction in suite.data.directions:
         print(direction)
@@ -388,12 +362,7 @@ def command_suite_directions(args: argparse.Namespace) -> int:
 
 
 def command_run_dir(args: argparse.Namespace) -> int:
-    """Print the run directory a model and suite resolve to.
-
-    Lets a batch script name one run exactly, rather than a scoring job acting
-    on every directory it can find, including other models' runs that are
-    still generating.
-    """
+    """Print the run directory a model and suite resolve to."""
     print(_build_run_config(args).directory)
     return 0
 
@@ -426,8 +395,6 @@ def command_calibration(args: argparse.Namespace) -> int:
     contamination = manifest.get("contamination") or {}
     collisions = contamination.get("total_collisions")
     if collisions:
-        # Not a warning. A calibration set that overlaps the test set makes
-        # every quality number downstream of it indefensible.
         return _fail(
             f"{collisions} calibration segment(s) also appear in "
             f"{contamination.get('dataset')}. This set must not be used."
@@ -465,15 +432,10 @@ def command_prune(args: argparse.Namespace) -> int:
         config_dir=Path(args.model_config_dir),
     )
 
-    # FLAP's al-am budgets parameters, trading heads against channels, so its
-    # unit count is not what it promised; every other budget prunes heads and
-    # channels to the same fraction, where the two coincide.
+    # al-am budgets parameters; the other allocations budget units.
     measure = "parameter_sparsity" if spec.allocation == "al-am" else "unit_sparsity"
     achieved = manifest[measure]
     if abs(achieved - spec.sparsity) > 0.05:
-        # Rounding to whole heads and channels moves the figure a little. A
-        # large gap means the budget could not be met, and a sweep whose
-        # members are not at the sparsity they claim compares nothing.
         return _fail(
             f"asked for sparsity {spec.sparsity} but the kept units imply {measure} "
             f"{achieved}. Check the per-layer floors against the requested budget."
@@ -509,8 +471,7 @@ def command_repair(args: argparse.Namespace) -> int:
     after = manifest.get("held_out_loss_after")
     improved = before is not None and after is not None and math.isfinite(after) and after < before
     if spec.fail_without_improvement and before is not None and not improved:
-        # Written anyway, since the numbers are worth seeing, but the job fails
-        # so nothing chained behind it spends GPU time evaluating it.
+        # The checkpoint is still written, but exit non-zero.
         return _fail(
             f"held-out loss did not fall ({before:.4f} before, {after} after). "
             "The checkpoint was written but repair did not help; see repair.json."
@@ -632,10 +593,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         metavar="PAIR",
         help=(
-            "generate only this direction of the suite, leaving the rest to another "
-            "process. Repeatable. Used to shard one run across a Slurm array: unlike "
-            "--directions it does not change the suite, so every task contributes to "
-            "the same run instead of creating a one-direction run of its own"
+            "generate only this direction of the suite (repeatable). Unlike "
+            "--directions it keeps the run identity, for sharding one run over a Slurm array"
         ),
     )
     gen.set_defaults(handler=command_generate)
@@ -664,11 +623,7 @@ def build_parser() -> argparse.ArgumentParser:
     score.add_argument(
         "--allow-partial",
         action="store_true",
-        help=(
-            "score a run whose generation is incomplete. Off by default: averaging "
-            "over the directions that happen to be on disk produces a macro average "
-            "covering fewer directions than the table claims"
-        ),
+        help=("score a run whose generation is incomplete"),
     )
     score.add_argument(
         "--set",
@@ -827,7 +782,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--subnetwork",
         action="append",
         metavar="PATH",
-        help="a subnetwork descriptor. Repeatable; see docs/subnetworks.md",
+        help="a subnetwork descriptor (repeatable)",
     )
     overlap.add_argument(
         "--subnetwork-dir",
@@ -868,18 +823,14 @@ def main(argv: list[str] | None = None) -> int:
     except (ConfigError, FileNotFoundError, KeyError, ValueError) as exc:
         return _fail(str(exc).strip("'\""))
     except ImportError as exc:
-        # A missing optional dependency. The bitsandbytes configs in this
-        # repository need the `quant` extra, which the documented install does
-        # not include, and this surfaced as a raw traceback naming package
-        # metadata rather than the extra.
+        # A missing optional dependency.
         return _fail(
             f"{exc}. A dependency is missing: install the extra this model needs, for "
-            'example uv pip install -e ".[gen,quant,surface]". See docs/environments.md.'
+            'example uv pip install -e ".[gen,quant,surface]". See README.md for the '
+            "COMET and MetricX environments."
         )
     except OSError as exc:
-        # Covers the offline case: transformers raises OSError when it cannot
-        # reach the Hub, and the 25-frame traceback named neither the cause nor
-        # the fix.
+        # transformers raises OSError when it cannot reach the Hub.
         hint = ""
         if "couldn't connect" in str(exc) or "offline" in str(exc).lower():
             hint = (

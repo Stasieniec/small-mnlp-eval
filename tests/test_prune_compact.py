@@ -1,12 +1,4 @@
-"""Compaction, and the round trip through a saved checkpoint.
-
-Pruning nothing must change nothing. An off-by-one does not crash, it yields a
-model that translates slightly worse, which is indistinguishable from a
-criterion that did not work.
-
-The second case is the save and load round trip on a tied-embedding model with
-layers of differing widths, which is what a global budget produces and what
-the config format cannot express.
+"""Compaction, and the save and load round trip with per-layer widths.
 
 Needs torch and transformers, but no GPU, network or weights.
 """
@@ -73,8 +65,7 @@ def test_compaction_shrinks_every_coupled_projection() -> None:
     assert first.self_attn.o_proj.in_features == 2 * head_dim
     assert first.mlp.gate_proj.out_features == 12
     assert first.mlp.down_proj.in_features == 12
-    # Layers keep independent widths, which is what a global budget produces
-    # and what the config format cannot express.
+    # Layers keep independent widths, as under a global budget.
     assert second.self_attn.q_proj.out_features == head_dim
     assert second.mlp.up_proj.out_features == 24
     # Multi-head attention: a key/value head follows its query head.
@@ -148,8 +139,7 @@ class TestRoundTrip:
         from recipes.pruned import load_model
 
         model = build()
-        # Uneven on purpose: a uniform plan would pass even if the loader
-        # ignored the descriptor and trusted the dense config.
+        # Uneven, so the loader must read the descriptor.
         step = model.config.num_attention_heads // model.config.num_key_value_heads
         plan = (
             LayerPlan(
@@ -167,26 +157,17 @@ class TestRoundTrip:
 
         assert torch.equal(logits(loaded), expected)
         assert subnetwork.name == "test-subnetwork"
-        # The descriptor is the only record of the widths, and the loader is
-        # the only consumer that must agree with it.
         assert plan_from_subnetwork(subnetwork) == plan
 
     def test_a_checkpoint_biased_on_only_some_layers_loads(self, tmp_path: Path) -> None:
-        """FLAP's compensation is per projection, so the bias set has holes.
-
-        A bias is installed only where units were actually dropped, and a
-        global budget can prune a layer's heads while leaving its FFN whole.
-        One flag for the whole checkpoint rebuilt biases the weights do not
-        carry, and the load failed on a real 7B checkpoint.
-        """
+        """FLAP adds a bias only to projections that lost units."""
         import torch
         from recipes.pruned import load_model
         from torch import nn
 
         model = build_llama()
         groups = describe_layers(model)
-        # Layer 0 drops channels and heads, layer 1 drops heads only, which is
-        # exactly the shape the global budget produced.
+        # Layer 0 drops channels and heads, layer 1 heads only.
         plan = (
             LayerPlan(heads=tuple(range(2)), channels=tuple(range(24))),
             LayerPlan(heads=tuple(range(2)), channels=tuple(range(groups[1].intermediate))),
@@ -238,8 +219,7 @@ class TestRoundTrip:
 
         loaded, _ = load_model(tmp_path)
 
-        # assign=True breaks the tie, so untied here means lm_head holds
-        # uninitialised storage.
+        # assign=True breaks the tie; check it was restored.
         assert loaded.lm_head.weight.data_ptr() == loaded.model.embed_tokens.weight.data_ptr()
 
 

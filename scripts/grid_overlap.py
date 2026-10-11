@@ -1,15 +1,10 @@
 """Pack the grid's subnetwork descriptors and measure how much they share.
 
-Every descriptor under ``subnetworks/`` is a few megabytes of kept indices,
-about 900 MB for the grid, too much for git. This packs them as boolean keep
-masks into one compressed ``subnetworks.npz`` (``<name>/heads``: layers x
-heads, ``<name>/ffn``: layers x channels), then reports FFN-channel and head
-overlap for the specialised subnetworks of chosen configurations, and between
-the two calibration draws of the same configuration.
-
-Overlap is the pooled Jaccard index over layers, with its excess over two
-random selections of the same per-layer sizes. Positive excess means the two
-criteria runs agree on which units matter beyond what the layer budgets force.
+The descriptors under ``subnetworks/`` (about 900 MB) are packed as boolean
+keep masks into one ``subnetworks.npz`` (``<name>/heads``: layers x heads,
+``<name>/ffn``: layers x channels). Overlap is the pooled Jaccard index over
+layers and its excess over random selections of the same per-layer sizes,
+for the specialised subnetworks and between the two calibration draws.
 
     ./.venv/bin/python scripts/grid_overlap.py --out results/grid-2026-10-06
 

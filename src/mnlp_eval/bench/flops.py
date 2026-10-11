@@ -1,17 +1,8 @@
-"""Analytic FLOPs estimation and model FLOPs utilisation.
+"""Analytic FLOPs estimate and model FLOPs utilisation (Zhu et al., Section 2.1).
 
-Reported because Zhu et al., Section 2.1, lists both. Wall-clock time is the
-number a compression report turns on.
-
-Two limits are recorded in the field names rather than in a footnote:
-
-* The estimate is analytic, from parameter and token counts. It is not a
-  traced operator count, and it ignores normalisation, activation and softmax
-  cost.
-* MFU is computed against the device's dense bf16 peak. A 4-bit model executes
-  low-precision matmuls with a different ceiling, so its figure is not a
-  utilisation number in the usual sense, and the field is named
-  ``mfu_bf16_equivalent``.
+The estimate uses parameter and token counts only and ignores normalisation,
+activation and softmax cost. MFU is relative to the device's dense bf16 peak,
+hence ``mfu_bf16_equivalent`` for quantized models.
 """
 
 from __future__ import annotations
@@ -20,9 +11,7 @@ from typing import Final
 
 __all__ = ["DEVICE_PEAK_BF16_FLOPS", "device_peak_flops", "estimate_generation_flops"]
 
-#: Dense bf16 or fp16 peak throughput in FLOP/s, without sparsity doubling.
-#: Vendor figures. Extend this table rather than guessing at runtime: a wrong
-#: peak silently corrupts every MFU number in a report.
+#: Dense bf16/fp16 peak throughput in FLOP/s, without sparsity (vendor figures).
 DEVICE_PEAK_BF16_FLOPS: Final[dict[str, float]] = {
     "a100": 312e12,
     "a100-sxm4-40gb": 312e12,
@@ -62,16 +51,10 @@ def estimate_generation_flops(
 ) -> int | None:
     """Estimate forward FLOPs for one decoder-only generation workload.
 
-    Uses the standard ``2 N`` FLOPs per parameter per token approximation.
-    Both terms are multiplied by ``num_beams``, because transformers expands
-    ``input_ids`` by the beam count before the prefill pass.
-    ``prefill_positions`` must be the padded width the model computed over, not
-    the sum of unpadded token counts.
-
-    Returns ``None`` for encoder-decoder models. Their cost splits between an
-    encoder that runs once unexpanded and a decoder that runs beam-expanded,
-    and ``non_embedding_parameters`` covers both, so a single ``2 N`` figure
-    would overstate the decode term.
+    Uses ``2 N`` FLOPs per parameter per token. Both terms are multiplied by
+    ``num_beams``, since transformers expands ``input_ids`` before prefill.
+    ``prefill_positions`` is the padded width. Returns ``None`` for
+    encoder-decoder models.
     """
     if architecture != "causal":
         return None

@@ -2,12 +2,8 @@
 
 An attention head is ``head_dim`` rows of ``q_proj``, ``k_proj`` and ``v_proj``
 plus the matching columns of ``o_proj``. An FFN channel is one row of
-``gate_proj`` and ``up_proj`` plus one column of ``down_proj``. Fixed for this
-architecture family, so it is a table rather than a traced graph.
-
-Measured from the loaded modules, not the config, so a checkpoint whose config
-and tensors disagree is visible. No torch import, so this is testable without
-it. Indices are into the dense model, as docs/subnetworks.md requires.
+``gate_proj`` and ``up_proj`` plus one column of ``down_proj``. Sizes are read
+from the loaded modules. Indices refer to the dense model.
 """
 
 from __future__ import annotations
@@ -25,8 +21,7 @@ __all__ = [
     "describe_layers",
 ]
 
-#: ALMA-7B is ``llama``. ``qwen2`` is the smoke-test model, and grouped-query,
-#: which is the case most likely to be got wrong.
+#: ALMA-7B is ``llama``; ``qwen2`` (grouped-query) is the smoke-test model.
 SUPPORTED_MODEL_TYPES = frozenset({"llama", "qwen2"})
 
 
@@ -39,8 +34,7 @@ class LayerGroups:
     num_kv_heads: int
     head_dim: int
     intermediate: int
-    #: Qwen2 hardcodes q, k and v biases and ignores ``config.attention_bias``,
-    #: so this is measured. They index by output row and follow the heads.
+    #: Whether q, k and v have biases (Qwen2 does regardless of ``config.attention_bias``).
     attention_bias: bool = False
 
     @property
@@ -62,11 +56,9 @@ class LayerGroups:
     def validate_heads(self, kept: Sequence[int]) -> tuple[int, ...]:
         """Check a query-head selection and return it sorted and deduplicated.
 
-        Grouped-query attention must keep the same number per key/value group.
-        ``repeat_kv`` wires query head ``i`` to key/value head ``i // n_rep``
-        with no remapping hook, so an uneven selection does not fail: the
-        survivors attend to the wrong key/value head. Multi-head attention is
-        unconstrained.
+        Under grouped-query attention every key/value group must keep the same
+        number of query heads, since ``repeat_kv`` maps query head ``i`` to
+        key/value head ``i // n_rep``.
         """
         unique = _checked_indices(kept, self.num_heads, "attention head", self.index)
         if not self.is_grouped_query:
@@ -77,18 +69,13 @@ class LayerGroups:
         if len(set(per_group)) != 1:
             msg = (
                 f"layer {self.index}: grouped-query attention needs the same number of "
-                f"query heads kept in every key/value group, got {per_group}. An uneven "
-                "selection misroutes the survivors rather than failing."
+                f"query heads kept in every key/value group, got {per_group}."
             )
             raise PruneError(msg)
         return unique
 
     def kept_kv_heads(self, kept_heads: Sequence[int]) -> tuple[int, ...]:
-        """Key/value heads surviving a query-head selection.
-
-        Grouped-query keeps them all, since every group keeps a query head.
-        Multi-head has one per query head, so they follow it.
-        """
+        """Key/value heads surviving a query-head selection (all of them under GQA)."""
         validated = self.validate_heads(kept_heads)
         if self.is_grouped_query:
             return tuple(range(self.num_kv_heads))
@@ -113,11 +100,7 @@ class LayerGroups:
 
 
 def decoder_layers(model: Any) -> list[Any]:
-    """The decoder layers of a supported model, in order.
-
-    Raises rather than guessing: pruning the wrong tensors yields a model that
-    loads and translates badly, which looks like a criterion that did not work.
-    """
+    """The decoder layers of a supported model, in order. Raises for other architectures."""
     model_type = getattr(getattr(model, "config", None), "model_type", None)
     if model_type not in SUPPORTED_MODEL_TYPES:
         msg = (
@@ -220,8 +203,6 @@ def _checked_indices(kept: Iterable[int], total: int, unit: str, index: int) -> 
         msg = f"layer {index}: repeated {unit} index in a selection of {len(values)}"
         raise PruneError(msg)
     if not unique:
-        # An empty layer is a removed layer, which the descriptor format
-        # represents as a 'layers' component rather than as an empty entry.
         msg = f"layer {index}: kept no {unit}s, which is a removed layer rather than a selection"
         raise PruneError(msg)
     outside = [value for value in unique if not 0 <= value < total]

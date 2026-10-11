@@ -1,8 +1,5 @@
-"""Shared fixtures.
-
-The core test suite runs without torch, without a GPU and without network
-access, so it is cheap enough to run on every commit. Tests that need any of
-those are marked ``gpu``, ``network`` or ``slow`` and are excluded from CI.
+"""Shared fixtures. Tests that need a GPU, network or time are marked ``gpu``,
+``network`` or ``slow``.
 """
 
 from __future__ import annotations

@@ -1,16 +1,8 @@
-"""MetricX-24, one of the two WMT24 metrics task winners.
+"""MetricX-24 scoring.
 
-Requires the MetricX environment, which exists because upstream pins
-``transformers==4.30.2``. See docs/environments.md.
-
-Batching is implemented here rather than reusing upstream's
-``metricx24/predict.py`` pipeline, which routes through ``datasets`` at a
-pinned version. Only the model class is imported from upstream, so the pinned
-data stack stays out of the hot path.
-
-MetricX-24 predicts an error score in [0, 25]: lower is better. The framework
-records that direction explicitly so report tables cannot sort it the wrong
-way.
+Needs the MetricX environment (upstream pins ``transformers==4.30.2``). Only
+the model class is imported from upstream; batching is done here. Scores are
+errors in [0, 25], lower is better.
 """
 
 from __future__ import annotations
@@ -52,9 +44,7 @@ def _load(model_name: str, tokenizer_name: str) -> tuple[Any, Any]:
     from metricx24 import models
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name, legacy=False)
-    # torch_dtype="auto" as upstream's predict.py does. Omitting it upcast the
-    # bfloat16 checkpoint to fp32, which drifts scores away from the published
-    # values and doubles weight memory to roughly 4.9 GB for the large variant.
+    # torch_dtype="auto" as in upstream's predict.py, keeps the checkpoint in bfloat16.
     model = models.MT5ForRegression.from_pretrained(model_name, torch_dtype="auto")
     model.eval()
     if torch.cuda.is_available():
@@ -101,8 +91,7 @@ def score_metricx(
             tokenizer(text, max_length=max_input_length, truncation=True, padding=False)
             for text in chunk
         ]
-        # Upstream strips the trailing EOS token before feeding the model, and
-        # the checkpoints were trained that way. Keeping it shifts scores.
+        # Upstream strips the trailing EOS token.
         for item in encoded:
             item["input_ids"] = item["input_ids"][:-1]
             item["attention_mask"] = item["attention_mask"][:-1]

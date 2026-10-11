@@ -5,42 +5,30 @@ build-backend = "hatchling.build"
 [project]
 name = "mnlp-eval"
 version = "0.1.0"
-description = "Reproducible quality and efficiency evaluation for compressed machine translation LLMs."
+description = "Quality and efficiency evaluation for compressed translation LLMs, used to study structured pruning of ALMA-7B."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { file = "LICENSE" }
-keywords = ["machine translation", "evaluation", "model compression", "ALMA"]
+keywords = ["machine translation", "evaluation", "structured pruning", "ALMA"]
 classifiers = [
   "Intended Audience :: Science/Research",
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
-# The core package is intentionally almost dependency free. It must be
-# installable in three mutually incompatible environments (generation, COMET,
-# MetricX), so anything that pins numpy, torch or transformers belongs in an
-# optional group. See docs/environments.md.
+# Installed in the generation, COMET and MetricX environments, so heavy
+# dependencies go in extras.
 dependencies = [
   "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
-# Surface metrics and behavioural metrics. No heavy pins, safe everywhere.
 surface = [
   "sacrebleu>=2.4",
   "py3langid>=0.2.2",
 ]
-# Japanese and Korean targets need MeCab. No shipped suite evaluates either, so
-# these are separate rather than part of `surface`.
-ja = ["sacrebleu[ja]>=2.4"]
-ko = ["sacrebleu[ko]>=2.4"]
-# Generation stack. This is the environment teammates develop against.
 gen = [
   "torch>=2.1",
-  # Capped below 5.0 on purpose. unbabel-comet requires transformers<5.0, and
-  # ALMA's published numbers were produced with 4.51.1. Keeping the generation
-  # and scoring environments on the same major version removes a class of
-  # tokenizer-drift questions we would otherwise have to rule out by hand.
+  # unbabel-comet requires transformers<5.
   "transformers>=4.45,<5",
   "tokenizers>=0.19,<0.22",
   "accelerate>=0.30",
@@ -48,30 +36,24 @@ gen = [
   "huggingface-hub>=0.24,<1.0",
   "sentencepiece>=0.2",
   "protobuf>=4",
-  # Marian tokenizers fall back to a degraded path without it.
+  # for Marian tokenizers
   "sacremoses>=0.1",
   "nvidia-ml-py>=12.535",
 ]
-# Compression-specific loaders. Installed on demand, never required.
 quant = [
   "bitsandbytes>=0.43",
   "peft>=0.11",
   "optimum>=1.21",
 ]
-# Structured pruning. Pinned tighter than `gen` on purpose: pruning reaches
-# into attention module internals, and the 4.48 refactor moved the head count
-# out of the module attributes and into the tensor shapes. Supporting both
-# sides of that is a compatibility shim this project does not need.
+# Pruning relies on attention internals as of transformers 4.48.
 prune = [
   "torch>=2.1",
   "transformers>=4.48,<5",
   "accelerate>=0.30",
   "safetensors>=0.4",
-  # LoRA repair of a pruned checkpoint, mnlp-eval repair. 0.12 is the first
-  # release that keeps adapters in float32 on a bfloat16 base.
+  # LoRA repair; 0.12 keeps adapters in float32 on a bfloat16 base.
   "peft>=0.12",
 ]
-vllm = ["vllm>=0.6"]
 report = ["matplotlib>=3.8", "pandas>=2.1"]
 dev = [
   "ruff>=0.6",
@@ -108,8 +90,8 @@ select = [
   "RUF",
 ]
 ignore = [
-  "B008",    # function call in default argument, common and readable in CLI code
-  "RUF001",  # ambiguous unicode, unavoidable in multilingual test fixtures
+  "B008",    # function call in default argument
+  "RUF001",  # ambiguous unicode in multilingual test data
   "RUF002",
   "RUF003",
 ]
@@ -126,10 +108,7 @@ warn_unreachable = true
 ignore_missing_imports = true
 disallow_untyped_decorators = false
 
-# Modules that call into third-party libraries whose type information is
-# absent or does not re-export explicitly. The suppressions are scoped to the
-# specific error codes and modules involved rather than relaxing strictness
-# across the package.
+# Modules calling untyped third-party code.
 [[tool.mypy.overrides]]
 module = [
   "mnlp_eval.models.hf_causal",

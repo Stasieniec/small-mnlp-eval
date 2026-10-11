@@ -39,7 +39,7 @@ def test_segment_round_trips_through_jsonl(tmp_path: Path) -> None:
 
 
 def test_unknown_jsonl_fields_are_ignored(tmp_path: Path) -> None:
-    # Lets an older run directory still be read after the schema grows.
+    # Older run directories stay readable when the schema grows.
     path = tmp_path / "x.jsonl"
     path.write_text(
         '{"index": 0, "source": "a", "reference": "b", "hypothesis": "c", "future": 1}\n',
@@ -80,8 +80,7 @@ def test_empty_jsonl_writes_no_trailing_newline(tmp_path: Path) -> None:
 
 
 def test_write_lines_flattens_newlines(tmp_path: Path) -> None:
-    # A newline inside a hypothesis would break the line alignment that
-    # sacreBLEU and comet-score depend on.
+    # A newline inside a hypothesis would break line alignment.
     path = tmp_path / "de-en.txt"
     assert write_lines(path, ["one line", "two\nlines", "three\r\nlines"]) == 3
     assert path.read_text(encoding="utf-8").splitlines() == [

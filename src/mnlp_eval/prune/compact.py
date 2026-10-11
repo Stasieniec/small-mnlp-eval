@@ -2,15 +2,8 @@
 
 :func:`compact_model` shrinks a loaded model's projections onto the kept units.
 :func:`reshape_model` gives an uninitialised model the same shapes for loading
-a checkpoint back. They are one function with a flag, because they must agree.
-
-``num_key_value_groups`` is the only module attribute pruning invalidates:
-attention reshapes with ``-1``, rotary embeddings carry no head dimension and
-the causal mask broadcasts over heads. True from transformers 4.48, which the
-``prune`` extra pins.
-
-Weights are never zeroed in place. ``bench.structure`` reports the fraction of
-parameters that are exactly zero precisely to catch that.
+a checkpoint. Besides the projections, only ``num_key_value_groups`` needs
+updating (transformers >= 4.48).
 """
 
 from __future__ import annotations
@@ -65,15 +58,9 @@ def reshape_model(
 ) -> None:
     """Give ``model`` the shapes ``plan`` implies, without carrying weights over.
 
-    ``output_bias`` adds a bias to ``o_proj`` and ``down_proj``, which both
-    architectures build without one and FLAP's compensation needs.
-
-    It is a predicate rather than only a flag because the two projections do
-    not acquire a bias together. FLAP installs one per projection that actually
-    dropped units, and a global budget can leave a layer's FFN untouched while
-    still pruning its heads, so one layer can carry an ``o_proj`` bias and no
-    ``down_proj`` bias. A caller rebuilding a saved checkpoint passes a
-    predicate reading the weights it holds.
+    ``output_bias`` adds a bias to ``o_proj`` and ``down_proj`` (needed for
+    FLAP). It can be a predicate on (layer, projection name), since FLAP only
+    adds a bias where units were dropped.
     """
     _apply(model, plan, select=False, output_bias=output_bias)
 
@@ -99,11 +86,7 @@ def compact_layer(
     select: bool = True,
     output_bias: bool | BiasPredicate = False,
 ) -> None:
-    """Shrink one decoder layer onto ``plan``.
-
-    Exposed because SlimGPT compacts as it goes: compensation is only correct
-    if the next layer sees what the pruned one produces.
-    """
+    """Shrink one decoder layer onto ``plan``. Used directly by SlimGPT."""
     head_rows = group.head_rows(plan.heads)
     kv_rows = group.kv_rows(plan.heads)
     channels = group.validate_channels(plan.channels)
@@ -129,7 +112,6 @@ def compact_layer(
         add_bias=_wants_bias(output_bias, group.index, "down_proj"),
     )
 
-    # The one attribute the attention forward reads that pruning invalidates.
     attention.num_key_value_groups = group.num_key_value_groups_after(plan.heads)
 
 
@@ -194,12 +176,7 @@ def write_descriptor(
     pruned_for: str = "multi",
     notes: str = "",
 ) -> Subnetwork:
-    """Write the kept-unit descriptor and return it parsed back.
-
-    Reading it back is the point: it is the only record of which positions a
-    run chose, and a malformed one would otherwise surface weeks later when the
-    overlap analysis runs. See docs/subnetworks.md.
-    """
+    """Write the kept-unit descriptor and return it parsed back (which validates it)."""
     from mnlp_eval.analysis.subnetwork import SUBNETWORK_SCHEMA_VERSION, load_subnetwork
     from mnlp_eval.artifacts import atomic_write_json
 
@@ -239,11 +216,7 @@ def write_descriptor(
 
 
 def plan_from_subnetwork(subnetwork: Subnetwork) -> tuple[LayerPlan, ...]:
-    """Rebuild a plan from a descriptor, for loading a compacted checkpoint.
-
-    The descriptor is the single record of the per-layer widths, so there is no
-    second sidecar that can disagree with it.
-    """
+    """Rebuild a plan from a descriptor, for loading a compacted checkpoint."""
     try:
         heads = subnetwork.components["attention_heads"]
         channels = subnetwork.components["ffn_channels"]

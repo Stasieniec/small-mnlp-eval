@@ -1,20 +1,7 @@
-"""Download everything a run needs, ahead of time.
+"""Download datasets, models and metric checkpoints into ``HF_HOME`` before a run.
 
-Anything a batch job touches should be in ``HF_HOME`` before the job starts.
-The primary reason is reproducibility: a run that downloads mid-job is a run
-whose timings are not comparable, and whose weights may differ from the last
-one if a Hub repository moved. The batch scripts also set
-``HF_HUB_OFFLINE=1`` by default, which turns a missing asset into a fast, clear
-failure instead of a slow download.
-
-Whether Snellius compute nodes can reach the network at all is a separate
-question, and not one this project has verified. SURF documents blocking
-inbound access, not outbound, and SURF's own AI guide downloads from the Hub
-inside a batch job. See slurm/README.md.
-
-This runs on a login node. Because the three environments hold different metric
-libraries, each one prefetches what it can and reports the rest, in the same
-way the score stage does.
+Meant for a login node; batch jobs run with ``HF_HUB_OFFLINE=1``. Each
+environment prefetches the metric models it can load and reports the rest.
 """
 
 from __future__ import annotations
@@ -119,11 +106,7 @@ def _fetch_dataset(dataset: str, direction: str, split: str) -> dict[str, Any]:
 
 
 def _looks_like_a_filesystem_path(reference: str) -> bool:
-    """Whether a model reference names a path rather than a Hub repository.
-
-    Hub identifiers are ``owner/name`` and never begin with a separator or a
-    dot, so the distinction is unambiguous.
-    """
+    """Whether a model reference is a filesystem path (Hub ids are ``owner/name``)."""
     return reference.startswith(("/", "./", "../", "~"))
 
 
@@ -133,11 +116,7 @@ def _fetch_repo(
     if Path(reference).expanduser().is_dir():
         return {"ok": True, "note": "local directory"}
     if _looks_like_a_filesystem_path(reference):
-        # Nothing to download either way, so this is a warning rather than a
-        # failure. It has to be, because prefetch.sh runs over every config in
-        # the directory and the pruning templates carry placeholder scratch
-        # paths until a teammate fills them in. Under --strict, treating this
-        # as a failure would break the documented Snellius setup step.
+        # A warning only: pruned configs point at checkpoints that may not exist yet.
         return {
             "ok": True,
             "note": "local path",
@@ -202,9 +181,7 @@ def _fetch_metrics(metrics: MetricsSpec) -> dict[str, Any]:
                     report[f"comet:{model_name}"] = {"ok": True, "path": str(path)}
                     encoder = _comet_encoder(path)
                     if encoder:
-                        # load_from_checkpoint builds the encoder from its Hub
-                        # name, so its config and tokenizer must be cached too
-                        # or scoring fails offline one step later.
+                        # COMET loads the encoder config and tokenizer from the Hub.
                         report[f"comet-encoder:{encoder}"] = _fetch_repo(
                             encoder,
                             None,
@@ -221,10 +198,7 @@ def _fetch_metrics(metrics: MetricsSpec) -> dict[str, Any]:
 
     if "metricx" in metrics.groups:
         report[f"metricx:{metrics.metricx_model}"] = _fetch_repo(metrics.metricx_model, None)
-        # Only the tokenizer files. google/mt5-xl is a 45 GB repository holding
-        # PyTorch, TensorFlow and Flax copies of weights this framework never
-        # loads: MetricX supplies its own model, and mt5-xl is referenced for
-        # its sentencepiece vocabulary alone.
+        # Tokenizer files only; the mt5-xl weights are not needed.
         report[f"metricx-tokenizer:{metrics.metricx_tokenizer}"] = _fetch_repo(
             metrics.metricx_tokenizer,
             None,

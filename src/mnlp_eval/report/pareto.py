@@ -26,15 +26,10 @@ _QUALITY_PREFERENCE: tuple[tuple[str, str, str], ...] = (
 def choose_quality_metric(
     summaries: list[RunSummary],
 ) -> tuple[str, str, str] | None:
-    """Pick one metric for the y-axis, shared by every point on the plot.
+    """Pick one y-axis metric for the whole plot.
 
-    Chosen once for the whole plot rather than per system. Falling back per
-    system put a COMET value near 0.85 and a BLEU value near 30 on the same
-    axis, pinned the COMET point visually at zero, and labelled the axis after
-    whichever system happened to be plotted last.
-
-    Preference order favours the metric the most systems share, so one system
-    missing COMET does not drag the whole plot down to BLEU.
+    Takes the first metric in preference order that every system has, else
+    the one most systems have.
     """
     best: tuple[int, tuple[str, str, str]] | None = None
     for entry in _QUALITY_PREFERENCE:
@@ -52,11 +47,7 @@ def write_pareto_plots(
     *,
     batch_size: int | None = None,
 ) -> list[Path]:
-    """Write the two frontier plots. Returns the files written.
-
-    Returns an empty list when matplotlib is unavailable, since a missing plot
-    should never fail a report.
-    """
+    """Write the two frontier plots. Returns the files written (none without matplotlib)."""
     try:
         import matplotlib
 
@@ -75,8 +66,7 @@ def write_pareto_plots(
     plotted = [summary for summary in summaries if summary.metric(group, key) is not None]
     skipped = [summary.model for summary in summaries if summary not in plotted]
 
-    # A batch size present in every system, so the throughput axis compares
-    # like with like rather than one system at batch 8 against another at 1.
+    # Use a batch size every system was benchmarked at.
     shared_batch = _shared_batch_size(plotted, batch_size)
     panels: list[dict[str, Any]] = [
         {

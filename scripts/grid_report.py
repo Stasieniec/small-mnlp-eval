@@ -1,53 +1,15 @@
 #!/usr/bin/env python3
 """Aggregate the ALMA-7B structured-pruning grid into tables, plots and JSON.
 
-Usage::
-
     ./.venv/bin/python scripts/grid_report.py [--out results/grid-2026-10-06] \
         [--runs-root runs] [--manifest configs/grid/manifest.json] [--bootstrap 1000]
 
-The grid is method {slimgpt, flap} x calibration text {ref, gen} x sparsity
-{20, 30, 40} x scope {multi, pair, dir}. The grid manifest (written by
-``scripts/grid.py configs``) names the systems and their attributes; run
-directories under ``--runs-root`` hold the scores. The dense ``alma-7b`` run is
-the baseline, and any ``<source>-lora`` run is treated as a LoRA repair of
-``<source>``.
-
-A model is complete when every direction it is meant to be evaluated on is
-scored (BLEU, chrF++ and COMET): all ten for dense, multi models and their
-repairs, the manifest's ``pruned_directions`` for pair and dir models (a
-``-lora`` system inherits its source's). On the pilot suite every model has
-all ten; on the full suite (``--suite alma10-greedy``) specialists are only
-evaluated on their own directions. Specialists that do have all ten feed the
-transfer section; the others are left out of it.
-
-MetricX-24 (``scores.metricx.json``, an error score in [0, 25], lower is
-better) is reported next to COMET where it exists and as ``-`` elsewhere.
-COMET stays the primary metric.
-
-Every contrast (COMET, MetricX-24, BLEU) is system minus baseline on the macro
-over the directions both sides have, each direction weighted equally, so a
-delta is the difference of the macro columns. Its 95% CI and two-sided p come
-from a stratified paired bootstrap: each resample redraws segment positions
-within each direction, the same positions for both systems.
-
-Written into ``--out``:
-
-* ``long.csv``: one row per (system, direction) with every metric and attribute.
-* ``summary.md``: coverage, headline (COMET, then MetricX-24), ref vs gen,
-  SlimGPT vs FLAP, per-direction, sparsity curve, transfer, behaviour, repair
-  and structure.
-* ``transfer/<config>.md`` and ``transfer/<config>.csv``: the full pair (5x10)
-  and direction (10x10) transfer matrices for one method x calib x sparsity.
-* ``structure.csv`` and ``structure/<name>.layers.csv``: removed parameters and
-  per-layer kept units.
-* ``plots/*.png`` and ``results.json``.
-
-Built to be rerun on a partial grid: anything missing is shown as ``-``, and a
-macro average over fewer than ten directions carries an ``(n/10)`` marker.
-Parsed runs, BLEU sufficient statistics, subnetwork summaries and bootstrap
-results are cached under ``<out>/.cache``, keyed by file size and mtime, so a
-rerun only re-reads what changed.
+Systems come from the grid manifest (``scripts/grid.py configs``), scores from
+the run directories. ``alma-7b`` is the baseline; ``<source>-lora`` is a LoRA
+repair of ``<source>``. Contrasts are system minus baseline on the macro over
+shared directions, with a stratified paired bootstrap for the CI and p-value.
+Missing results show as ``-``. Parsed runs and bootstrap results are cached
+under ``<out>/.cache``.
 """
 
 from __future__ import annotations
@@ -82,11 +44,9 @@ DENSE = "alma-7b"
 COMET_KEY = "wmt22_comet_da"
 METRICX_KEY = "metricx24"
 CACHE_VERSION = 1
-#: The parsed-run cache has its own version, bumped when the parsed structure
-#: changes (2: MetricX fields), so the BLEU and bootstrap caches stay valid.
+#: Version of the parsed-run cache alone (2: MetricX fields).
 RUN_CACHE_VERSION = 2
-#: Signature of the stored bootstrap results. v2: COMET and MetricX contrasts
-#: became a stratified bootstrap of the macro, so pooled v1 results are dropped.
+#: Signature of stored bootstrap results (v2: stratified bootstrap of the macro).
 BOOTSTRAP_CACHE = "v2"
 #: Tag in the cache key of every per-segment contrast bootstrap.
 SEGMENT_BOOTSTRAP = "stratified-macro"
@@ -152,8 +112,7 @@ LONG_COLUMNS = (
     "bleu_token_length_ratio",
 )
 
-#: Colours: one hue per method (validated categorical slots 1 and 2), a
-#: blue-gray-red diverging ramp for the transfer heatmaps.
+#: One colour per method; a blue-gray-red ramp for the transfer heatmaps.
 METHOD_COLOUR = {"slimgpt": "#2a78d6", "flap": "#eb6834"}
 EXTRA_COLOURS = ("#1baf7a", "#4a3aa7", "#e87ba4", "#008300")
 DIVERGING = ("#e34948", "#f0efec", "#2a78d6")
@@ -337,9 +296,7 @@ class System:
         """The directions this system must be scored on to count as complete.
 
         All ten for dense and multi models (and their repairs); the pruned
-        directions for a pair or dir model, which a ``-lora`` repair inherits.
-        A specialist scored on more (the pilot, the Tier-3 full-suite runs) is
-        still complete, and also has transfer data.
+        directions for a pair or dir model and its ``-lora`` repair.
         """
         if self.is_dense or self.scope == "multi":
             return DIRECTIONS
@@ -997,12 +954,9 @@ def macro_bleu_bootstrap(
 ) -> dict[str, Any]:
     """Paired bootstrap on macro BLEU over directions, resampled within each.
 
-    ``significance.paired_bootstrap_surface`` tests one direction with one
-    tokenizer, so it cannot give an interval on a ten-direction macro that
-    mixes the 13a and zh tokenizers. This resamples segments within each
-    direction (the same indices for both systems), recomputes corpus BLEU per
-    direction from sufficient statistics and averages. The p-value follows
-    ``bootstrap_segment_delta``: two-sided, centred, add-one smoothed.
+    Recomputes corpus BLEU per direction from sufficient statistics, so the
+    13a and zh tokenizers can be mixed. The p-value is two-sided, centred and
+    add-one smoothed, as in ``bootstrap_segment_delta``.
     """
     base = float(np.mean([bleu_from_stats(a.sum(axis=0)) for a, _ in pairs]))
     system = float(np.mean([bleu_from_stats(b.sum(axis=0)) for _, b in pairs]))
@@ -1054,17 +1008,10 @@ def macro_segment_bootstrap(
     """Stratified paired bootstrap on the macro of a per-segment metric.
 
     ``pairs`` holds one (baseline, system) pair of per-segment score arrays per
-    direction, paired by position. Each resample redraws segment positions
-    independently within each direction, the same positions for both systems,
-    takes the per-direction mean difference and averages the directions with
-    equal weight. The observed delta is therefore the difference of the two
-    macros, whatever the directions' sizes, unlike pooling all segments, which
-    weights directions by their segment counts.
-
-    Seed, p-value and CI mirror ``significance.bootstrap_segment_delta``: one
-    ``default_rng(seed)``, directions drawn in order; two-sided centred p,
-    ``P(|d_b - d| >= |d|)``, add-one smoothed; percentile 95% CI on the delta.
-    With a single direction it reproduces that helper exactly.
+    direction. Positions are resampled within each direction and the
+    per-direction mean differences averaged with equal weight. Seed, p-value
+    and CI follow ``significance.bootstrap_segment_delta``, which this matches
+    for a single direction.
     """
     base, system, observed = _macro_means(pairs)
     rng = np.random.default_rng(seed)
@@ -1159,9 +1106,7 @@ def segment_contrast(
 ) -> dict[str, Any] | None:
     """System minus base on the macro of a per-segment metric over shared directions.
 
-    Equal weight per direction, so the delta is the difference of the macro
-    columns; the CI and p come from ``macro_segment_bootstrap``. The delta is
-    always system minus base: for MetricX-24 (lower is better) a negative delta
+    CI and p from ``macro_segment_bootstrap``. For MetricX-24 a negative delta
     means the system is better.
     """
     label, higher_is_better, sig_attr = SEGMENT_METRICS[metric]
@@ -2132,12 +2077,8 @@ def recovered_share(
 ) -> float | None:
     """Share of the pruning loss that the repair won back.
 
-    The loss is how far the pruned model sits from dense in the bad direction
-    (below it for COMET, above it for MetricX-24), the gain how far the repair
-    moved in the good direction. Both flip sign together for a lower-is-better
-    metric, so the ratio equals ``(repaired - pruned) / (dense - pruned)``
-    either way; it is written out so the direction is explicit. 1 = the whole
-    gap closed, 0 = nothing, negative = the repair made it worse.
+    ``(repaired - pruned) / (dense - pruned)``: 1 = gap closed, 0 = nothing,
+    negative = the repair made it worse.
     """
     if dense is None or pruned is None or repaired is None:
         return None

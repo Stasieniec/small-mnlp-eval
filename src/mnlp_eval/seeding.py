@@ -1,4 +1,4 @@
-"""Seeding, so that a rerun of the same run identity gives the same output."""
+"""Seeding helpers."""
 
 from __future__ import annotations
 
@@ -11,14 +11,8 @@ __all__ = ["seed_everything"]
 def seed_everything(seed: int, *, deterministic_algorithms: bool = False) -> None:
     """Seed Python, NumPy and torch.
 
-    Beam search with ``do_sample=False`` is already deterministic given the
-    same padding, so seeding mostly guards against a stray sampling path and
-    against any data-order randomness a custom loader might introduce.
-
-    ``deterministic_algorithms`` additionally forces deterministic CUDA
-    kernels. It is off by default because it is measurably slower and would
-    distort the efficiency measurements, which are the other half of what this
-    framework reports.
+    ``deterministic_algorithms`` also forces deterministic CUDA kernels. Off by
+    default since it slows down generation and would affect the timings.
     """
     random.seed(seed)
     os.environ.setdefault("PYTHONHASHSEED", str(seed))

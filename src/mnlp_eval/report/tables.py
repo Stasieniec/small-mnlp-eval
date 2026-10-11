@@ -1,7 +1,6 @@
-"""Stage D: aggregate runs into tables.
+"""Aggregate runs into report tables.
 
-Runs whose data or decoding settings differ are never placed in the same
-table. Grouping is by measurement conditions, not by convention.
+Runs with different data or decoding settings never share a table.
 """
 
 from __future__ import annotations
@@ -58,13 +57,7 @@ class RunSummary:
 
     @property
     def data_fingerprints(self) -> dict[str, str]:
-        """Per-direction digest of the exact segments scored.
-
-        Recorded by the generate stage. The data specification names a dataset
-        and a limit; the fingerprint is the content. Two runs can share a
-        specification and have been scored on different data, for example when
-        a local held-out file is edited between runs.
-        """
+        """Per-direction digest of the exact segments scored, from the generate stage."""
         fingerprints: dict[str, str] = {}
         for entry in self.stage_records.get("generate", {}).values():
             for direction, payload in (entry.get("directions") or {}).items():
@@ -75,16 +68,7 @@ class RunSummary:
 
     @property
     def comparability_key(self) -> str:
-        """Identity of the measurement conditions, ignoring the model.
-
-        Two runs sharing this key were measured the same way and may be
-        compared. Two runs that do not share it may not.
-
-        Includes the data fingerprints, not just the data specification.
-        Without them, a baseline scored on a local file and a candidate scored
-        after that file was edited grouped into one table with no warning, and
-        a seven-BLEU "compression regression" was entirely a data change.
-        """
+        """Identity of the measurement conditions (data, decoding, data fingerprints)."""
         identity = self.manifest["identity"]
         return canonical_json(
             {
@@ -125,11 +109,7 @@ class RunSummary:
 
     @property
     def compression(self) -> CompressionSpec:
-        """The system's declared compression, defaulting to uncompressed.
-
-        Read from the manifest rather than from the config file, so a report
-        built months later describes what was actually run.
-        """
+        """The system's declared compression from the manifest, defaulting to uncompressed."""
         payload = self.manifest["model"].get("compression")
         if not isinstance(payload, dict):
             return CompressionSpec()
@@ -147,11 +127,7 @@ class RunSummary:
 
     @property
     def main_stack(self) -> dict[str, Any] | None:
-        """The layer stack holding the most parameters.
-
-        A decoder-only model has exactly one. An encoder-decoder model has two,
-        and the decoder is the one whose width dominates generation cost.
-        """
+        """The layer stack holding the most parameters."""
         structure = self.structure
         if not structure:
             return None
@@ -312,11 +288,8 @@ def build_tables(
 ) -> list[Table]:
     """Build every table for one comparable group of runs.
 
-    The last three answer the project's research questions directly: what the
-    pruning actually removed, whether low-resource directions suffer more, and
-    whether a subnetwork selected for one language pair still works on the
-    others. They are omitted when the runs present cannot support them, so a
-    quantization-only comparison does not carry three empty tables.
+    The structure, resource-tier and transfer tables are only added when the
+    runs have the data for them.
     """
     ordered = _order(summaries, baseline)
     reference = _find_baseline(ordered, baseline)
@@ -336,16 +309,14 @@ def build_tables(
 
 
 def _order(summaries: list[RunSummary], baseline: str | None) -> list[RunSummary]:
-    """Baseline first, then alphabetical, so tables read consistently."""
+    """Baseline first, then alphabetical."""
     return sorted(summaries, key=lambda item: (item.model != baseline, item.model))
 
 
 def _find_baseline(summaries: list[RunSummary], baseline: str | None) -> RunSummary | None:
     """Find the reference run, by explicit name then by declaration.
 
-    An explicit ``--baseline`` that matches nothing returns None rather than
-    falling back, so a typo shows up as blank ratio columns plus a warning from
-    the report, rather than as ratios against an unrequested system.
+    An explicit ``--baseline`` that matches nothing gives None.
     """
     if baseline:
         return next((item for item in summaries if item.model == baseline), None)
@@ -353,9 +324,7 @@ def _find_baseline(summaries: list[RunSummary], baseline: str | None) -> RunSumm
     return next((item for item in summaries if item.model in declared), None)
 
 
-#: Display names for the neural metric keys, and the order columns appear in.
-#: Every metric present gets its own column, because they are on different
-#: scales and one heading cannot stand for two of them.
+#: Display names for the neural metric keys, in column order.
 _NEURAL_COLUMNS: tuple[tuple[str, str, str], ...] = (
     ("neural", "wmt22_comet_da", "COMET-22"),
     ("neural", "wmt22_cometkiwi_da", "COMETKiwi (ref-free)"),
@@ -548,23 +517,14 @@ def _efficiency_table(summaries: list[RunSummary], reference: RunSummary | None)
 
 
 def _quality_metric(summaries: list[RunSummary]) -> tuple[str, str, str] | None:
-    """One metric for every derived table, chosen once for the whole group.
-
-    Shared with the Pareto plots so a report never states a transfer gap in
-    COMET and draws the frontier in BLEU without saying so.
-    """
+    """One metric for every derived table, the same as for the Pareto plots."""
     from mnlp_eval.report.pareto import choose_quality_metric
 
     return choose_quality_metric(summaries)
 
 
 def _structure_table(summaries: list[RunSummary], reference: RunSummary | None) -> Table | None:
-    """What structured pruning removed, per layer rather than in total.
-
-    Parameter count alone cannot distinguish a model that lost a third of
-    every FFN from one that lost eight whole layers, and the two behave very
-    differently. Omitted entirely when no run measured its structure.
-    """
+    """Per-layer structure of each system. None if no run measured it."""
     measured = [summary for summary in summaries if summary.main_stack]
     if not measured:
         return None
@@ -660,13 +620,7 @@ def _kept(
 
 
 def _resource_tier_table(summaries: list[RunSummary], reference: RunSummary | None) -> Table | None:
-    """Whether compression costs more in low-resource directions.
-
-    The macro average over ten directions is dominated by the eight
-    high-resource ones, so a system that has lost Icelandic entirely can still
-    look mildly degraded. Splitting the average by resource tier is the whole
-    of RQ2, and it is one subtraction away from data the report already has.
-    """
+    """Quality change against the baseline, averaged per resource tier (RQ2)."""
     chosen = _quality_metric(summaries)
     if chosen is None or reference is None or len(summaries) < 2:
         return None
@@ -738,12 +692,7 @@ def _resource_tier_table(summaries: list[RunSummary], reference: RunSummary | No
 
 
 def _transfer_table(summaries: list[RunSummary]) -> Table | None:
-    """How a pair-specific subnetwork does on the pairs it was not selected for.
-
-    Needs at least one system declaring ``compression.pruned_for``. Matched
-    cells are bracketed, so a reader can see at a glance whether the diagonal
-    stands out from the rest of its row.
-    """
+    """Per-direction quality of pair-specific subnetworks; matched directions are bracketed."""
     specific = [summary for summary in summaries if summary.compression.target_directions()]
     if not specific:
         return None

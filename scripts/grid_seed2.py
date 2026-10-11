@@ -1,11 +1,9 @@
 """A second calibration draw for the SlimGPT reference-calibration slice of the grid.
 
-The grid's bootstrap intervals cover the test segments, not which calibration
-segments were drawn. This writes the same 48 SlimGPT models (20/30/40 percent;
-multi, five pairs, ten directions; prompt + reference) on calibration sets
-drawn with seed 5678 instead of 1234, named ``alma-7b-s2-<grid name>`` so
-``scripts/grid_report.py --manifest configs/grid/manifest-seed2.json`` reads
-them unchanged.
+The same 48 SlimGPT models (20/30/40 percent; multi, five pairs, ten
+directions; prompt + reference) on calibration sets drawn with seed 5678
+instead of 1234, named ``alma-7b-s2-<grid name>``. Read with
+``scripts/grid_report.py --manifest configs/grid/manifest-seed2.json``.
 
     ./.venv/bin/python scripts/grid_seed2.py
     for f in configs/calibration/seed2/*.yaml; do mnlp-eval calibration --spec $f; done

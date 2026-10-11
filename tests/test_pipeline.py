@@ -1,8 +1,4 @@
-"""The generate, score and report stages, driven by a stub model.
-
-No network, no GPU, no model weights. This is the test that would catch a
-regression in the plumbing that every teammate's model depends on.
-"""
+"""The generate, score and report stages, driven by a stub model."""
 
 from __future__ import annotations
 
@@ -71,8 +67,7 @@ def test_generate_skips_existing_directions_then_overwrites_on_request(
 
 
 def test_generate_counts_empty_output_rather_than_hiding_it(run_config: RunConfig) -> None:
-    # ALMA's parser turns unrecoverable output into an empty string with no
-    # trace. Here it is a counted, reported failure.
+    # Unparseable output is counted as a failure.
     report = generate(run_config, translator=_stub(run_config, outputs=["", "ok output"]))
     assert report.directions[0].empty == 2
 
@@ -130,8 +125,7 @@ def test_score_writes_surface_metrics_and_leaves_neural_pending(run_config: RunC
     assert paths.scores("surface").is_file()
 
     neural = outcome["groups"]["neural"]
-    # In an environment without COMET the group is reported as pending with a
-    # reason, never silently dropped and never fatal.
+    # Without COMET the group is reported as pending with a reason.
     if neural["status"] == "pending":
         assert "unbabel-comet" in neural["reason"]
 
@@ -166,8 +160,6 @@ def test_score_rejects_unknown_groups(run_config: RunConfig) -> None:
 def test_macro_average_requires_every_direction(
     model_spec: ModelSpec, local_testset: Path, tmp_path: Path
 ) -> None:
-    # A partially failed scoring pass must not produce an average that quietly
-    # covers fewer directions than the table claims.
     suite = SuiteSpec.from_dict(
         {
             "name": "two-way",
@@ -183,9 +175,7 @@ def test_macro_average_requires_every_direction(
     paths = RunPaths.for_config(config)
     paths.hyps_jsonl("en-de").unlink()
 
-    # Scoring an incomplete run is refused by default, because averaging over
-    # the subset that happens to be on disk produced a macro average covering
-    # fewer directions than the table claimed.
+    # Scoring an incomplete run is refused by default.
     with pytest.raises(RuntimeError, match="generation is incomplete"):
         score_run(paths, SURFACE_ONLY)
 
@@ -198,9 +188,7 @@ def test_macro_average_requires_every_direction(
 def test_sharded_generation_shares_one_run(
     model_spec: ModelSpec, local_testset: Path, tmp_path: Path
 ) -> None:
-    # How a Slurm array must shard a suite. Passing --directions instead put
-    # each direction in its own run id, so the six-direction macro average the
-    # suite promises was unreachable through the documented submission path.
+    # Slurm arrays shard a suite with --only-direction, keeping one run id.
     suite = SuiteSpec.from_dict(
         {
             "name": "two-way",
@@ -275,8 +263,7 @@ def test_report_places_comparable_runs_in_one_table(
 def test_report_refuses_to_mix_incomparable_runs(
     model_spec: ModelSpec, local_testset: Path, tmp_path: Path
 ) -> None:
-    # The single easiest way for a compression comparison to become
-    # meaningless, so the report says so loudly instead of averaging over it.
+    # Runs with different decoding settings are reported as separate groups.
     runs_root = tmp_path / "runs"
     for beams in (1, 4):
         suite = SuiteSpec.from_dict(
@@ -364,8 +351,7 @@ def test_latex_escapes_special_characters() -> None:
 
 
 def test_source_length_override_is_recorded(model_spec: ModelSpec, tmp_path: Path) -> None:
-    # ALMA reruns zh-en at 512 source tokens. The manifest records the cap that
-    # actually applied, so the exception is visible rather than implicit.
+    # ALMA reruns zh-en at 512 source tokens; the manifest records the cap used.
     import json
 
     rows = [{"translation": {"zh": "这是一个测试。", "en": "This is a test."}}]

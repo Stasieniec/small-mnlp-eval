@@ -1,12 +1,7 @@
-"""Structural accounting for pruned models.
+"""Structural accounting for pruned models: uneven layers, dropped layers,
+masks that were not compacted, and quantized weights.
 
-Structured pruning is the whole experiment, so the module that says what was
-removed needs to be right on the cases that matter: uneven per-layer budgets,
-whole layers dropped, masks applied but not compacted, and quantized weights
-where a zero byte is not a pruned weight.
-
-Tensors are fakes: describe_structure never imports torch, which also keeps
-it usable in the metric environments.
+Tensors are fakes; describe_structure does not import torch.
 """
 
 from __future__ import annotations
@@ -93,8 +88,6 @@ def test_dense_model_is_uniform_with_the_expected_head_count() -> None:
 
 
 def test_uneven_pruning_is_reported_as_non_uniform() -> None:
-    # The case a single sparsity number hides: the same parameter count spent
-    # very differently across depth.
     structure = describe_structure(FakeModel([(64, 128), (64, 128), (32, 64), (16, 32)]))
     stack = structure["stacks"]["model.layers"]
 
@@ -112,13 +105,7 @@ def test_dropped_layers_shrink_the_stack_not_the_widths() -> None:
 
 
 def test_a_mask_that_was_never_compacted_shows_up_as_zero_weights() -> None:
-    """The failure this column exists for.
-
-    A pruning run that zeroed its removed channels but never rebuilt the
-    tensors reports the full parameter count, the full checkpoint size and the
-    full latency. Only the zero fraction reveals that none of the claimed
-    saving is real.
-    """
+    """A mask that was applied but not compacted shows only in the zero fraction."""
     model = FakeModel([(64, 128)] * 2)
     for name, tensor in model.named_parameters():
         if name.endswith("down_proj.weight"):
@@ -127,7 +114,7 @@ def test_a_mask_that_was_never_compacted_shows_up_as_zero_weights() -> None:
     structure = describe_structure(model)
 
     assert structure["zero_parameters"] == 2 * (64 * 128 // 2)
-    # Reported to six decimals, which is the resolution the JSON artifact keeps.
+    # Reported to six decimals.
     assert structure["zero_fraction"] == pytest.approx(
         8192 / structure["total_parameters"], abs=1e-6
     )
@@ -148,7 +135,7 @@ def test_integer_weights_are_excluded_from_the_zero_count() -> None:
     assert structure["unmeasured_parameters"] == 4096
     assert structure["zero_parameters"] == 0
     assert "zero_note" in structure
-    # The fraction divides by what was actually measured, not by everything.
+    # The fraction is over the measured tensors only.
     assert structure["zero_fraction"] == 0.0
 
 

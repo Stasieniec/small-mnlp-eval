@@ -1,10 +1,4 @@
-"""Run directory layout and the manifest that makes a run self-describing.
-
-A run directory is the unit of exchange between stages and between machines. It
-must be interpretable on its own, months later, without the config files that
-produced it, so the manifest carries the fully resolved configuration rather
-than a pointer to it.
-"""
+"""Run directory layout and manifest. The manifest stores the fully resolved config."""
 
 from __future__ import annotations
 
@@ -64,13 +58,7 @@ class RunPaths:
         return self.root / "stages"
 
     def stage_path(self, stage: str, key: str | None = None) -> Path:
-        """Path of one stage record.
-
-        One file per stage, and per direction where a stage is sharded across
-        an array. Accumulating them in the manifest instead would need a
-        read-modify-write under a lock, which concurrent Slurm array tasks on a
-        shared filesystem do not have.
-        """
+        """Path of one stage record, one file per stage and shard."""
         name = f"{stage}.{key}.json" if key else f"{stage}.json"
         return self.stages_dir / name
 
@@ -99,11 +87,7 @@ class RunPaths:
         return read_json(self.manifest)
 
     def init_manifest(self, config: RunConfig) -> dict[str, Any]:
-        """Create the manifest, or return the existing one unchanged.
-
-        Refuses to reuse a directory whose manifest describes a different run,
-        which would otherwise happen if someone hand-edited a run slug.
-        """
+        """Create the manifest, or return the existing one. Raises if it is for another run."""
         if self.manifest.is_file():
             existing = self.read_manifest()
             if existing.get("run_id") != config.run_id:
@@ -125,9 +109,7 @@ class RunPaths:
             "decode_summary": config.suite.decode.describe(),
         }
         self.ensure()
-        # Written once and never rewritten. The manifest is the run's identity,
-        # and identity does not change; anything that accumulates during a run
-        # goes to stages/ instead.
+        # Written once; per-stage results go to stages/.
         atomic_write_json(self.manifest, manifest)
         return manifest
 
@@ -177,13 +159,7 @@ class RunPaths:
         return list(manifest.get("suite", {}).get("data", {}).get("directions", []))
 
     def stage_completed(self, stage: str, key: str | None = None) -> bool:
-        """Whether a stage finished.
-
-        For ``generate``, complete means every direction in the suite reported
-        a completed record. Checking only that the records present are
-        completed would call a half-finished shard set done, which is how a
-        partially generated run got scored and reported as whole.
-        """
+        """Whether a stage finished. ``generate`` needs every suite direction completed."""
         records = self.stage_records(stage)
         if key is not None:
             return bool(records.get(key, {}).get("status") == "completed")

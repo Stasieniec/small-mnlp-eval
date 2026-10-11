@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # Create the MetricX-24 scoring environment.
 #
-# MetricX needs its own environment because upstream pins
-# transformers==4.30.2, and it needs a clone rather than an install because
-# google-research/metricx ships no pyproject.toml and no setup.py. A plain
-# `pip install git+...` fails with "does not appear to be a Python project".
+# Upstream pins transformers==4.30.2, and google-research/metricx has no
+# pyproject.toml or setup.py, so it is cloned and put on PYTHONPATH.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -26,8 +24,7 @@ echo "Creating ${VENV}"
 uv venv --managed-python --python 3.11 "${VENV}"
 uv pip install --python "${VENV}/bin/python" -r envs/metricx-requirements.txt
 
-# The clone root, not the metricx24 subdirectory: the package is imported as
-# `metricx24`, so its parent has to be on the path.
+# The clone root, since the package is imported as `metricx24`.
 METRICX_PATH=$(cd "${SRC}" && pwd)
 
 echo

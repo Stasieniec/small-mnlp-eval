@@ -7,16 +7,14 @@
 #SBATCH --output=slurm-logs/eval/%x-%j.out
 #
 # MetricX-24 over many run directories in one process, so the model loads once.
-# Separate from generation because MetricX pins transformers==4.30.2 and needs
-# its own environment (scripts/setup_metricx_env.sh); a MetricX failure then
-# cannot cost a run its translations or COMET scores.
+# MetricX pins transformers==4.30.2, hence its own environment
+# (scripts/setup_metricx_env.sh).
 #
 #   sbatch --export=ALL,RUN_LIST=<file with one run directory per line> \
 #       slurm/score_metricx.sbatch
 #
-# Runs are scored with allow_partial, because specialists are deliberately
-# evaluated on their own directions only. A run whose scores.metricx.json
-# exists is skipped, so resubmitting the same list resumes it.
+# Scored with allow_partial (specialists only have their own directions). Runs
+# with a scores.metricx.json are skipped, so resubmitting resumes.
 set -euo pipefail
 module load 2025
 module load Python/3.13.1-GCCcore-14.2.0

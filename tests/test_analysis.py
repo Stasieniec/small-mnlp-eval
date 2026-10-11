@@ -1,8 +1,6 @@
 """Subnetwork descriptors and overlap analysis.
 
-The chance baseline is the part that has to be right. Two independently chosen
-50 percent subnetworks share about a third of what they keep, so a Jaccard
-index of 0.33 is the null result rather than evidence of shared structure.
+Two random 50 percent subnetworks have Jaccard index about 0.33 by chance.
 """
 
 from __future__ import annotations
@@ -135,18 +133,13 @@ def test_disjoint_subnetworks_overlap_not_at_all(tmp_path: Path) -> None:
     )
 
     assert result.jaccard == 0.0
-    # Disjoint is not the null result. Chance would have shared a third of
-    # them, so being disjoint is evidence of anti-correlation.
+    # Chance would share a third, so disjoint is below chance.
     assert result.excess == pytest.approx(-result.chance_jaccard)
     assert result.chance_jaccard == pytest.approx(1 / 3)
 
 
 def test_independent_selections_sit_at_chance(tmp_path: Path) -> None:
-    """The result the analysis exists to make visible.
-
-    Raw Jaccard reads as substantial agreement. The excess over chance, which
-    is what the report quotes, reads as approximately nothing.
-    """
+    """High raw Jaccard, but about zero excess over chance."""
     rng = random.Random(20260909)
     total, keep, layers = 128, 64, 32
     kept = {
@@ -187,7 +180,7 @@ def test_different_widths_cannot_be_compared(tmp_path: Path) -> None:
 
 
 def test_the_overlap_coefficient_detects_a_nested_subnetwork(tmp_path: Path) -> None:
-    """A sparser subnetwork contained in a denser one is the transfer story."""
+    """A sparser subnetwork contained in a denser one."""
     dense = load_subnetwork(write_descriptor(tmp_path / "d.json", "d", {"0": [0, 1, 2, 3]}))
     sparse = load_subnetwork(write_descriptor(tmp_path / "s.json", "s", {"0": [0, 1]}))
 

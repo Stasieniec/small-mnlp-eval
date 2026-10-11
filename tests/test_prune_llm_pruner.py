@@ -1,10 +1,7 @@
 """LLM-Pruner's Taylor criterion.
 
-A group that cannot move the loss must score zero, grouped-query attention must
-not count its untouched key and value rows into a head's score, and the
-backward pass must leave the model's gradient state as it found it. The last is
-not cosmetic: a leak would silently change what the next method in a sweep
-computes.
+Covers zero scores for groups that cannot change the loss, key and value rows
+under grouped-query attention, and restoring the gradient state.
 """
 
 from __future__ import annotations
@@ -82,9 +79,8 @@ def test_grouped_query_heads_ignore_the_shared_key_value_salience() -> None:
     }
     loud = dict(quiet, k_proj=torch.full((8, 16), 1e6), v_proj=torch.full((8, 16), 1e6))
 
-    # These rows are never removed under grouped-query attention, and each
-    # belongs to every query head in its group, so counting one would add the
-    # same quantity to four heads for a decision it plays no part in.
+    # Under grouped-query attention these rows are shared by four query
+    # heads and never removed, so they are not counted.
     assert llm_pruner._head_scores(loud, grouped) == llm_pruner._head_scores(quiet, grouped)
 
 
@@ -162,8 +158,7 @@ def test_tokens_behind_the_padding_mask_do_not_reach_the_scores() -> None:
     for batch in scrambled:
         batch["input_ids"][:, :2] = (batch["input_ids"][:, :2] + 7) % 64
 
-    # What sits behind the mask is not data. If it moves a score, either the
-    # mask is not applied or a pad position is predicting the first real token.
+    # Padded positions must not change the scores.
     assert llm_pruner.score(model, scrambled, groups) == llm_pruner.score(model, batches, groups)
 
 

@@ -1,13 +1,8 @@
 """SlimGPT's criterion and its error compensation.
 
-The compensation is the method. A ranking that picks the same columns without
-the weight update is far cheaper, so the test that matters is that the update
-reduces the error the layer makes on the activations its Hessian came from.
-tests/test_prune_slimgpt_exact.py checks it against the closed-form optimum.
-
-Pruning nothing must also change nothing: a projection that loses no unit is
-never round-tripped through the float64 working copy, and an off-by-one in the
-bookkeeping would corrupt a model asked to keep all of it.
+The update must reduce the layer's error on its calibration activations;
+tests/test_prune_slimgpt_exact.py compares it with the closed-form optimum.
+Pruning nothing must change nothing.
 """
 
 from __future__ import annotations
@@ -88,10 +83,9 @@ def test_the_compensation_reduces_the_error_the_layer_makes() -> None:
     slimgpt._remove_columns(updated, inverse, torch.as_tensor(dropped))
     compensated = activations.index_select(1, index) @ updated.index_select(1, index).t()
 
-    # The removed columns' contribution moves onto the survivors. Without
-    # this the criterion is a ranking and the inverse Hessian is wasted.
+    # The removed columns' contribution moves onto the survivors.
     assert (compensated - target).pow(2).sum() < 0.5 * (naive - target).pow(2).sum()
-    # Zeroed on the way out, so compaction drops nothing load bearing.
+    # Removed columns are zeroed.
     assert torch.count_nonzero(updated.index_select(1, torch.as_tensor(dropped))) == 0
 
 
@@ -134,8 +128,7 @@ def test_a_kept_dead_channel_keeps_its_weight() -> None:
 
     slimgpt._remove_columns(weight, inverse, torch.as_tensor([0, 7, 30]))
 
-    # The calibration set says nothing about a channel it never activated, so
-    # compensation must not move it: it stays decoupled in the inverse.
+    # A channel never activated by calibration is left alone by compensation.
     assert torch.equal(weight[:, 5], dense[:, 5])
     assert not torch.allclose(weight[:, 6], dense[:, 6])
 
@@ -156,9 +149,7 @@ def test_tokens_behind_the_padding_mask_do_not_reach_the_hessian() -> None:
     clean = slimgpt._hessians(layer, slimgpt._layer_inputs(model, batches))
     noisy = slimgpt._hessians(layer, slimgpt._layer_inputs(model, scrambled))
 
-    # What sits behind the mask is not data, and here it reaches further than
-    # a score: the Hessian is also what the compensating weight update solves
-    # against, so a padded position moves the surviving weights.
+    # Padded positions must not enter the Hessian, which also drives the update.
     for name in ("o_proj", "down_proj"):
         assert torch.allclose(clean[name], noisy[name], atol=1e-5)
 
@@ -172,9 +163,8 @@ def test_pool_heads_sums_the_columns_of_one_head() -> None:
 
     scores = pool_heads(costs, groups[0])
 
-    # FLAP and LLM-Pruner pool per-column scores this way. SlimGPT scores a
-    # head as a block instead, because its columns compensate for each other.
-    # Four heads of eight channels each, over 0..31.
+    # FLAP and LLM-Pruner pool per-column scores this way; SlimGPT scores a
+    # head as a block. Four heads of eight channels each, over 0..31.
     assert scores == [28.0, 92.0, 156.0, 220.0]
 
 
@@ -244,9 +234,7 @@ def test_the_dense_scores_see_each_layer_s_own_input(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(slimgpt, "_hessians", spy)
     slimgpt.prune(model, batches, groups, sparsity=0.5, allocation="global")
 
-    # Calls one and two are the scoring pass. Scoring layer 1 on the
-    # embeddings rather than on layer 0's output misranked every layer past
-    # the first in the 50 percent pilot.
+    # Calls one and two are the scoring pass; layer 1 is scored on layer 0's output.
     assert torch.equal(seen[0], inputs[0][0])
     assert torch.allclose(seen[1], expected)
     assert not torch.allclose(seen[1], inputs[0][0])
@@ -261,8 +249,7 @@ def test_later_layers_are_pruned_on_what_earlier_ones_now_produce() -> None:
     first = model.model.layers[0]
     before = slimgpt._advance(first, inputs)[0][0].clone()
 
-    # The next layer's Hessian must come from the pruned layer's actual
-    # output, so the driver has to re-run it rather than cache.
+    # The next layer's Hessian comes from the pruned layer's output.
     with torch.no_grad():
         first.mlp.down_proj.weight.mul_(0.5)
     after = slimgpt._advance(first, inputs)[0][0]

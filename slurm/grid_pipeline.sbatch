@@ -11,14 +11,12 @@
 # time on the command line and passes GRID_NAME, GRID_MODE (prune|repair),
 # PRUNE_CONFIG or REPAIR_CONFIG, MODEL_CONFIG and SUITE_CONFIG.
 #
-# Each model is submitted twice, to gpu_a100 and gpu_h100, because Snellius
-# rejects a shared job that names both partitions. The first twin to start
-# takes grid-state/locks/<name> and cancels the other while it is pending; a
-# twin that starts anyway sees the lock held by a live job and exits 0. A lock
-# whose owner has left the queue is stale and taken over.
+# Each model is submitted to gpu_a100 and gpu_h100. The first twin to start
+# takes grid-state/locks/<name> and cancels the other; a twin that finds the
+# lock held by a live job exits 0.
 #
-# Every stage is skipped when its output is complete, so a resubmitted model
-# resumes where it stopped. Progress goes to grid-state/status/<name>.json.
+# Stages with complete output are skipped. Progress goes to
+# grid-state/status/<name>.json.
 #
 # GRID_DRY_RUN=1 takes the lock and writes status as usual but echoes each
 # stage's commands instead of running them.
@@ -103,12 +101,10 @@ on_exit() {
 }
 trap on_exit EXIT
 trap 'echo "error: line ${LINENO}: ${BASH_COMMAND} exited $?" >&2' ERR
-# Time limit or scancel. Slurm signals the whole job, so the CLI below has
-# already been told to stop; this records where.
+# Time limit or scancel.
 trap 'echo "received SIGTERM" >&2; exit 143' TERM
 
-# The twin is pending on the other partition. Cancelling it is an
-# optimisation: if it starts anyway it finds this job alive and exits.
+# Cancel the pending twin on the other partition.
 scancel -u "${USER}" --name="g-${GRID_NAME}" --state=PENDING \
     || echo "warning: could not cancel the pending twin" >&2
 
@@ -146,9 +142,8 @@ skip() {
     "${GRID[@]}" mark "${GRID_NAME}" --skipped "$1"
 }
 
-# Removes a partial checkpoint before pruning again, so no shard of an earlier
-# attempt survives into the new one. Refuses anything but <PRUNE_OUT>/<name>
-# under the user's own scratch.
+# Remove a partial checkpoint before pruning again. Only <PRUNE_OUT>/<name>
+# under the user's scratch.
 remove_partial() {
     local target=$1 parent scratch
     if [[ ! "${GRID_NAME}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
@@ -175,9 +170,8 @@ remove_partial() {
     rm -rf -- "${parent:?}/${GRID_NAME:?}"
 }
 
-# Runs a CLI command that prints its JSON manifest last on stdout, and keeps
-# that manifest only if the command exited 0. Its existence is the stage's
-# completion marker.
+# Run a CLI command and keep the JSON manifest it prints last, if it exited 0.
+# The manifest is the stage's completion marker.
 run_with_manifest() {
     local marker=$1
     shift
@@ -247,9 +241,7 @@ else
     RUN_DIR=$("${CLI}" run-dir --model "${MODEL_CONFIG}" --suite "${SUITE_CONFIG}")
 fi
 echo "run directory ${RUN_DIR}"
-# Fresh weights make any hypotheses already on disk someone else's; generate
-# would otherwise keep them and fill in only the missing directions. Moved out
-# of runs/ so nothing that scans it finds two runs of one model.
+# New weights: move hypotheses from earlier weights out of runs/.
 if (( REBUILT )) && [[ -d "${RUN_DIR}" ]]; then
     STALE_ROOT=$(dirname "$(dirname "${RUN_DIR}")")/runs-stale
     STALE=${STALE_ROOT}/$(basename "${RUN_DIR}").${SLURM_JOB_ID}
@@ -271,8 +263,7 @@ fi
 
 # --- (c) score ---------------------------------------------------------------
 
-# `score` skips a group whose file exists, and reports a group its environment
-# cannot serve as pending with exit 0, so the file is checked afterwards.
+# `score` exits 0 for a group its environment cannot serve, so check the file after.
 score_group() {
     local cli=$1 group=$2 state=0
     local extra=()

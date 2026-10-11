@@ -6,15 +6,8 @@
 #SBATCH --time=02:00:00
 #SBATCH --output=slurm-logs/pilot-%j.out
 #
-# Generate every direction of a suite in one job, for a reduced suite.
-#
-# The full sweep also reuses one model load across all directions, through
-# generate.sbatch with a longer time limit. Keeping the pilot in one job avoids
-# repeating the checkpoint load for each of its ten short directions.
-#
-# Run identity is untouched either way. --only-direction is what leaves it
-# alone, and this passes no direction at all, so the run id is the same one
-# generate.sbatch would produce for the same model and suite.
+# Generate every direction of a reduced suite in one job. The run id is the
+# same as generate.sbatch would give.
 set -euo pipefail
 
 module load 2025

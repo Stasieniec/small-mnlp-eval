@@ -1,22 +1,17 @@
 """Loader for a structurally pruned checkpoint.
 
-A global budget gives each layer its own width and ``LlamaConfig`` holds one
-scalar ``num_attention_heads``, so the config on disk stays dense and the
-per-layer widths come from the subnetwork descriptor beside the weights. Point
-a model config here with ``loader: custom`` and
-``entrypoint: recipes.pruned:load``; the ``prune`` stage emits one.
+Layers have different widths, which ``LlamaConfig`` cannot express, so
+``config.json`` stays dense and the per-layer widths come from the subnetwork
+descriptor next to the weights. Used with ``loader: custom`` and
+``entrypoint: recipes.pruned:load``.
 
-Three traps, each of which yields a working model rather than an error:
+Notes:
 
-- ``config.json`` must stay dense. ``Qwen2Config`` never stores ``head_dim``
-  and derives it from ``num_attention_heads``, so a reduced head count there
-  silently changes it for every layer.
-- ``ignore_mismatched_sizes=True`` does not adapt shapes, it randomly
-  reinitialises every tensor whose shape disagrees.
-- ``strict=True`` cannot be used: both architectures declare
-  ``_tied_weights_keys = ["lm_head.weight"]`` and ``save_pretrained`` strips
-  tied keys, so a tied model always reports that one missing. The assert below
-  restores the strictness that matters.
+- ``config.json`` must stay dense: ``Qwen2Config`` derives ``head_dim`` from
+  ``num_attention_heads``.
+- ``ignore_mismatched_sizes=True`` reinitialises mismatched tensors.
+- ``strict=True`` fails on tied models because ``save_pretrained`` drops
+  ``lm_head.weight``; the assert below checks the rest.
 """
 
 from __future__ import annotations
@@ -26,17 +21,12 @@ from typing import Any
 
 __all__ = ["load", "load_model"]
 
-#: Written into the checkpoint directory, so it carries its own shapes. The
-#: copy under ``subnetworks/`` is the same bytes and feeds the overlap analysis.
+#: Written into the checkpoint directory; the copy under ``subnetworks/`` is identical.
 DESCRIPTOR_NAME = "subnetwork.json"
 
 
 def load_model(checkpoint: str | Path, dtype: str = "auto") -> tuple[Any, Any]:
-    """Build the compacted model alone, and return it with its descriptor.
-
-    Separate from :func:`load` so the surgery, the load check and the retie are
-    testable on a random model, which has no tokenizer.
-    """
+    """Build the compacted model without a tokenizer; return it with its descriptor."""
     from accelerate import init_empty_weights
     from safetensors.torch import load_file
     from transformers import AutoConfig, AutoModelForCausalLM
@@ -61,15 +51,12 @@ def load_model(checkpoint: str | Path, dtype: str = "auto") -> tuple[Any, Any]:
         state.update(load_file(shard))
 
     config = AutoConfig.from_pretrained(directory)
-    # include_buffers=False is load bearing: inv_freq is non-persistent and so
-    # absent from the state dict, and would stay on the meta device.
+    # include_buffers=False: inv_freq is not in the state dict and would stay on meta.
     with init_empty_weights(include_buffers=False):
         model = AutoModelForCausalLM.from_config(config)
 
-    # Per projection, not one flag for the checkpoint. FLAP installs a bias
-    # only where units were actually dropped, and a global budget can prune a
-    # layer's heads while leaving its FFN whole, so the same layer can carry an
-    # o_proj bias and no down_proj bias. The saved tensors are the record.
+    # Per projection: FLAP adds a bias only where units were dropped, so a layer
+    # can have an o_proj bias and no down_proj bias.
     biases = {key for key in state if key.endswith((".o_proj.bias", ".down_proj.bias"))}
     reshape_model(
         model,
@@ -80,8 +67,7 @@ def load_model(checkpoint: str | Path, dtype: str = "auto") -> tuple[Any, Any]:
         ),
     )
 
-    # assign=True is the only way to populate a meta-device model, and it
-    # breaks the embedding tie, hence tie_weights below.
+    # assign=True breaks the embedding tie, hence tie_weights below.
     disagreement = (
         f"{directory}: the subnetwork descriptor disagrees with the weights. The descriptor "
         "is the record of the per-layer widths, so either it was edited after the checkpoint "
@@ -109,10 +95,8 @@ def load(checkpoint: str, dtype: str = "auto", **extra: Any) -> dict[str, Any]:
     """Build a compacted model and its tokenizer.
 
     Args:
-        checkpoint: Directory holding the pruned weights, its dense
-            ``config.json`` and its subnetwork descriptor. The name is fixed by
-            the custom-loader contract, or the report's checkpoint-size and
-            bits-per-parameter columns come out empty.
+        checkpoint: Directory with the pruned weights, the dense
+            ``config.json`` and the subnetwork descriptor.
         dtype: Cast the loaded weights. ``auto`` keeps whatever was saved.
         extra: Anything else from the config's ``kwargs``, kept in the manifest.
 

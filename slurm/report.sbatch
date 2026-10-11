@@ -6,9 +6,7 @@
 #SBATCH --time=00:30:00
 #SBATCH --output=slurm-logs/report-%j.out
 #
-# Reporting reads JSON only, so it needs no GPU. Sixteen cores because the
-# rome partition bills in eighths of a 128-core node and four would cost the
-# same as sixteen.
+# Reads JSON only, no GPU. rome bills in eighths of a node, so 16 cores.
 set -euo pipefail
 
 module load 2025

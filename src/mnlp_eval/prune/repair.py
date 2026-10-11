@@ -1,44 +1,23 @@
 """LoRA repair of a pruned checkpoint.
 
-Pruning removes units, and even with SlimGPT's compensation the survivors were
-trained to work alongside the ones that are gone. Repair trains a low-rank
-update on the pruned model so it relearns to translate without them, then
-merges the update into the weights. The result has exactly the pruned model's
-shapes and loads through ``recipes/pruned.py`` unchanged, so the repaired and
-unrepaired systems differ in their weights alone.
+Trains a LoRA adapter on the pruned model and merges it, so the result has the
+pruned model's shapes and loads through ``recipes/pruned.py``.
 
-The recipe is ALMA's own LoRA stage (``runs/parallel_ft_lora.sh`` and
-``utils/utils.py`` in ``fe1ixxu/ALMA``), not a new one:
+Hyperparameters follow ALMA's LoRA stage (``runs/parallel_ft_lora.sh`` and
+``utils/utils.py`` in ``fe1ixxu/ALMA``): rank 16, alpha 32, dropout 0.05 on all
+linear layers except the output head; AdamW at 2e-3, weight decay 0.01,
+inverse sqrt schedule with 1% warmup, one epoch, 128 sequences per step. The
+training text is prompt + reference + eos, with loss on the reference and eos.
 
-- rank 16, alpha 32, dropout 0.05, on every linear layer except the output
-  head;
-- AdamW at 2e-3, weight decay 0.01, inverse square root schedule after 1
-  percent warmup, one epoch, 128 sequences per optimizer step;
-- the training text is the prompt with the reference appended directly, no
-  space, then eos, and the loss is taken on the reference and eos only.
+Differences from ALMA:
 
-Departures from ALMA, for the write-up:
+- 8 per micro-batch x 16 accumulation steps on one GPU (ALMA: 8 processes x 4 x 4).
+- Loss is a per-token mean over the whole step, ALMA averaged micro-batch means.
+- The final adapter is kept (ALMA kept the best of evaluations every 5%).
+- The prompt is fully masked and eos is within the 511 tokens.
 
-- 128 sequences per step come from 8 per micro-batch and 16 accumulation
-  steps on one GPU, where ALMA used 8 processes of 4 and 4 steps. Gradient
-  checkpointing is on, which changes memory and speed but not the result.
-- The loss is a per-token mean over the whole step; ALMA's Trainer averaged
-  per-micro-batch means.
-- The final adapter is kept. ALMA evaluated every 5 percent of training and
-  kept the best checkpoint.
-- ALMA left the prompt's final token as a label and put eos after 511 tokens;
-  here the prompt is fully masked and eos is inside the 511.
-
-A held-out slice is scored before and after training, so whether training did
-anything is known before a GPU-hour of generation is spent finding out. The
-slice is split by English sentence: ALMA's data is partly multi-way parallel
-and every pair appears in both directions, so a split by record would leave
-most held-out sentences in training in another direction. Even so the slice
-comes from the training distribution; it is a sanity check, not a measure of
-generalisation.
-
-Every torch, transformers and peft import is function-local, like the rest of
-the package.
+A held-out slice, split by English sentence so no sentence appears in training
+in another direction, is scored before and after training as a sanity check.
 """
 
 from __future__ import annotations
@@ -69,11 +48,10 @@ __all__ = [
     "train_lora",
 ]
 
-#: The loader a pruned model config routes through. Repair reads and writes
-#: checkpoints in its format, so a repaired model evaluates with no new code.
+#: Loader used by pruned model configs.
 PRUNED_ENTRYPOINT = "recipes.pruned:load"
 
-#: Written beside the weights, as ``prune`` does. The loader needs it.
+#: Subnetwork descriptor written beside the weights.
 DESCRIPTOR_NAME = "subnetwork.json"
 
 #: Label value the loss ignores, as in transformers.
@@ -111,15 +89,13 @@ class RepairSpec:
     max_length: int = 511
     #: Segments kept out of training and scored before and after it.
     held_out: int = 500
-    #: Cap on training segments after shuffling. For smoke tests only: a
-    #: capped run is not the recipe, and its name should say so.
+    #: Cap on training segments after shuffling (smoke tests only).
     max_examples: int | None = None
     dtype: str = "bfloat16"
     gradient_checkpointing: bool = True
     #: Optimizer steps between progress lines.
     log_every: int = 10
-    #: Exit non-zero when held-out loss did not fall. Off only for smoke tests,
-    #: whose few steps make the comparison noise.
+    #: Exit non-zero when held-out loss did not fall. Off for smoke tests.
     fail_without_improvement: bool = True
     seed: int = 1234
 
@@ -174,7 +150,7 @@ class RepairSpec:
         return self.batch_size * self.gradient_accumulation
 
     def describe(self, segments: int, directions: Sequence[str]) -> str:
-        """What goes into ``compression.repair``, quoted verbatim in the report."""
+        """Text for ``compression.repair``, shown in the report."""
         scope = "all ten directions" if len(directions) == 10 else "+".join(directions)
         epochs = "epoch" if self.epochs == 1 else "epochs"
         return (
@@ -203,9 +179,8 @@ def encode_example(
 ) -> Example | None:
     """Tokenize ``prompt + target + eos`` with the loss masked to the target.
 
-    The prompt is masked by the longest prefix the two tokenizations share,
-    which is the whole prompt unless the tokenizer merged its last token with
-    the target's first. Returns None when truncation leaves no target token.
+    The masked prefix is the longest prefix shared by the prompt and full
+    tokenizations. Returns None when truncation leaves no target token.
     """
     eos = tokenizer.eos_token_id
     if eos is None:
@@ -236,9 +211,7 @@ def length_grouped_batches(
 ) -> list[list[int]]:
     """Batches of indices, of similar length within a batch, in random order.
 
-    Sorting within windows of ``window`` batches cuts padding without making
-    the order a length curriculum. transformers' ``group_by_length`` does the
-    same.
+    Sorts within windows of ``window`` batches, like transformers' ``group_by_length``.
     """
     rng = random.Random(seed)
     order = list(range(len(examples)))
@@ -257,7 +230,7 @@ def length_grouped_batches(
 
 
 def _collate(examples: Sequence[Example], pad_id: int, device: Any) -> dict[str, Any]:
-    """Right-pad a batch. Padding is masked out of attention and out of the loss."""
+    """Right-pad a batch, masking padding out of attention and the loss."""
     import torch
 
     width = max(len(example.input_ids) for example in examples)
@@ -355,8 +328,7 @@ def train_lora(
     n_trainable = sum(parameter.numel() for parameter in trainable)
     low_precision = sorted({str(p.dtype) for p in trainable if p.dtype != torch.float32})
     if low_precision:
-        # peft before 0.12 casts adapters to the base dtype, and a bfloat16
-        # adapter with bfloat16 optimizer state trains measurably worse.
+        # peft before 0.12 casts adapters to the base dtype.
         msg = (
             f"LoRA parameters are {', '.join(low_precision)}, expected float32. "
             "Upgrade peft to 0.12 or later."
@@ -393,9 +365,7 @@ def train_lora(
         )
         for window_start in range(0, len(order), spec.gradient_accumulation):
             window = order[window_start : window_start + spec.gradient_accumulation]
-            # Normalise by the target tokens in the whole optimizer step, so
-            # accumulating micro-batches of different lengths gives the same
-            # gradient as one large batch would.
+            # Normalise by the target tokens in the whole optimizer step.
             window_tokens = sum(
                 train[index].n_target_tokens for indices in window for index in indices
             )
@@ -472,9 +442,7 @@ def load_repair_data(
 ) -> list[tuple[str, str, str, str]]:
     """Read ``(direction, prompt, target, english)`` from a ``mnlp-eval calibration`` set.
 
-    ``english`` is the English side of the segment, the source for ``en-xx``
-    and the target for ``xx-en``, which is what ties a segment to its
-    translations in the other directions.
+    ``english`` is the English side: the source for ``en-xx``, the target for ``xx-en``.
     """
     from mnlp_eval.artifacts import read_jsonl_dicts
     from mnlp_eval.prune.collect import refuse_contaminated
@@ -512,10 +480,8 @@ def split_held_out(
 ) -> tuple[list[tuple[str, str, str, str]], list[tuple[str, str, str, str]]]:
     """Hold out whole English sentences, with every translation of each.
 
-    ALMA's data is partly multi-way parallel and every pair appears in both
-    directions, so holding out single records leaves most of them in training
-    under another direction. Returns ``(train, held)``; ``held`` has at least
-    ``held_out`` records unless there are fewer in total.
+    Returns ``(train, held)``; ``held`` has at least ``held_out`` records unless
+    there are fewer in total.
     """
     groups: dict[str, list[tuple[str, str, str, str]]] = {}
     for record in records:
@@ -597,9 +563,7 @@ def run_repair(spec: RepairSpec, out_dir: Path, *, config_dir: Path) -> dict[str
     )
 
     load_model = _pruned_loader()
-    # Load as saved, then cast parameters only. Casting the whole module would
-    # also put the rotary inv_freq buffer in bfloat16, which evaluation, loading
-    # with dtype auto, never does.
+    # Cast parameters only, so the rotary inv_freq buffer keeps its dtype.
     model, _subnetwork = load_model(checkpoint, "auto")
     if spec.dtype != "auto":
         target_dtype = resolve_dtype(spec.dtype)
@@ -615,15 +579,13 @@ def run_repair(spec: RepairSpec, out_dir: Path, *, config_dir: Path) -> dict[str
 
     target = out_dir / spec.name
     if target.exists():
-        # Stale shards from an earlier attempt would be read by the loader's
-        # glob alongside the new ones.
+        # Old shards would otherwise be picked up by the loader's glob.
         shutil.rmtree(target)
     target.mkdir(parents=True)
     merged.save_pretrained(target, safe_serialization=True)
     tokenizer.save_pretrained(target)
     shutil.copyfile(checkpoint / DESCRIPTOR_NAME, target / DESCRIPTOR_NAME)
-    # The source's generation defaults came from the dense model; the one
-    # save_pretrained writes here came from a bare config.
+    # Keep the dense model's generation defaults.
     if (checkpoint / "generation_config.json").is_file():
         shutil.copyfile(checkpoint / "generation_config.json", target / "generation_config.json")
 
@@ -662,11 +624,7 @@ def _pruned_loader() -> Any:
 def _write_model_config(
     spec: RepairSpec, checkpoint: Path, description: str, config_dir: Path
 ) -> Path:
-    """Emit a model config that extends the pruned one and swaps the checkpoint.
-
-    Everything else, the loader, the baseline, the subnetwork and what it was
-    pruned for, is inherited, so the report pairs the two systems.
-    """
+    """Write a model config that extends the pruned one with the new checkpoint."""
     import yaml
 
     from mnlp_eval.artifacts import atomic_write_text

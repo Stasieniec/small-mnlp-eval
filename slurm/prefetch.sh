@@ -14,14 +14,11 @@ mkdir -p "$HF_HOME"
 unset HF_HUB_OFFLINE || true
 
 MODELS=(configs/models/*.yaml)
-# Every suite, including wmt22-alma-repro. Omitting it meant the four extra
-# directions it adds (cs, zh both ways) were never downloaded, so the
-# framework's own correctness evidence failed offline on direction two.
+# Every suite, including wmt22-alma-repro (adds cs and zh both ways).
 SUITES=(configs/suites/*.yaml)
 
 echo "Prefetching models and datasets into $HF_HOME"
-# --strict so a failed download is an error here rather than a surprise hours
-# later inside a GPU job.
+# --strict: fail here on a missing download rather than inside a GPU job.
 ./.venv/bin/mnlp-eval prefetch --models "${MODELS[@]}" --suites "${SUITES[@]}" \
     --no-metrics --strict
 
@@ -33,7 +30,7 @@ if [[ -x ./.venv-comet/bin/mnlp-eval ]]; then
     fi
     ./.venv-comet/bin/mnlp-eval prefetch --metrics configs/metrics/full.yaml --strict
 else
-    echo "COMET environment not found, skipping. See docs/environments.md."
+    echo "COMET environment not found, skipping. See README.md."
 fi
 
 if [[ -x ./.venv-metricx/bin/mnlp-eval ]]; then

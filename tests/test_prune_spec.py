@@ -1,8 +1,5 @@
-"""The pruning stage end to end.
-
-What the criterion tests cannot cover: that a run writes a checkpoint, a
-descriptor in both places it is needed, and a model config the rest of the
-harness accepts, and that the two descriptors agree. The Hub is stubbed.
+"""The pruning stage end to end: checkpoint, both descriptor copies and the
+emitted model config. The Hub is stubbed.
 """
 
 from __future__ import annotations
@@ -21,11 +18,10 @@ pytestmark = pytest.mark.torch
 
 
 class StubTokenizer:
-    """Splits on whitespace and pads on the left. Enough for a calibration pass.
+    """Splits on whitespace and pads on the left.
 
-    Takes one text too, returning plain lists as a real tokenizer does without
-    ``return_tensors``, because reference calibration appends eos to each text
-    before padding.
+    A single text returns plain lists, as a real tokenizer does without
+    ``return_tensors``.
     """
 
     pad_token_id: int | None = 0
@@ -148,8 +144,7 @@ def test_a_run_writes_a_checkpoint_a_descriptor_and_a_model_config(
     assert (checkpoint / "config.json").is_file()
     assert abs(manifest["unit_sparsity"] - 0.5) < 0.05
 
-    # The overlap analysis reads one copy and the loader the other, so a
-    # disagreement means the model loaded is not the model analysed.
+    # The overlap analysis reads one copy and the loader the other.
     beside = load_subnetwork(checkpoint / "subnetwork.json")
     alongside = load_subnetwork(Path(manifest["subnetwork"]))
     assert beside.components["attention_heads"].kept == (
@@ -302,13 +297,12 @@ def test_the_emitted_model_config_is_one_the_harness_accepts(
         subnetwork_dir=tmp_path / "subnetworks",
         config_dir=model_config_dir,
     )
-    # Loaded through the extends chain, so a config that cannot find its
-    # baseline fails here rather than at the start of a cluster run.
+    # Loaded through the extends chain.
     model_spec = ModelSpec.from_dict(load_yaml_config(manifest["model_config"]))
 
     assert model_spec.loader == "custom"
     assert model_spec.entrypoint == "recipes.pruned:load"
-    # Without pruned_for the report cannot build the transfer matrix at all.
+    # The report needs pruned_for for the transfer matrix.
     assert model_spec.compression.pruned_for == "de-en,en-de"
     assert model_spec.compression.family == "pruning"
     assert model_spec.kwargs["checkpoint"] == manifest["checkpoint"]
@@ -408,12 +402,7 @@ def test_the_cli_runs_the_stage(
 
 
 class TestPruneSpecCommand:
-    """``prune-spec`` is how the Slurm scripts resolve a config.
-
-    They must not parse YAML themselves: the ``extends`` chain and the
-    ``directions`` normalisation live in the config loader, and a shell
-    reimplementation of either would drift.
-    """
+    """``prune-spec`` resolves a config for the Slurm scripts, following ``extends``."""
 
     def test_a_field_prints_one_bare_line(self, capsys: pytest.CaptureFixture[str]) -> None:
         from mnlp_eval.cli import main

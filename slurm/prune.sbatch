@@ -6,21 +6,11 @@
 #SBATCH --time=04:00:00
 #SBATCH --output=slurm-logs/prune-%j.out
 #
-# Select and compact one subnetwork. Once per pruning config, before any
-# generation.
+# Select and compact one subnetwork, once per pruning config.
 #
-# One GPU, not an exclusive node: nothing here is a timing measurement, so
-# sharing the node costs only wall clock. SlimGPT is the expensive one: three
-# forward passes per layer over the calibration set and a greedy, float64
-# compensation per projection, minutes on ALMA-7B. FLAP finishes in minutes. The four-hour limit covers the slowest with room
-# for the 13.5 GB checkpoint write.
-#
-# Memory on one 40 GB A100 is comfortable but not spacious: the dense model is
-# 13.5 GB in bfloat16, SlimGPT adds the cached layer inputs for the whole
-# calibration set plus one layer's Hessians, and down_proj's Hessian alone is
-# 11008 squared in float32. Lower segments_per_direction in the calibration
-# config if it does not fit; do not lower max_length, which changes what the
-# Hessian measures and stops the sweep being comparable across methods.
+# Memory: the dense model is 13.5 GB in bfloat16; SlimGPT adds the cached layer
+# inputs and one layer's Hessians (down_proj's is 11008 x 11008 float32). If it
+# does not fit on a 40 GB A100, lower segments_per_direction, not max_length.
 set -euo pipefail
 
 module load 2025
@@ -30,16 +20,11 @@ cd "${SLURM_SUBMIT_DIR}"
 
 : "${PRUNE_CONFIG:?set by slurm/submit_prune.sh}"
 
-# Checkpoints run to tens of gigabytes and the home quota is small, so they go
-# to scratch. The emitted model config records this path, which is why it is
-# resolved to an absolute one rather than left relative to the submit dir.
+# Checkpoints go to scratch; the emitted model config records this absolute path.
 PRUNE_OUT=${PRUNE_OUT:-/scratch-shared/${USER}/checkpoints}
 mkdir -p "${PRUNE_OUT}"
 
-# The dense checkpoint and the calibration data are both already on disk: the
-# weights from slurm/prefetch.sh and the calibration set from
-# `mnlp-eval calibration` on a login node. A job that downloads mid-run is a
-# job whose input may differ from the last one's.
+# Weights come from slurm/prefetch.sh, calibration data from `mnlp-eval calibration`.
 export HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-1}
 export HF_DATASETS_OFFLINE=${HF_DATASETS_OFFLINE:-1}
 export TOKENIZERS_PARALLELISM=false
@@ -47,8 +32,7 @@ export TOKENIZERS_PARALLELISM=false
 echo "prune=${PRUNE_CONFIG} out=${PRUNE_OUT}"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true
 
-# Descriptors stay in the repository: they are small, they are the only record
-# of which positions a run chose, and `mnlp-eval overlap` reads them from here.
+# Descriptors go into the repository, where `mnlp-eval overlap` reads them.
 ./.venv/bin/mnlp-eval prune \
     --spec "${PRUNE_CONFIG}" \
     --out "${PRUNE_OUT}" \

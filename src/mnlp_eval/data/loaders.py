@@ -1,12 +1,8 @@
-"""Test set loading, with a fingerprint that proves two runs saw the same data.
+"""Test set loading, with a fingerprint of the segments used.
 
-The three ALMA test sets on the Hub share one schema: a single struct column
-named after the direction, holding the two language fields. Verified against
-the datasets API for ``haoranxu/WMT22-Test``, ``WMT23-Test`` and
-``FLORES-200``, so one loader serves all three.
-
-Local sources are supported too, because a distilled student is often evaluated
-on a held-out slice of the ALMA training data that never reaches the Hub.
+The ALMA test sets on the Hub (``haoranxu/WMT22-Test``, ``WMT23-Test``,
+``FLORES-200``) have one struct column named after the direction. Local JSON
+Lines and plain-text files are also supported.
 """
 
 from __future__ import annotations
@@ -60,11 +56,7 @@ class TestSet:
 
     @property
     def fingerprint(self) -> str:
-        """Digest of the exact segments used.
-
-        Two runs with the same fingerprint provably scored the same data, which
-        matters once a suite carries a ``limit`` or a local file gets edited.
-        """
+        """Digest of the exact segments used."""
         digest = hashlib.sha256()
         digest.update(f"{self.dataset}\x00{self.split}\x00{self.direction}".encode())
         for source, reference in zip(self.sources, self.references, strict=True):
@@ -158,8 +150,8 @@ def _load_hub(dataset: str, direction: Direction, split: str) -> tuple[list[tupl
 def _load_local_jsonl(path: Path, direction: Direction) -> tuple[list[tuple[str, str]], int]:
     """Read ALMA's local JSON Lines layout, or a flat source/target layout.
 
-    Accepts either ``{"translation": {"de": ..., "en": ...}}``, which is what
-    ALMA's ``human_written_data`` uses, or ``{"de": ..., "en": ...}``.
+    Accepts ``{"translation": {"de": ..., "en": ...}}`` (ALMA's
+    ``human_written_data``) or ``{"de": ..., "en": ...}``.
     """
     if not path.is_file():
         msg = f"local test file not found: {path}"

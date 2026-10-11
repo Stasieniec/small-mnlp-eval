@@ -1,9 +1,7 @@
 """Language code tables and language-dependent evaluation settings.
 
-The tables here are deliberately identical to ``utils/utils.py`` in
-``fe1ixxu/ALMA``. Reproducing ALMA's published scores requires the same
-language names in the prompt, so this module is a compatibility surface and
-should not be "improved" without a matching change to the prompt hash.
+The tables match ``utils/utils.py`` in ``fe1ixxu/ALMA``, since the language
+names appear in the prompt.
 """
 
 from __future__ import annotations
@@ -27,8 +25,7 @@ __all__ = [
     "sacrebleu_tokenizer",
 ]
 
-# ALMA's language name table. The prompt embeds these names verbatim, so the
-# exact spelling is part of the evaluation protocol.
+# ALMA's language name table, used verbatim in the prompt.
 LANG_TABLE: Final[dict[str, str]] = {
     "en": "English",
     # Group 1
@@ -203,11 +200,7 @@ def parse_direction(spec: str) -> Direction:
 
 
 def parse_directions(specs: str | list[str]) -> list[Direction]:
-    """Parse a comma-separated string or a list into validated directions.
-
-    Order is preserved and duplicates are rejected, so a suite cannot silently
-    evaluate the same direction twice and skew a macro average.
-    """
+    """Parse a comma-separated string or a list into directions. Duplicates are rejected."""
     items = specs.split(",") if isinstance(specs, str) else list(specs)
     directions = [parse_direction(item) for item in items if item.strip()]
     if not directions:
@@ -231,8 +224,7 @@ def sacrebleu_tokenizer(target: str) -> str:
 def max_source_length_for(direction: Direction, default: int) -> int:
     """Return the source-length cap ALMA uses for a direction.
 
-    ALMA evaluates every direction at 256 source tokens except zh-en, which it
-    reruns at 512. Encoding the quirk here keeps suite configs honest.
+    ALMA uses 256 source tokens for every direction except zh-en (512).
     """
     override = _SOURCE_LENGTH_OVERRIDES.get(str(direction))
     if override is None:
@@ -257,9 +249,7 @@ ALMA_DIRECTIONS: Final[tuple[str, ...]] = (
     "en-zh",
 )
 
-# Parallel training pairs per language in haoranxu/ALMA-Human-Parallel (train
-# split, read from the datasets server on 2026-09-09). Reported next to the
-# tier below so a reader can see what the label is based on.
+# Parallel training pairs per language in haoranxu/ALMA-Human-Parallel (train split).
 ALMA_PARALLEL_TRAIN_PAIRS: Final[dict[str, int]] = {
     "cs": 12076,
     "de": 14211,
@@ -268,9 +258,8 @@ ALMA_PARALLEL_TRAIN_PAIRS: Final[dict[str, int]] = {
     "zh": 15406,
 }
 
-# Icelandic is the low-resource language of ALMA's five: it has roughly a
-# seventh of the parallel data the others have and no validation split, and
-# the ALMA papers treat it as the low-resource case throughout.
+# Icelandic is ALMA's low-resource language (about a seventh of the parallel
+# data of the others, no validation split).
 RESOURCE_TIER: Final[dict[str, str]] = {
     "cs": "high",
     "de": "high",

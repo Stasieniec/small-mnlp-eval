@@ -6,13 +6,8 @@
 #SBATCH --time=04:00:00
 #SBATCH --output=slurm-logs/score-%j.out
 #
-# Scoring runs as its own job because COMET and MetricX cannot share a Python
-# environment with the generation stack. See docs/environments.md.
-#
-# Scoped to ONE run directory with --run. Calling `score` with no --run scores
-# every directory it can find, including other models' runs that are still
-# generating, and a partially generated run then got a macro average over
-# whichever directions happened to be on disk.
+# COMET and MetricX need their own Python environments (see README.md).
+# Scoped to one run directory with --run.
 set -euo pipefail
 
 module load 2025
@@ -30,7 +25,7 @@ METRICS_CONFIG="${METRICS_CONFIG:-configs/metrics/default.yaml}"
 RUN_DIR=$(./.venv/bin/mnlp-eval run-dir --model "${MODEL_CONFIG}" --suite "${SUITE_CONFIG}")
 echo "scoring ${RUN_DIR}"
 
-# Surface metrics need nothing beyond sacreBLEU, so they run here.
+# Surface metrics only need sacreBLEU.
 ./.venv/bin/mnlp-eval score --run "${RUN_DIR}" --groups surface --metrics "${METRICS_CONFIG}"
 
 if [[ -x ./.venv-comet/bin/mnlp-eval ]]; then

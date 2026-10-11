@@ -1,61 +1,32 @@
-# Environments. There are three of them, see docs/environments.md.
 .venv/
 .venv-comet/
 .venv-metricx/
 
-# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
-.eggs/
 build/
 dist/
-venv/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
-.coverage
-htmlcov/
 
-# Evaluation artifacts. Run directories hold hypotheses, scores and manifests
-# rather than weights, so they are small, but they are outputs and not source.
+# outputs
 /runs/
 /runs-*/
 outputs/
 slurm-logs/
 *.log
 slurm-*.out
-
-# Calibration and repair sets. Generated output, rebuilt deterministically
-# from configs/calibration/ and pinned by the fingerprint the report quotes.
-# Anchored to the repository root, because an unanchored pattern also matches
-# src/mnlp_eval/data/, which is source.
 /data/
-
-# uv writes this whenever `uv run` is used. Nothing here reads it: the
-# documented install is `uv pip install -e`, and the two metric environments
-# are pinned by envs/*-requirements.txt. A committed lockfile nothing consults
-# would only drift, and would change what `uv run` does in CI.
-uv.lock
-
-# Local caches
-.cache/
-hf_home/
-
-# Third-party clones. MetricX is not pip installable, so scripts/
-# setup_metricx_env.sh clones it here and puts it on PYTHONPATH.
-third_party/
-
-# Slides and other course material that is not part of the framework.
-*.pptx
-
-# Editors
-.idea/
-.vscode/
-*.swp
-.DS_Store
-
-# Subnetwork descriptors: every kept index of every layer, about 1 MB each for
-# ALMA-7B. Derived tables are committed under results/ instead.
 /subnetworks/
 /grid-state/
+uv.lock
+
+.cache/
+hf_home/
+third_party/
+
+.idea/
+.vscode/
+.DS_Store

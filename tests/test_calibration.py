@@ -1,12 +1,5 @@
-"""Calibration and repair data.
-
-Every subnetwork in the sweep is selected on data this module produces, so a
-silent change here changes what the pruning criterion optimises for every
-system at once. The properties that matter are that the draw is balanced,
-deterministic, reproducible from the config alone, and disjoint from the test
-sets.
-
-The Hub is stubbed. These tests must run in CI with no network.
+"""Calibration and repair data: balanced, deterministic, disjoint from the test
+sets. The Hub is stubbed.
 """
 
 from __future__ import annotations
@@ -77,12 +70,7 @@ def build(tmp_path: Path, **overrides: Any) -> dict[str, Any]:
 def test_every_direction_contributes_the_same_number_of_segments(
     tmp_path: Path, stub_hub: dict[str, Any]
 ) -> None:
-    """Balanced by construction.
-
-    Proportional sampling would leave Icelandic, which has a seventh of the
-    parallel data the other languages have, nearly absent from the
-    multi-directional calibration set.
-    """
+    """Equal segments per direction, whatever each direction's data size."""
     manifest = build(tmp_path, directions=["de-en", "en-de", "is-en"], segments_per_direction=7)
 
     counts = {
@@ -131,12 +119,7 @@ def test_a_different_seed_draws_different_segments(
 def test_adding_a_direction_leaves_the_others_untouched(
     tmp_path: Path, stub_hub: dict[str, Any]
 ) -> None:
-    """Seeded per direction on purpose.
-
-    A single stream would mean extending the suite silently re-drew every
-    other direction, and every subnetwork calibrated before the change would
-    stop being comparable with the ones after it.
-    """
+    """Seeded per direction, so adding a direction leaves the others unchanged."""
     build(tmp_path / "a", directions=["de-en", "en-de"])
     build(tmp_path / "b", directions=["de-en", "en-de", "is-en"])
 
@@ -148,7 +131,7 @@ def test_adding_a_direction_leaves_the_others_untouched(
 def test_records_carry_the_prompt_the_model_is_evaluated_under(
     tmp_path: Path, stub_hub: dict[str, Any]
 ) -> None:
-    """Calibrating on bare sentences calibrates on a distribution ALMA never sees."""
+    """Calibration text uses ALMA's prompt."""
     build(tmp_path)
 
     record = next(iter(read_jsonl_dicts(tmp_path / "test-set" / "de-en.jsonl")))
@@ -188,11 +171,7 @@ def test_both_directions_of_a_pair_read_one_config(
 def test_contamination_against_the_test_set_is_counted(
     tmp_path: Path, stub_hub: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The check that makes a calibration set defensible.
-
-    A collision means the pruning criterion saw the evaluation data, and every
-    quality number downstream of the subnetwork is void.
-    """
+    """No calibration source may occur in the test sets."""
     spec = CalibrationSpec.from_dict(
         {"name": "leaky", "directions": ["de-en"], "segments_per_direction": 3}
     )
@@ -214,7 +193,7 @@ def test_contamination_against_the_test_set_is_counted(
 def test_excluded_test_sources_are_removed_before_drawing(
     tmp_path: Path, stub_hub: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The repair set takes everything, so a collision has to be removed, not avoided."""
+    """The repair set takes everything, so collisions are removed."""
     spec = CalibrationSpec.from_dict(
         {
             "name": "clean",

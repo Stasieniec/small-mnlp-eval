@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
-"""The final experiment grid: 192 pruned ALMA-7B models, their configs, jobs and status.
+"""The final grid of pruned ALMA-7B models: configs, Slurm jobs and status.
 
 method (SlimGPT log-increase, FLAP al-am) x calibration text (prompt+target,
-prompt+generated) x sparsity (20, 30, 40) x scope (all ten directions, one
-pair, one direction). Every model is pruned, evaluated on all ten directions
-of alma10-greedy-300 and scored, in one job: slurm/grid_pipeline.sbatch.
+prompt+generated) x sparsity (20, 30, 40) x scope (multi, pair, dir). Each
+model is pruned, generated and scored in one job, slurm/grid_pipeline.sbatch,
+submitted to both gpu_a100 and gpu_h100; the first to start takes
+grid-state/locks/<name> and cancels the other.
 
-Snellius rejects a shared job that names two partitions, so each model is
-submitted twice, to gpu_a100 and to gpu_h100, under one job name. The first
-twin to start takes grid-state/locks/<name> and cancels the other; a twin
-that starts anyway finds the lock held by a live job and exits.
-
-On a login node:
 
     ./.venv/bin/python scripts/grid.py configs
     ./.venv/bin/python scripts/grid.py submit --scope multi [--dry-run]
@@ -19,9 +14,8 @@ On a login node:
     ./.venv/bin/python scripts/grid.py resubmit-failed
     ./.venv/bin/python scripts/grid.py repairs --source alma-7b-slimgpt20-ref-multi
 
-``lock``, ``unlock``, ``mark``, ``check`` and ``save-manifest`` are what the
-job script calls. Standard library only, plus yaml where configs are read or
-written, so it runs on a login node and inside the job before anything heavy.
+``lock``, ``unlock``, ``mark``, ``check`` and ``save-manifest`` are called by
+the job script. Uses only the standard library and yaml.
 """
 
 from __future__ import annotations
@@ -69,8 +63,7 @@ COMMON = {
     "model_name_or_path": MODEL_PATH,
     "dtype": "bfloat16",
     "batch_size": 4,
-    # 512 source tokens plus 256 generated, the cap generated calibration
-    # needs. The reference arm uses it too, so the two differ in text alone.
+    # 512 source tokens plus 256 generated; used for both calibration texts.
     "max_length": 768,
     "seed": 1234,
 }
@@ -78,8 +71,7 @@ COMMON = {
 #: A quarter node of each GPU partition: 72 cores over 4 A100s, 64 over 4 H100s.
 PARTITION_CPUS = {"gpu_a100": 18, "gpu_h100": 16}
 DEFAULT_PARTITIONS = "gpu_a100,gpu_h100"
-#: The pilot took about 13 minutes to prune, 10 to generate and 3 to score on
-#: an A100. Short limits backfill sooner; repair is one to two hours of LoRA.
+#: Pilot on an A100: about 13 min prune, 10 generate, 3 score. Repair is 1-2 hours.
 DEFAULT_TIME = {"prune": "03:00:00", "repair": "10:00:00"}
 
 #: Slurm states after which a job will not run again.
@@ -98,8 +90,7 @@ TERMINAL = frozenset(
         "TIMEOUT",
     }
 )
-#: mkdir and the owner record are two steps. A lock younger than this with no
-#: owner yet is a twin between them, not a dead job.
+#: A lock younger than this without an owner file may still be being written.
 OWNER_GRACE = 120.0
 SACCT_FIELDS = "JobID,State,Elapsed,ExitCode"
 #: Exit status of ``lock`` when a live twin holds the lock.
@@ -182,8 +173,7 @@ class GridModel:
             "calibration": self.calibration,
             "calibration_text": self.calibration_text,
         }
-        # Each calibration set already holds exactly these directions, so this
-        # selects nothing new; it is set because pruned_for derives from it.
+        # Matches the calibration set; pruned_for derives from it.
         if self.scope != "multi":
             spec["directions"] = self.pruned_directions
         spec.update(COMMON)
@@ -253,8 +243,7 @@ def build_grid() -> list[GridModel]:
 def validate_specs(specs: Iterable[Mapping[str, Any]]) -> list[str]:
     """Check each spec with PruneSpec.from_dict; return warnings, raise on errors.
 
-    An allocation the installed package rejects (another branch may not have
-    registered it yet) is retried as uniform, so the rest is still checked.
+    An allocation the installed package does not know is retried as uniform.
     """
     try:
         from mnlp_eval.config import ConfigError
@@ -483,8 +472,7 @@ def mark(
     status = _read_json(path) or {"name": name}
     job_id = env.get("SLURM_JOB_ID", "")
     if status.get("job_id") != job_id:
-        # A new attempt. Stage times carry over, since a skipped stage's output
-        # is the earlier attempt's work.
+        # A new attempt. Stage times carry over for skipped stages.
         if status.get("job_id"):
             previous = {key: status.get(key) for key in ("job_id", "state", "stage", "exit_code")}
             status.setdefault("attempts", []).append(previous)
@@ -607,8 +595,7 @@ def squeue_jobs() -> list[QueuedJob]:
         check=False,
     )
     if result.returncode != 0:
-        # Without the queue, "not queued" cannot be told from "squeue failed",
-        # and submitting on a guess would double up jobs.
+        # Without squeue output, do not guess and risk duplicate jobs.
         raise GridError(f"squeue failed: {result.stderr.strip()}")
     return parse_squeue(result.stdout)
 
@@ -720,9 +707,8 @@ def _remove_lock(lock: Path, tag: str) -> bool:
 def _take_over(lock: Path, stale_owner: str, tag: str, now: Callable[[], float]) -> bool:
     """Remove a stale lock, unless someone else got there first.
 
-    Two jobs can both judge one lock stale. Only the holder of the takeover
-    guard may remove it, and only if the owner is still the one it judged,
-    so the second never removes a lock the first has just taken.
+    Only the holder of the takeover guard may remove it, and only if the owner
+    is unchanged.
     """
     guard = lock.with_name(f".takeover-{lock.name}")
     try:
@@ -860,11 +846,9 @@ def stage_complete(
     marker: Path,
     subnetwork: Path | None = None,
 ) -> tuple[bool, str]:
-    """Prune or repair is complete when everything it writes is there.
+    """Prune or repair is complete when all its files and the marker exist.
 
-    The marker is the CLI's manifest, saved only when it exited 0. Both write
-    every file before their last check (prune's achieved sparsity, repair's
-    held-out loss), so the files alone would call a failed run done.
+    The marker is the CLI's manifest, saved only when it exited 0.
     """
     ok, reason = checkpoint_complete(checkpoint, kind)
     if not ok:
@@ -1341,8 +1325,7 @@ def command_repairs(args: argparse.Namespace) -> int:
         spec = repair_spec(source, args.data)
         entry = scopes.get(source)
         if entry is not None and entry["scope"] != "multi":
-            # A specialist is repaired on its own directions only, so it stays
-            # a specialist; the multi models see every direction, as ALMA did.
+            # Specialists are repaired on their own directions only.
             spec["directions"] = list(entry["pruned_directions"])
         try:
             from mnlp_eval.prune.repair import RepairSpec
@@ -1377,11 +1360,10 @@ def command_repairs(args: argparse.Namespace) -> int:
 
 
 def adopt(target: Target, *, root: Path = REPO, prune_out: Path | None = None) -> list[str]:
-    """Accept a checkpoint written outside the grid, such as a canary's, as this target's.
+    """Use a checkpoint written outside the grid (e.g. a canary's) for this target.
 
-    Only by hand: a canary may predate a fix, and the job script never adopts.
-    Writes the stage marker the job looks for; marks the model done as well
-    if its run directory is already generated and scored. Returns what it did.
+    Manual only. Writes the stage marker; marks the model done if its run
+    directory is already generated and scored. Returns what it did.
     """
     out = prune_out or Path(os.environ.get("PRUNE_OUT") or f"/scratch-shared/{_user()}/checkpoints")
     checkpoint = out / target.name

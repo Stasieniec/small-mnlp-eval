@@ -1,11 +1,4 @@
-"""The report tables that answer the project's research questions.
-
-Built against hand-assembled summaries rather than through the pipeline, so
-each table is exercised on the exact shape of data that makes it interesting:
-a subnetwork that lost its low-resource direction and nothing else, a
-pair-specific subnetwork evaluated on pairs it was never selected for, and a
-mask that was applied but never compacted.
-"""
+"""The report tables for the research questions, on hand-built summaries."""
 
 from __future__ import annotations
 

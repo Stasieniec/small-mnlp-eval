@@ -1,147 +1,117 @@
 # small-mnlp-eval
 
-Structured pruning of [ALMA-7B](https://github.com/fe1ixxu/ALMA) across its ten
-translation directions (English to and from cs, de, is, ru, zh), and the harness that
-evaluates the result: quality, behaviour and efficiency. Study design in
-[docs/experiment.md](docs/experiment.md).
-
-## Results
-
-The final grid of 192 pruned models was evaluated in two passes:
-- a pilot of 6 October 2026, on the first 300 segments of each direction;
-- the complete test sets, on 8 October 2026.
-
-The models cover SlimGPT and FLAP; prompt + reference or prompt + dense-generated
-calibration; 20, 30 and 40 percent removed; and one multi-directional, five pair and
-ten direction subnetworks, each calibrated on 1,280 segments. Both passes also include
-LoRA repairs.
-
-**Reports:**
-- full test sets: [results/full-2026-10-08/README.md](results/full-2026-10-08/README.md);
-- pilot: [results/grid-2026-10-06/README.md](results/grid-2026-10-06/README.md);
-- decisions and job log: [docs/overnight-2026-10-06.md](docs/overnight-2026-10-06.md).
-
-Every number, table and figure for the paper, recomputed from the committed scores
-(significance tests included): [notebooks/final_results.ipynb](notebooks/final_results.ipynb).
-It also writes the tables (CSV, LaTeX) and figures (PDF, PNG) to `results/paper/`.
-
-Full test sets (WMT22, WMT21 for Icelandic; 17,471 segments), greedy decoding. COMET-22
-with BLEU in brackets, macro over the ten directions. Pair and dir translate each
-direction with the matching specialist. Dense ALMA-7B: 0.8475 (30.32), MetricX-24 2.937.
-
-| method | calibration | removed | multi | pair | dir | multi + LoRA | pair + LoRA |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| SlimGPT | reference | 20% | 0.8361 (27.76) | 0.8383 (28.21) | 0.8382 (28.10) | 0.8391 (28.51) | |
-| SlimGPT | generated | 30% | 0.8227 (25.94) | 0.8287 (26.78) | 0.8282 (26.81) | 0.8312 (27.48) | 0.8353 (28.04) |
-| SlimGPT | generated | 40% | 0.7937 (23.27) | 0.8089 (24.33) | 0.8096 (24.44) | 0.8196 (26.16) | 0.8248 (26.34) |
-| FLAP | generated | 20% | 0.8217 (26.72) | 0.8292 (27.44) | 0.8305 (27.73) | | |
-| FLAP | generated | 30% | 0.7823 (23.55) | 0.8011 (24.46) | 0.8014 (24.52) | 0.8239 (27.05) | 0.8261 (27.22) |
-| FLAP | generated | 40% | 0.7417 (20.17) | 0.7580 (20.34) | 0.7577 (20.54) | 0.8113 (25.91) | 0.8118 (25.38) |
-
-The other calibration text is within 0.0015 COMET of each cell. All twelve
-configurations are in the report.
-
-**Main findings:**
-- **SlimGPT beats FLAP at every setting**, by 0.014 COMET at 20 percent and 0.052 at 40.
-- **Reference and dense-generated calibration are equivalent**, so calibration needs
-  only source sentences.
-- **Specialists beat the multi-directional subnetwork at every sparsity**, at equal
-  calibration size: for SlimGPT +0.003 COMET at 20 percent and +0.016 at 40.
-  - Pair specialists match direction specialists.
-  - Specialists fail on other directions that write a different language, and
-    transfer to those that read one.
-- **Out-of-English Icelandic and Chinese degrade most.**
-- **LoRA repair recovers about half of the 40 percent loss for SlimGPT and two thirds
-  for FLAP.** After repair, specialisation still helps SlimGPT (+0.005 COMET at 40).
-- **The 300-segment pilot predicted the full table** with r = 0.9995.
-
-SlimGPT's compensation was fixed on 6 October (see docs/pruning.md); the 29
-September pilot in `results/pilot-2026-09-29/` used the earlier code.
+Code and results for our MNLP project: structured pruning of
+[ALMA-7B](https://github.com/fe1ixxu/ALMA) with SlimGPT and FLAP at 20, 30 and 40%
+sparsity, comparing one multi-directional subnetwork with pair- and direction-specific
+ones, plus LoRA repair. Evaluated on WMT22 (WMT21 for Icelandic) with BLEU, chrF++,
+COMET-22 and MetricX-24.
 
 ## Layout
 
-Stages communicate only through files, because COMET and MetricX pin dependencies
-that cannot share a process with the generation stack:
-
 ```
-prune     (GPU, .venv)        ->  checkpoints/<name>/, subnetworks/<name>.json, configs/models/<name>.yaml
-repair    (GPU, .venv)        ->  checkpoints/<name>-lora/, configs/models/<name>-lora.yaml
-generate  (GPU, .venv)        ->  runs/<slug>/hyps/<direction>.{jsonl,txt}
-bench     (GPU, .venv)        ->  runs/<slug>/bench.json
-score     (GPU, .venv-comet)  ->  runs/<slug>/scores.<group>.json
-report    (CPU, any env)      ->  reports/
-```
-
-```
-src/mnlp_eval/prune/     groups, collect, budget, compact, spec, repair
-src/mnlp_eval/prune/methods/
-                         flap.py, llm_pruner.py, slimgpt.py
-recipes/pruned.py        loads a compacted checkpoint (dense config + descriptor)
-configs/prune/           one YAML per pruning run
-configs/repair/          one YAML per repair run
-configs/suites/          alma10-greedy, alma10-beam5, alma10-greedy-300 (pilot)
-slurm/                   job scripts and submit_*.sh
-notebooks/               final_results (all paper numbers), pilot_results (29 September)
-results/                 scores and reports of every run; paper/ holds the exported tables and figures
-docs/                    experiment, protocol, pruning, subnetworks, environments
-tests/                   no GPU, no network, no weights
+src/mnlp_eval/      the mnlp-eval package: calibration data, pruning, repair, generation, scoring
+recipes/pruned.py   loads a pruned (compacted) checkpoint
+scripts/            grid driver (grid.py), result aggregation (grid_report.py and friends)
+configs/            calibration, prune, repair, model, suite and metric configs
+slurm/              Snellius job scripts
+results/            scores of every run we report
+notebooks/          final_results.ipynb produces all tables and figures in the report
+tests/              unit tests (no GPU needed)
 ```
 
-A run directory is named `<model>__<suite>__<hash>`, where the hash covers everything
-that can move a number, so two systems appear in one table only if they were measured
-identically. Pruning details in [docs/pruning.md](docs/pruning.md).
+## Reproducing the tables and figures
 
-## Running it
+Everything in the report comes from `notebooks/final_results.ipynb`, which only reads the
+committed files in `results/` (no GPU needed):
 
-Setup on Snellius, once, on a login node (full notes in
-[slurm/README.md](slurm/README.md)):
+```bash
+pip install -e ".[report]" pandas matplotlib jupyter
+jupyter nbconvert --to notebook --execute notebooks/final_results.ipynb
+```
+
+Tables (CSV and LaTeX) and figures are written to `results/paper/`.
+
+- `results/full-2026-10-08/`: the final grid on the full test sets
+- `results/grid-2026-10-06/`: the same grid on the first 300 segments per direction, with
+  the transfer matrices, subnetwork masks and the second calibration seed
+- `results/pilot-2026-09-29/`: the earlier pilot (first SlimGPT implementation)
+
+## Running the experiments
+
+We ran everything on Snellius. COMET and MetricX need their own environments because
+their pinned dependencies conflict with the generation stack.
 
 ```bash
 export HF_HOME=/scratch-shared/$USER/hf_home
-module load 2025
-module load Python/3.13.1-GCCcore-14.2.0
+module load 2025 Python/3.13.1-GCCcore-14.2.0
 pip install --user uv
+
 uv venv --managed-python --python 3.11 .venv
-uv pip install --python .venv/bin/python -e ".[gen,prune,quant,surface,report]"
+uv pip install --python .venv/bin/python -e ".[gen,prune,surface,report]"
 uv venv --managed-python --python 3.11 .venv-comet
 uv pip install --python .venv-comet/bin/python -r envs/comet-requirements.txt
+bash scripts/setup_metricx_env.sh      # MetricX-24, cloned into third_party/
+
+bash slurm/prefetch.sh                 # download models, data and metric checkpoints
+sbatch slurm/setup_dense_bf16.sbatch   # bf16 copy of ALMA-7B on scratch
 mkdir -p slurm-logs
 ```
 
-Prune, then evaluate on the pilot suite:
+**Calibration data.** Build the calibration and repair sets (on a login node), then
+generate the dense model's translations for the "generated" calibration variant:
 
 ```bash
-# 1. Prune. Writes the checkpoint to /scratch-shared/$USER/checkpoints/,
-#    plus subnetworks/<name>.json and configs/models/<name>.yaml.
-bash slurm/submit_prune.sh configs/prune/flap-20-multi.yaml configs/prune/slimgpt-20-multi.yaml
-
-# 2. Generate, score and report. AFTER=<prune job id> queues it behind pruning.
-BASELINE=alma-7b bash slurm/submit_pilot.sh configs/suites/alma10-greedy-300.yaml \
-    configs/models/alma-7b.yaml \
-    configs/models/alma-7b-flap20-multi.yaml configs/models/alma-7b-slimgpt20-multi.yaml
-
-# 3. Read results: runs/<model>__alma10-greedy-300__<hash>/scores.surface.json
-squeue -u $USER
+for f in configs/calibration/{multi-10dir,pair-*-640,dir-*-1280,repair-multi-clean}.yaml; do
+    ./.venv/bin/mnlp-eval calibration --spec "$f"
+done
+sbatch --export=ALL,CALIBRATION_INPUT=data/calibration/multi-10dir,CALIBRATION_OUT=data/calibration/multi-10dir-generated \
+    slurm/calibration_generate.sbatch   # likewise for the pair and dir sets
 ```
 
-Repair queues the same way, behind the prune job that writes its source:
+**Pruning grid.** 2 methods x 2 calibration texts x 3 sparsities x 16 subnetworks
+(1 multi, 5 pair, 10 direction). Each job prunes one model, then generates and scores it
+on the 300-segment suite:
 
 ```bash
-./.venv/bin/mnlp-eval calibration --spec configs/calibration/repair-multi.yaml   # login node
-AFTER=<prune job id> bash slurm/submit_repair.sh configs/repair/slimgpt-20-multi-lora.yaml
+./.venv/bin/python scripts/grid.py configs     # writes configs/prune/grid/ and configs/grid/manifest.json
+./.venv/bin/python scripts/grid.py submit      # --scope multi|pair|dir, --dry-run
+./.venv/bin/python scripts/grid.py status
+./.venv/bin/python scripts/grid.py repairs --source alma-7b-slimgpt40-gen-multi   # LoRA repair
 ```
 
-A new pruning run is one YAML in `configs/prune/`, usually extending an
-existing one and changing `name` and `sparsity`. The full sweep uses
-`slurm/submit_sweep.sh` with `configs/suites/alma10-greedy.yaml`.
+**Full test sets.** Evaluate chosen systems on the full `alma10-greedy` suite (each
+specialist on its own directions), then score with MetricX:
 
-Things to know:
+```bash
+bash slurm/submit_eval.sh alma-7b alma-7b-slimgpt40-gen-multi alma-7b-slimgpt40-gen-pair-{cs,de,is,ru,zh}
+sbatch --export=ALL,RUN_LIST=runs.txt slurm/score_metricx.sbatch
+```
 
-- The model YAMLs and descriptors that `prune` writes are generated, not
-  committed. The YAMLs point at your own scratch, which other accounts cannot
-  read and which is purged after 14 days untouched.
-- Slurm logs land in `slurm-logs/` of the checkout you submitted from.
-- Greedy and beam-5 results are not comparable; the report refuses to mix
-  them.
-- Checks before committing: `ruff format`, `ruff check`, `mypy`,
-  `pytest tests/`, `scripts/check_style.py` (no emoji, no em-dashes).
+**Aggregate.**
+
+```bash
+./.venv/bin/python scripts/grid_report.py --out results/grid-2026-10-06
+./.venv/bin/python scripts/grid_report.py --out results/full-2026-10-08 --suite alma10-greedy
+./.venv/bin/python scripts/grid_overlap.py      # subnetwork overlap
+./.venv/bin/python scripts/repair_summary.py
+```
+
+Single models outside the grid (ablations, the second calibration seed) use
+`slurm/single_pipeline.sbatch`. The CLI also has the individual stages:
+
+```bash
+./.venv/bin/mnlp-eval prune --spec configs/prune/grid/alma-7b-slimgpt40-gen-multi.yaml
+./.venv/bin/mnlp-eval generate --model configs/models/alma-7b-slimgpt40-gen-multi.yaml \
+    --suite configs/suites/alma10-greedy.yaml
+./.venv/bin/mnlp-eval score --run runs/<run dir> --metrics configs/metrics/default.yaml
+```
+
+Model configs under `configs/models/` for pruned systems were written by the prune and
+repair stages and point at checkpoints on our scratch space, which is not public.
+
+## Tests
+
+```bash
+uv pip install -e ".[surface,dev,report]"
+pytest tests/ -m "not gpu and not network and not slow and not torch"
+```

@@ -1,11 +1,8 @@
 """Repair results on the directions each repaired model is for.
 
-``grid_report.py`` compares a repaired system with its source over all ten
-directions, which is right for the multi models and wrong for a pair model
-repaired on its own pair. This reads its ``long.csv`` and reports, per
-repaired system, the macro over the directions it was pruned for (all ten for
-multi), and assembles the five repaired pair models of one configuration into
-a ten-direction composite, comparable with the multi model and its repair.
+Reads ``grid_report.py``'s ``long.csv`` and reports, per repaired system, the
+macro over the directions it was pruned for (all ten for multi), plus the five
+repaired pair models of one configuration as a ten-direction composite.
 
     ./.venv/bin/python scripts/repair_summary.py --out results/grid-2026-10-06
 """

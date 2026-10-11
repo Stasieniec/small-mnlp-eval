@@ -172,7 +172,7 @@ def test_shorthand_flags_and_set_both_apply(tmp_path: Path) -> None:
 
 
 def test_an_override_changes_the_run_identity(tmp_path: Path) -> None:
-    # An override is a different experiment, not a variant of the same one.
+    # An override changes the run id.
     model, suite = _write_configs(tmp_path)
     parser = build_parser()
     plain = _build_run_config(
@@ -277,13 +277,7 @@ def test_metrics_default_to_the_shipped_config(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_prefetch_tolerates_a_checkpoint_that_does_not_exist_yet(tmp_path: Path) -> None:
-    """The shipped pruning templates carry placeholder scratch paths.
-
-    slurm/prefetch.sh globs every config in the directory and runs with
-    --strict, so treating an absent local checkpoint as a download failure
-    would break the documented Snellius setup step for everyone until the last
-    teammate's checkpoint landed.
-    """
+    """A missing local checkpoint path is skipped by prefetch, even with --strict."""
     from mnlp_eval.prefetch import prefetch
 
     spec = ModelSpec.from_dict(
@@ -316,7 +310,7 @@ def test_prefetch_reports_a_present_local_checkpoint_without_a_warning(tmp_path:
 
 
 def test_an_explicit_bench_direction_outside_the_suite_is_an_error(tmp_path: Path) -> None:
-    """Silently benchmarking a different direction would mislabel the result."""
+    """An unknown direction is an error."""
     args = build_parser().parse_args(
         [
             "bench",

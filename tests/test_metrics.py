@@ -49,8 +49,6 @@ def test_perfect_output_scores_100_bleu() -> None:
 
 
 def test_signatures_are_recorded() -> None:
-    # A score without its signature cannot be compared with a score from
-    # anywhere else, including ALMA's published tables.
     scores = score_surface(REFERENCES, REFERENCES, "en")
     assert "tok:13a" in (scores["bleu"].signature or "")
     assert "version:" in (scores["bleu"].signature or "")
@@ -76,8 +74,6 @@ def test_length_mismatch_is_rejected() -> None:
 
 
 def test_empty_hypotheses_score_near_zero_rather_than_being_skipped() -> None:
-    # A collapsed model must be penalised by the metric, not excused by the
-    # harness.
     scores = score_surface([""] * len(REFERENCES), REFERENCES, "en")
     assert scores["bleu"].score == pytest.approx(0.0)
 
@@ -108,8 +104,6 @@ def test_source_copy_is_detected_ignoring_case_and_punctuation() -> None:
 
 
 def test_off_target_output_is_detected() -> None:
-    # The signature failure of an aggressively compressed multilingual model,
-    # and invisible in every quality metric.
     hypotheses = [
         "Das ist ein deutscher Satz mit mehreren Woertern.",
         "This is a perfectly ordinary English sentence.",
@@ -121,8 +115,7 @@ def test_off_target_output_is_detected() -> None:
 
 
 def test_language_shares_always_sum_to_one() -> None:
-    # The invariant that makes a collapsed system impossible to hide. Divide
-    # the language rates by the classifiable subset instead and this breaks.
+    # Rates are over all segments, not only the classifiable ones.
     for hypotheses in (
         REFERENCES,
         ["", "", "Ok", "This is a perfectly ordinary English sentence."],
@@ -138,21 +131,17 @@ def test_language_shares_always_sum_to_one() -> None:
 
 
 def test_a_collapsed_model_cannot_score_zero_off_target() -> None:
-    # 95 empty hypotheses and 5 good ones. Dividing by the classifiable subset
-    # reported off_target_rate 0.0 here, the most flattering possible value for
-    # the most broken possible system.
+    # 95 empty hypotheses and 5 good ones.
     hypotheses = [""] * 95 + ["This is a German sentence here."] * 5
     scores = score_behaviour(_segments(hypotheses), DE_EN)
     assert scores.unverifiable_rate == 0.95
     assert scores.on_target_rate == 0.05
-    # Retained under an explicit name, so the misleading figure is still
-    # available for comparison with the literature but is never the headline.
+    # The rate over classifiable segments only, kept under its own name.
     assert scores.off_target_rate_among_scorable == 0.0
 
 
 def test_short_hypotheses_count_as_unverifiable_not_on_target() -> None:
-    # Language ID on a two-word fragment is noise, so it is neither credited
-    # nor blamed. It is reported as unverifiable.
+    # Language ID on very short output is unreliable.
     scores = score_behaviour(_segments(["Ok", "Ja", "Nein"]), DE_EN)
     assert scores.lid["n_scorable"] == 0
     assert scores.unverifiable_rate == 1.0
@@ -169,9 +158,7 @@ def test_language_identification_can_be_disabled() -> None:
 
 
 def test_english_fallback_is_not_reported_when_it_duplicates_source_language() -> None:
-    # For an out-of-English direction, "fell back to English" and "echoed the
-    # source language" are the same event. Reporting one number under two
-    # headings would invent a second independent failure mode.
+    # Out of English, English output is already counted as source language.
     into_german = score_behaviour(
         _segments(
             ["This is a perfectly ordinary English sentence."],
@@ -188,8 +175,7 @@ def test_english_fallback_is_not_reported_when_it_duplicates_source_language() -
 
 
 def test_punctuation_only_output_is_not_a_source_copy() -> None:
-    # _normalise strips punctuation, so without a guard "!!!" and "..." are
-    # equal and garbage gets scored as a faithful copy.
+    # _normalise strips punctuation, so "!!!" and "..." would compare equal.
     scores = score_behaviour(_segments(["!!!", "!!!"], sources=["...", "..."]), DE_EN)
     assert scores.source_copy_rate == 0.0
 
@@ -205,8 +191,7 @@ def test_zero_denominators_report_none_rather_than_zero() -> None:
 
 
 def test_truncation_and_budget_rates_are_separate() -> None:
-    # A model that finished translating and then rambled hit the budget without
-    # truncating its translation.
+    # Hitting the budget after a complete translation is not truncation.
     segments = _segments(REFERENCES)
     segments[0].hit_token_budget = True
     segments[0].truncated = True

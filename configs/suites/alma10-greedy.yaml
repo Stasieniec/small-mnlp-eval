@@ -1,10 +1,5 @@
-# Sweep suite. Greedy decoding is roughly three times cheaper than beam 5,
-# which is what makes a sparsity sweep and a full transfer matrix affordable.
-#
-# Scores are NOT comparable with the beam-5 suite or with ALMA's published
-# numbers, and the report stage refuses to place runs from the two suites in
-# one table. Within the sweep every system is decoded identically, which is
-# what the compression and transfer claims actually need.
+# Sweep suite. Greedy decoding, about three times cheaper than beam 5. Scores
+# are not comparable with the beam-5 suite or ALMA's published numbers.
 name: alma10-greedy
 data:
   dataset: haoranxu/WMT22-Test

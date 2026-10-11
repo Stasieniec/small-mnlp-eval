@@ -1,24 +1,9 @@
-"""Behavioural failure metrics: how a model breaks, not just how well it scores.
+"""Behavioural failure metrics: empty output, source copies, truncation, repetition, off-target.
 
-An averaged COMET score is a poor instrument for compression research. A model
-that translates 90 percent of segments well and emits Icelandic-looking noise
-on the rest can score similarly to one that is uniformly mediocre, and the two
-call for completely different conclusions. Off-target output in particular is
-the signature failure of aggressively compressed multilingual models, and it is
-invisible in every quality metric this project reports.
-
-Language identification uses a classifier restricted to the languages that are
-plausible for the direction, namely the target, the source, and English. A
-restricted decision is far more reliable on single sentences than an open
-choice among all 142 languages it knows, and it answers what matters:
-did the model translate, echo the source, or fall back to English. The open
-rate over every language the classifier knows is reported alongside it.
-
-Every rate is divided by the total segment count, never by the subset that
-could be classified. Dividing by the subset makes a model that emits nothing on
-most segments report an off-target rate near zero, since the few segments it
-does produce are the ones it got right. ``on_target_rate``, ``off_target_rate``
-and ``unverifiable_rate`` sum to one by construction.
+Language ID uses py3langid restricted to the target, source and English; the
+unrestricted (open) off-target rate is reported as well. Rates are divided by
+the total number of segments, so ``on_target_rate``, ``off_target_rate`` and
+``unverifiable_rate`` sum to one.
 """
 
 from __future__ import annotations
@@ -35,9 +20,7 @@ from mnlp_eval.postprocess import FLAG_REPETITION
 
 __all__ = ["BehaviourScores", "score_behaviour"]
 
-#: Hypotheses shorter than this are excluded from language identification.
-#: Language ID on a two-word fragment is noise, and counting that noise as
-#: off-target output would manufacture a finding.
+#: Hypotheses shorter than this are not language-identified (counted as unverifiable).
 MIN_LID_CHARACTERS = 12
 
 _PUNCTUATION = str.maketrans("", "", string.punctuation + string.whitespace)
@@ -60,15 +43,12 @@ class BehaviourScores:
     on_target_rate: float | None = None
     #: Share of all segments confirmed to be in some other language.
     off_target_rate: float | None = None
-    #: Share of all segments too short or too empty to identify. The three
-    #: rates above sum to one.
+    #: Share of all segments too short to identify.
     unverifiable_rate: float | None = None
     source_language_rate: float | None = None
     english_fallback_rate: float | None = None
     off_target_rate_open: float | None = None
-    #: Off-target share among classifiable hypotheses only. Comparable with the
-    #: figure usually quoted in the literature, but it says nothing about
-    #: segments that produced no output, so it is never the headline.
+    #: Off-target share among classifiable hypotheses only.
     off_target_rate_among_scorable: float | None = None
     lid: dict[str, Any] = field(default_factory=dict)
 
@@ -97,9 +77,7 @@ def score_behaviour(
     hypotheses = [segment.hypothesis for segment in segments]
     empty = sum(1 for text in hypotheses if not text.strip())
 
-    # _normalise strips punctuation, so two punctuation-only strings would
-    # otherwise compare equal and a model emitting "!!!" would be scored as
-    # copying the source rather than as producing garbage.
+    # Punctuation-only hypotheses normalise to "" and do not count as copies.
     copies = sum(
         1
         for segment in segments
@@ -173,9 +151,6 @@ def _add_language_scores(
     for text in hypotheses:
         stripped = text.strip()
         if len(stripped) < MIN_LID_CHARACTERS:
-            # Language identification on a two-word fragment is noise. These
-            # segments are counted as unverifiable rather than assigned to
-            # either side.
             continue
         scorable += 1
         detected, _ = restricted.classify(stripped)
@@ -203,8 +178,7 @@ def _add_language_scores(
     if not total:
         return
 
-    # Divided by the full segment count, so a model that emits nothing cannot
-    # score zero off-target. The three shares sum to one.
+    # Divided by the full segment count.
     scores.on_target_rate = round(on_target / total, 4)
     scores.off_target_rate = round(off_target / total, 4)
     scores.unverifiable_rate = round((total - scorable) / total, 4)
@@ -212,9 +186,6 @@ def _add_language_scores(
     scores.off_target_rate_open = round(off_target_open / total, 4)
     scores.off_target_rate_among_scorable = round(off_target / scorable, 4) if scorable else None
 
-    # When the source is English, "fell back to English" and "echoed the source
-    # language" are the same event, and reporting one number twice under two
-    # headings invents a second independent failure mode. Only report it when
-    # it says something the source-language rate does not.
+    # Only meaningful when neither side is English.
     if direction.target != "en" and direction.source != "en":
         scores.english_fallback_rate = round(english / total, 4)

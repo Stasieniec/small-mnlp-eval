@@ -1,14 +1,8 @@
 """Activation statistics over a calibration set.
 
-Reads what ``mnlp-eval calibration`` writes and runs it through a model,
-accumulating what a criterion needs about each prunable projection's input.
-
-Three things are load bearing. The rendered prompt is tokenized, not the bare
-source, because that is the distribution the model runs on. Padding is excluded
-via the attention mask, or every channel's mean drifts toward the pad embedding
-and the variance the criterion reads shrinks. Statistics accumulate in float32
-whatever the model's dtype, since the criterion ranks quantities that end up
-close together.
+Runs the rendered calibration prompts through the model and accumulates the
+per-channel mean and variance of each prunable projection's input in float32,
+excluding padding.
 """
 
 from __future__ import annotations
@@ -33,8 +27,7 @@ __all__ = [
     "tokenized_batches",
 ]
 
-#: The projections whose *input* channels index a prunable group, which is why
-#: every activation-based criterion hooks exactly these two.
+#: Projections whose input channels index a prunable group.
 PRUNABLE_INPUTS = ("o_proj", "down_proj")
 
 #: What ``mnlp-eval calibration`` writes beside the per-direction files.
@@ -43,11 +36,7 @@ CALIBRATION_MANIFEST = "calibration.json"
 
 @dataclass
 class InputStats:
-    """Running mean and variance of one projection's input channels.
-
-    Chan's parallel update rather than a sum and a sum of squares, which
-    cancels badly when the mean dwarfs the spread, as it does here.
-    """
+    """Running mean and variance of one projection's input channels (Chan's parallel update)."""
 
     count: int
     mean: Tensor
@@ -56,7 +45,7 @@ class InputStats:
 
     @property
     def variance(self) -> Tensor:
-        """Sample variance per input channel, the fluctuation FLAP scores on."""
+        """Sample variance per input channel."""
         if self.count < 2:
             return self.m2 * 0.0
         return self.m2 / (self.count - 1)
@@ -76,13 +65,7 @@ class InputStats:
 
 
 def refuse_contaminated(root: Path) -> None:
-    """Refuse a set whose own manifest records test-set collisions.
-
-    ``mnlp-eval calibration`` exits non-zero on a collision, but only after
-    writing the set under the name every config reads, so the exit code alone
-    does not stop a later prune or repair job from using it. A set with no
-    manifest predates the check and is let through.
-    """
+    """Raise if the set's manifest records test-set collisions. Sets without a manifest pass."""
     import json
 
     manifest = root / CALIBRATION_MANIFEST
@@ -108,17 +91,10 @@ def load_calibration_prompts(
 ) -> list[str] | list[list[int]]:
     """Read the rendered prompts from a calibration set, in a stable order.
 
-    ``directions`` restricts it, which is how a pair-specific subnetwork is
-    calibrated from a set holding all ten.
-
-    ``with_target`` appends each record's reference translation to its prompt,
-    joined as ALMA's training joins them, with no space. The model then reads
-    the target language as it would have written it, so the criterion sees the
-    activations of producing the output as well as of reading the source.
-    ``with_generated`` instead returns the cached input and continuation token
-    IDs (including EOS), preserving generation truncation and token boundaries.
-    Without either option, ``en-xx`` calibration never puts a word of the target language
-    through the model.
+    ``directions`` restricts it to some directions (pair-specific subnetworks).
+    ``with_target`` appends each record's reference to its prompt with no space,
+    as in ALMA's training. ``with_generated`` instead returns the cached input
+    and generated token IDs (including EOS).
     """
     from mnlp_eval.artifacts import read_jsonl_dicts
 
@@ -183,10 +159,8 @@ def tokenized_batches(
 ) -> Iterator[dict[str, Tensor]]:
     """Tokenize prompts into padded batches with their attention masks.
 
-    ``append_eos`` ends every text with the end-of-sequence token, as ALMA's
-    training text ends and as a cached generation ends. With it, a prompt with
-    its reference and a prompt with the dense model's own translation differ
-    only in the translation, not in whether the model also saw it stop.
+    ``append_eos`` ends every text with the EOS token, as in ALMA's training
+    text and the cached generations.
     """
     if append_eos and prompts and isinstance(prompts[0], str):
         eos = tokenizer.eos_token_id
@@ -227,13 +201,9 @@ def collect_input_stats(
     *,
     targets: Sequence[str] = PRUNABLE_INPUTS,
 ) -> dict[Any, InputStats]:
-    """Mean and variance of every target projection's input, over the batches.
+    """Mean and variance of every target projection's input, keyed by module.
 
-    Keyed by the module, so a criterion looks its statistics up from the
-    projection it already holds. One pass over the dense model with a hook per
-    target, not a layer-at-a-time walk: a global budget compares layers before
-    anything is removed, so every layer's statistics must exist before the
-    first unit is pruned.
+    One pass over the dense model with a forward pre-hook per target.
     """
     import torch
 

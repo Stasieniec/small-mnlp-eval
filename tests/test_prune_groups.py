@@ -1,12 +1,6 @@
-"""Prunable unit groups.
+"""Prunable unit groups: grouped-query attention and removed layers.
 
-Every later stage indexes through this module, so an off-by-one here becomes a
-quality number nobody can explain. The cases that matter are grouped-query
-attention, where an uneven selection misroutes rather than fails, and the
-boundary between a selection and a removed layer.
-
-The modules are faked: this is index arithmetic and must stay testable without
-torch, which the first CI job does not install.
+The modules are faked, so these tests do not need torch.
 """
 
 from __future__ import annotations
@@ -134,8 +128,8 @@ class TestHeadSelection:
         assert self.gqa.num_key_value_groups_after(kept) == 3
 
     def test_grouped_query_attention_refuses_an_uneven_selection(self) -> None:
-        # Four from the first group, two from the second. repeat_kv would
-        # misroute the survivors rather than raise, so catch it here.
+        # Four from the first group, two from the second: repeat_kv would
+        # misroute the survivors.
         with pytest.raises(PruneError, match="same number of query heads"):
             self.gqa.validate_heads([0, 1, 2, 3, 7, 8])
 

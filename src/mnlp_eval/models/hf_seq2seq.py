@@ -1,10 +1,4 @@
-"""Encoder-decoder translation backends.
-
-These are not compression targets. They exist as reference systems: a real MT
-model with known quality proves the metric pipeline produces sensible numbers,
-which a prompted 0.5B model cannot do. A harness that has only ever seen
-garbage output cannot tell "pipeline correct" from "pipeline broken".
-"""
+"""Encoder-decoder translation backends, used as reference systems to sanity-check the metrics."""
 
 from __future__ import annotations
 
@@ -66,8 +60,6 @@ def _load(
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
     prompt = prompt or get_prompt(spec.prompt)
-    # ModelSpec.validate already enforces this for every non-custom loader;
-    # restating it here keeps the guarantee local and checkable.
     if not spec.model_name_or_path:
         msg = f"model {spec.name}: loader {spec.loader!r} requires 'model_name_or_path'"
         raise ValueError(msg)

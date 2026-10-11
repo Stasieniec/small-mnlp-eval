@@ -1,18 +1,12 @@
 #!/usr/bin/env bash
 # Reproduce ALMA-7B-R's published WMT22 scores, and record the delta.
 #
-# This is the framework's own correctness evidence. Until the delta against the
-# published table is known, every compression result this repository produces
-# rests on an unverified harness. Run it once, keep the output, and cite the
-# delta in the report.
+# Exact agreement is not expected: ALMA pads differently and beam search is
+# not invariant to padding. wmt22-alma-repro disables length bucketing and
+# matches their batch size.
 #
-# Exact agreement is not expected. ALMA generates through the Hugging Face
-# Trainer, which pads differently, and beam search is not exactly invariant to
-# padding. wmt22-alma-repro disables length bucketing and matches their batch
-# size to get as close as the two harnesses can come.
-#
-# Cost: ten directions, 17,471 segments, beam 5, bf16 7B. Budget 6 to 12 hours
-# on one A100. On Snellius prefer:
+# Ten directions, 17,471 segments, beam 5: 6 to 12 hours on one A100. On
+# Snellius:
 #   bash slurm/submit_sweep.sh configs/suites/wmt22-alma-repro.yaml \
 #        configs/models/alma-7b.yaml
 set -euo pipefail
@@ -28,8 +22,7 @@ MODEL=configs/models/alma-7b.yaml
 export TOKENIZERS_PARALLELISM=false
 
 echo "=== test set provenance ==="
-# If this fails, the reproduction is meaningless: the scores would be computed
-# on different data than ALMA used.
+# Check the test data matches what ALMA used.
 "${CLI}" verify-testset \
     --dataset haoranxu/WMT22-Test \
     --directions de-en,cs-en,is-en,zh-en,ru-en,en-de,en-cs,en-is,en-zh,en-ru
@@ -49,7 +42,7 @@ if [[ -x "${COMET_CLI}" ]]; then
     "${COMET_CLI}" --runs-root "${RUNS_ROOT}" score \
         --groups neural --metrics configs/metrics/full.yaml
 else
-    echo "COMET environment not found. See docs/environments.md." >&2
+    echo "COMET environment not found. See README.md." >&2
     exit 1
 fi
 

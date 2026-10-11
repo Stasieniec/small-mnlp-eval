@@ -1,8 +1,6 @@
-# Full metric set for the final report. Adds the WMT24 metrics task winners.
-# COMETKiwi and XCOMET-XL are gated: accept their licences on the Hub and set
-# HF_TOKEN before prefetching. XCOMET-XL is a 13.9 GB fp32 checkpoint under
-# CC-BY-NC-SA-4.0 and needs an A100-class GPU. MetricX runs in its own
-# environment because it pins transformers==4.30.2.
+# Full metric set. COMETKiwi and XCOMET-XL are gated (set HF_TOKEN before
+# prefetching); XCOMET-XL needs an A100-class GPU. MetricX runs in its own
+# environment (transformers==4.30.2).
 groups: [surface, neural, metricx]
 comet_models:
   - Unbabel/wmt22-comet-da

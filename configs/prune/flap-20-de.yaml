@@ -1,5 +1,4 @@
-# Pair-specific FLAP at 20 percent. Same scope-at-fixed-budget comparison as
-# flap-50-de.yaml, one step down the sweep.
+# Pair-specific FLAP at 20 percent.
 extends: flap-20-multi.yaml
 name: alma-7b-flap20-de
 calibration: data/calibration/pair-de

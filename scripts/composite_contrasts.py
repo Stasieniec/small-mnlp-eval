@@ -1,13 +1,9 @@
 """Contrasts between composite systems that grid_report.py does not test.
 
-A composite translates each direction with a chosen system: the multi model,
-or for every direction the pair model of that direction's language. This
-compares, per configuration (generated calibration, 30 and 40 percent), the
-five pair models with their own-pair LoRA against the multi model with its
-LoRA, on COMET-22 and MetricX-24 per segment, with the same paired bootstrap
-as the report: positions resampled within each direction, the ten direction
-means averaged with equal weight. It also checks how well the pilot ranked the
-headline composites, against the full suite.
+Per configuration (generated calibration, 30 and 40 percent): the five pair
+models with their own-pair LoRA against the multi model with its LoRA, on
+COMET-22 and MetricX-24, with the report's stratified paired bootstrap. Also
+compares the pilot's ranking of the composites with the full suite's.
 
     ./.venv/bin/python scripts/composite_contrasts.py --suite alma10-greedy \
         --out results/full-2026-10-08 --pilot results/grid-2026-10-06

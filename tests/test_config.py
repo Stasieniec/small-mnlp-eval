@@ -46,8 +46,6 @@ def _suite(**decode: object) -> SuiteSpec:
 
 
 def test_unknown_key_is_rejected_with_the_valid_keys_listed() -> None:
-    # A typo in a teammate's YAML must fail immediately, not silently fall back
-    # to a default and invalidate a comparison.
     with pytest.raises(ConfigError, match="unknown key"):
         ModelSpec.from_dict({**BASE_MODEL, "modelname": "oops"})
 
@@ -102,8 +100,7 @@ def test_unsupported_quantization_method_is_rejected() -> None:
 
 
 def test_sampling_parameters_without_sampling_are_rejected() -> None:
-    # Silently ignoring temperature while running beam search is how a run ends
-    # up not doing what its config says.
+    # Sampling parameters do nothing without do_sample.
     with pytest.raises(ConfigError, match="do_sample is false"):
         DecodeSpec.from_dict({"temperature": 0.6})
     with pytest.raises(ConfigError, match="do_sample is false"):
@@ -299,13 +296,12 @@ def test_shipped_configs_all_parse() -> None:
 
 
 # --------------------------------------------------------------------------
-# Hardening found by review
+# Edge cases
 # --------------------------------------------------------------------------
 
 
 def test_duplicate_yaml_keys_are_rejected(tmp_path: Path) -> None:
-    # PyYAML silently takes the last value, which is the same class of mistake
-    # the unknown-key rejection exists to catch.
+    # PyYAML would silently keep the last value.
     path = tmp_path / "dup.yaml"
     path.write_text("name: s\ndecode:\n  num_beams: 5\n  num_beams: 1\n", encoding="utf-8")
     with pytest.raises(ConfigError, match="duplicate key"):
@@ -320,8 +316,7 @@ def test_extends_must_be_relative(tmp_path: Path) -> None:
 
 
 def test_direction_order_does_not_change_run_identity() -> None:
-    # Reordering a suite's direction list for readability must not orphan every
-    # existing run. Duplicates are still rejected, so sorting loses nothing.
+    # Duplicates are still rejected, so sorting is safe.
     model = ModelSpec.from_dict(BASE_MODEL)
     forward = SuiteSpec.from_dict({"name": "s", "data": {"directions": ["de-en", "en-de"]}})
     reversed_order = SuiteSpec.from_dict({"name": "s", "data": {"directions": ["en-de", "de-en"]}})
@@ -333,15 +328,13 @@ def test_direction_order_does_not_change_run_identity() -> None:
     ["a/b", "../escaped", "with space", ".hidden", "-leading", "x" * 65, ""],
 )
 def test_unsafe_names_are_rejected(name: str) -> None:
-    # Names become directory components. A slash produced a run invisible to
-    # discover_runs, and ".." wrote outside the runs root.
+    # Names become directory components, so no slashes or "..".
     with pytest.raises(ConfigError):
         ModelSpec.from_dict({**BASE_MODEL, "name": name})
 
 
 def test_bootstrap_seed_zero_is_rejected() -> None:
-    # sacreBLEU treats a zero seed as unseeded while the signature still claims
-    # seed 0, so surface p-values would silently stop being reproducible.
+    # sacreBLEU treats seed 0 as unseeded.
     with pytest.raises(ConfigError, match="non-zero"):
         MetricsSpec.from_dict({"bootstrap_seed": 0})
 
@@ -371,7 +364,6 @@ CONFIG_ROOT = Path(__file__).resolve().parent.parent / "configs"
     "path", sorted((CONFIG_ROOT / "models").glob("*.yaml")), ids=lambda path: path.name
 )
 def test_every_shipped_model_config_is_valid(path: Path) -> None:
-    """A broken template would surface an hour into a cluster job, not here."""
     spec = ModelSpec.from_dict(load_yaml_config(path))
     assert spec.name == path.stem
 
@@ -403,7 +395,7 @@ def test_every_shipped_metrics_config_is_valid(path: Path) -> None:
 
 
 def test_the_pruning_templates_declare_what_the_report_needs() -> None:
-    """Without these fields the transfer matrix cannot be built at all."""
+    """Fields the transfer matrix needs."""
     specific = ModelSpec.from_dict(
         load_yaml_config(CONFIG_ROOT / "models" / "alma-7b-prune50-de.yaml")
     )
@@ -418,7 +410,7 @@ def test_the_pruning_templates_declare_what_the_report_needs() -> None:
 
 
 def test_the_ten_direction_suites_cover_every_alma_direction() -> None:
-    for name in ("alma10-beam5", "alma10-greedy", "flores200-10dir-greedy"):
+    for name in ("alma10-greedy", "alma10-greedy-300"):
         suite = SuiteSpec.from_dict(load_yaml_config(CONFIG_ROOT / "suites" / f"{name}.yaml"))
         assert set(suite.data.directions) == set(ALMA_DIRECTIONS), name
 
@@ -429,11 +421,7 @@ def test_the_ten_direction_suites_cover_every_alma_direction() -> None:
 
 
 def test_compression_metadata_stays_out_of_run_identity() -> None:
-    """Two systems that differ only in how they are described are one system.
-
-    The alternative is worse: a run id that changes when somebody fixes a typo
-    in a notes field orphans every artifact already on disk.
-    """
+    """Descriptive fields do not change the run id."""
     base = {
         "name": "pruned",
         "loader": "hf_causal",

@@ -7,18 +7,15 @@ from typing import Any
 
 __all__ = ["METRIC_GROUPS", "MetricScore", "group_availability"]
 
-#: Metric groups, in the order they should be reported. Each maps onto one of
-#: the three environments described in docs/environments.md.
+#: Metric groups in report order. Each has its own environment (see README.md).
 METRIC_GROUPS = ("surface", "neural", "metricx")
 
 
 @dataclass
 class MetricScore:
-    """One metric's verdict on one direction.
+    """One metric's score on one direction.
 
-    ``segment_scores`` is kept whenever the metric produces them, because
-    bootstrap significance testing later would otherwise require re-running a
-    multi-billion-parameter metric model over the whole test set.
+    ``segment_scores`` are kept for the bootstrap significance tests.
     """
 
     name: str
@@ -43,12 +40,7 @@ class MetricScore:
 
 
 def group_availability() -> dict[str, tuple[bool, str]]:
-    """Report which metric groups this interpreter can actually compute.
-
-    Returned rather than raised, so a scoring job reports the groups it cannot
-    serve as pending instead of failing the whole run. The dependency pins that
-    make this necessary are documented in docs/environments.md.
-    """
+    """Which metric groups this interpreter can compute, with a reason for each that cannot."""
     status: dict[str, tuple[bool, str]] = {}
 
     try:

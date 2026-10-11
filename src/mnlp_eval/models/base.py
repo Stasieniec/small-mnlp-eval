@@ -1,12 +1,7 @@
-"""The translator interface every model plugs into.
+"""Translator interface and the shared batched generation loop.
 
-A translator turns source sentences into raw model output. It does not
-post-process, score, or know anything about metrics. Keeping that boundary
-sharp is what lets a pruned model with custom modelling code reuse the entire
-downstream pipeline.
-
-The batching loop lives here rather than in each loader, so a new backend only
-has to say how to build its inputs and how to read its outputs.
+A translator turns source sentences into raw model output; post-processing and
+scoring happen elsewhere.
 """
 
 from __future__ import annotations
@@ -32,17 +27,13 @@ class SegmentOutput:
 
     raw_text: str
     n_source_tokens: int = 0
-    #: Padded width of the batch this segment was in. Prefill computes over the
-    #: padded width, not the unpadded token count, so an analytic FLOPs
-    #: estimate that uses the latter undercounts badly at batch sizes above one.
+    #: Padded width of the batch this segment was in (used for the FLOPs estimate).
     n_padded_source_tokens: int = 0
     n_generated_tokens: int = 0
-    #: True when generation stopped because the token budget ran out rather
-    #: than because the model emitted EOS. Whether that truncated the
-    #: translation itself is decided downstream, once the hypothesis is known.
+    #: Generation stopped at the token budget without emitting EOS.
     hit_token_budget: bool = False
     source_truncated: bool = False
-    #: Captured only for calibration, avoiding overhead during evaluation.
+    #: Only captured for calibration.
     input_token_ids: list[int] | None = None
     generated_token_ids: list[int] | None = None
 
@@ -129,13 +120,10 @@ class Translator(abc.ABC):
     def _configure_tokenizer(self) -> None:
         tokenizer = self.tokenizer
         if tokenizer.pad_token_id is None:
-            # Llama-family checkpoints, ALMA included, ship without a pad
-            # token. Reusing EOS is the standard choice and is safe here
-            # because padding is masked out and never generated into.
+            # Llama-family checkpoints (ALMA included) have no pad token.
             tokenizer.pad_token = tokenizer.eos_token
         if self.strips_prompt_from_output:
-            # Right padding would put pad tokens between the prompt and the
-            # continuation, which silently corrupts decoder-only generation.
+            # Decoder-only generation needs left padding.
             tokenizer.padding_side = "left"
 
     @property
@@ -158,12 +146,7 @@ class Translator(abc.ABC):
         )
 
     def parameter_counts(self) -> tuple[int, int]:
-        """Return total and non-embedding parameter counts.
-
-        Non-embedding is reported separately because embedding tables dominate
-        small models and are usually left untouched by pruning, so a raw total
-        understates how much of the transformer was actually removed.
-        """
+        """Return total and non-embedding parameter counts."""
         if not hasattr(self.model, "parameters"):
             return 0, 0
         try:
@@ -171,11 +154,7 @@ class Translator(abc.ABC):
         except ImportError:  # pragma: no cover
             return 0, 0
 
-        # A 4-bit bitsandbytes checkpoint stores two weights per uint8 element,
-        # so summing numel() reports half the parameters and would credit
-        # weight-only quantization with a fake parameter-count compression
-        # ratio. transformers' own num_parameters() corrects for this, so use
-        # it when the model provides it.
+        # Prefer num_parameters(), which counts packed 4-bit weights correctly.
         total = 0
         counter = getattr(self.model, "num_parameters", None)
         if callable(counter):
@@ -222,7 +201,7 @@ class Translator(abc.ABC):
             )
             for text in texts
         ]
-        # A truncated source is a silent quality ceiling, so it is counted.
+        # Untruncated lengths, to flag truncated sources.
         untruncated_lengths = [
             len(self.tokenizer(text, add_special_tokens=add_special)["input_ids"]) for text in texts
         ]
@@ -243,10 +222,7 @@ class Translator(abc.ABC):
             ).to(self.device)
             with torch.inference_mode():
                 sequences = self.model.generate(**batch, **gen_kwargs)
-            # Encoder-decoder output opens with decoder_start_token_id, which
-            # the model was given rather than generated. Counting it made the
-            # fixed token budget differ by one per segment between
-            # encoder-decoder and decoder-only systems.
+            # Encoder-decoder output starts with decoder_start_token_id; skip it.
             prompt_length = batch["input_ids"].shape[1] if self.strips_prompt_from_output else 1
             for position, index in enumerate(indices):
                 continuation = sequences[position, prompt_length:]
@@ -270,15 +246,10 @@ class Translator(abc.ABC):
             raise RuntimeError(msg)
         return [value for value in results if value is not None]
 
-    #: Decoding knobs this framework treats as evaluation policy and always
-    #: sets itself, so a checkpoint's generation_config.json cannot change how
-    #: it is measured. Anything not listed here is left to the checkpoint,
-    #: because it is a property of the architecture rather than of the
-    #: evaluation: forced_bos_token_id (NLLB needs it to select a target
-    #: language), forced_eos_token_id and bad_words_ids (Marian ships both),
-    #: renormalize_logits, suppress_tokens, decoder_start_token_id. Whatever a
-    #: checkpoint sets outside this list is recorded by
-    #: :meth:`unpinned_generation_settings` so it is at least visible.
+    #: Generation settings always set from the decode spec, overriding the
+    #: checkpoint's generation_config.json. Other checkpoint settings (e.g.
+    #: forced_bos_token_id for NLLB) are kept and recorded by
+    #: :meth:`unpinned_generation_settings`.
     POLICY_KEYS: ClassVar[frozenset[str]] = frozenset(
         {
             "do_sample",
@@ -304,19 +275,14 @@ class Translator(abc.ABC):
     )
 
     def unpinned_generation_settings(self) -> dict[str, Any]:
-        """Non-default generation settings this framework does not override.
-
-        Recorded in the run manifest. A reader can then see that, say, a Marian
-        checkpoint forces an EOS token, without the framework having to guess
-        whether overriding that would break the model.
-        """
+        """Non-default checkpoint generation settings outside :attr:`POLICY_KEYS`."""
         generation_config = getattr(self.model, "generation_config", None)
         differ = getattr(generation_config, "to_diff_dict", None)
         if not callable(differ):
             return {}
         try:
             diff = differ()
-        except Exception:  # recording provenance must never fail a run
+        except Exception:
             return {}
         return {
             key: value
@@ -325,13 +291,10 @@ class Translator(abc.ABC):
         }
 
     def _resolve_generate_kwargs(self, direction: Direction, decode: DecodeSpec) -> dict[str, Any]:
-        """Build ``generate`` arguments, pinning every policy knob explicitly.
+        """Build ``generate`` arguments, setting every key in :attr:`POLICY_KEYS` explicitly.
 
-        Several ALMA-family checkpoints inherit a ``generation_config.json``
-        from Llama 2 that enables sampling, and Qwen2.5 ships a repetition
-        penalty. Passing these values explicitly stops the checkpoint from
-        deciding how it is evaluated. See :attr:`POLICY_KEYS` for the boundary
-        between what is pinned and what is deliberately left alone.
+        Some ALMA checkpoints inherit sampling from Llama 2's generation config,
+        and Qwen2.5 ships a repetition penalty.
         """
         kwargs: dict[str, Any] = {
             "do_sample": decode.do_sample,
@@ -353,23 +316,16 @@ class Translator(abc.ABC):
                 if value is not None:
                     kwargs[label] = value
         else:
-            # Explicit nulls keep transformers from reinstating checkpoint
-            # defaults and warning about unused sampling parameters.
+            # Explicit None so checkpoint sampling defaults are not used.
             kwargs.update({"temperature": None, "top_p": None, "top_k": None})
         kwargs.update(self.generate_kwargs(direction))
         return kwargs
 
     def terminator_ids(self) -> frozenset[int]:
-        """Every token id that ends generation for this model.
+        """Every token id that ends generation: the tokenizer's EOS plus the generation config's.
 
-        Reading only ``tokenizer.eos_token_id`` is wrong for a large family of
-        models. Qwen2.5, for instance, has ``tokenizer.eos_token_id = 151645``
-        while its generation config lists ``[151645, 151643]``, and 151643 is
-        also its pad token. A model that stopped on the second terminator would
-        otherwise look like it never stopped, so its padding would be counted
-        as generated text: the token count, the throughput, the budget-hit rate
-        and the truncation rate would all be wrong at once, and a clean
-        translation would be flagged as truncated.
+        E.g. Qwen2.5 has ``eos_token_id = 151645`` in the tokenizer but
+        ``[151645, 151643]`` in its generation config.
         """
         if self._terminators is not None:
             return self._terminators
@@ -394,15 +350,8 @@ class Translator(abc.ABC):
     def _trim_continuation(self, continuation: Any) -> tuple[Any, int, bool]:
         """Cut a continuation at its first terminator.
 
-        Returns the kept tokens, the count of tokens the model actually
-        produced as content, and whether a terminator was found. The
-        terminator itself is excluded from the content count: it is a control
-        token, and counting it made ``n_wasted_tokens`` report 1 for output as
-        clean as ``"Hello."``.
-
-        A continuation with no terminator ran out of token budget. Whether that
-        truncated the translation is decided downstream, once the hypothesis is
-        known.
+        Returns the kept tokens, the number of content tokens (excluding the
+        terminator) and whether a terminator was found.
         """
         terminators = self.terminator_ids()
         if not terminators:

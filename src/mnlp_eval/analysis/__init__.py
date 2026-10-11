@@ -1,4 +1,4 @@
-"""Analyses that compare systems to each other rather than to a test set."""
+"""Subnetwork descriptors and overlap analysis."""
 
 from mnlp_eval.analysis.overlap import OverlapResult, compare_subnetworks, overlap_report
 from mnlp_eval.analysis.subnetwork import Subnetwork, load_subnetwork, load_subnetworks

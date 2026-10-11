@@ -1,14 +1,7 @@
-"""The shared generation loop in ``models.base``.
+"""The shared generation loop in ``models.base``, where hypotheses are reordered.
 
-This is the only place hypotheses are reordered, and until these tests existed
-nothing exercised it: ``tests/stubs.StubTranslator`` overrides ``translate``
-wholesale. A mutation swapping ``results[index]`` for ``results[position]``
-pairs every hypothesis with the wrong source and reference, collapsing BLEU,
-and the rest of the suite passed with that bug in place.
-
-The fake model and tokenizer here encode each segment's own index into its
-token ids, so a misalignment is detected directly rather than inferred from a
-score. Requires torch, but not a GPU and not a model download.
+The fake model and tokenizer encode each segment's index into its token ids,
+so misalignment is visible directly. Requires torch, but no GPU or download.
 """
 
 from __future__ import annotations
@@ -62,8 +55,7 @@ class FakeTokenizer:
 
     def __call__(self, text: str, **kwargs: Any) -> dict[str, list[int]]:
         index = self._index_of(text)
-        # Lengths vary between 1 and 5 tokens, so length bucketing actually
-        # reorders the batch and padding differs between neighbours.
+        # Lengths vary between 1 and 5 tokens, so length bucketing reorders the batch.
         length = index % 5 + 1
         ids = [PROMPT_BASE + index] * length
         limit = kwargs.get("max_length")
@@ -167,7 +159,7 @@ def _sources(count: int) -> list[str]:
 
 
 # --------------------------------------------------------------------------
-# Ordering: the bug this file exists for
+# Ordering
 # --------------------------------------------------------------------------
 
 
@@ -189,7 +181,7 @@ def test_output_stays_aligned_with_its_source(batch_size: int, sort_by_length: b
 
 
 def test_length_bucketing_actually_reorders_the_work() -> None:
-    # If it did not, the alignment test above would prove nothing.
+    # Otherwise the alignment test above would not test reordering.
     sources = _sources(10)
     translator = _causal(FakeModel())
     sorted_batches = FakeModel()
@@ -219,9 +211,7 @@ def test_empty_input_never_touches_the_model() -> None:
 
 def test_secondary_terminator_from_the_generation_config_is_honoured() -> None:
     # Qwen2.5 has tokenizer.eos_token_id 151645 and generation_config
-    # [151645, 151643]. Reading only the tokenizer made a model that stopped on
-    # the second one look like it never stopped, so its padding was counted as
-    # generated text and clean output was flagged as truncated.
+    # [151645, 151643]; both must count as terminators.
     model = FakeModel(stop_token=ALT_EOS, generation_eos=[EOS, ALT_EOS])
     translator = _causal(model)
     assert translator.terminator_ids() == frozenset({EOS, ALT_EOS})
@@ -238,8 +228,7 @@ def test_unknown_terminator_is_reported_as_budget_exhaustion() -> None:
 
 
 def test_a_list_valued_tokenizer_eos_does_not_crash() -> None:
-    # The idiom tokenizer.eos_token_id = model.generation_config.eos_token_id
-    # makes this a list, which a scalar comparison could not handle.
+    # tokenizer.eos_token_id = model.generation_config.eos_token_id makes this a list.
     translator = _causal(FakeModel(stop_token=ALT_EOS), FakeTokenizer(eos_token_id=[EOS, ALT_EOS]))
     assert translator.terminator_ids() == frozenset({EOS, ALT_EOS})
     outputs = translator.translate(DE_EN, _sources(2), DecodeSpec(num_beams=1))
@@ -247,15 +236,14 @@ def test_a_list_valued_tokenizer_eos_does_not_crash() -> None:
 
 
 def test_the_terminator_is_not_counted_as_content() -> None:
-    # Counting it reported n_wasted_tokens of 1 for output as clean as "Hello."
     translator = _causal(FakeModel(extra_tokens=2))
     output = translator.translate(DE_EN, _sources(1), DecodeSpec(num_beams=1))[0]
     assert output.n_generated_tokens == 3
 
 
 def test_decoder_start_token_is_not_counted_for_encoder_decoder() -> None:
-    # Counting it made the fixed token budget differ by one per segment between
-    # encoder-decoder and decoder-only systems.
+    # Not counted, so the token budget is the same for encoder-decoder and
+    # decoder-only systems.
     spec = ModelSpec.from_dict(
         {
             "name": "fake",
@@ -313,9 +301,7 @@ def test_checkpoint_sampling_and_repetition_settings_are_overridden() -> None:
     assert call["num_beams"] == 5
     assert call["temperature"] is None
     assert call["top_p"] is None
-    # The checkpoint's generation config asks for 1.1; evaluation policy wins,
-    # because a repetition penalty suppresses the collapse mode the
-    # behavioural metrics measure.
+    # The checkpoint's generation config asks for 1.1; evaluation policy wins.
     assert call["repetition_penalty"] == 1.0
     assert call["no_repeat_ngram_size"] == 0
     assert call["num_beam_groups"] == 1

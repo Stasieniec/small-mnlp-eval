@@ -66,7 +66,7 @@ def test_fingerprint_changes_when_the_template_changes() -> None:
         def render(self, direction, source):  # type: ignore[no-untyped-def]
             return super().render(direction, source) + " "
 
-    # An accidental whitespace edit must invalidate existing comparisons.
+    # A whitespace change changes the fingerprint.
     assert prompt_hash(Edited()) != prompt_hash(AlmaPrompt())
 
 
