@@ -25,7 +25,7 @@ Everything in the report comes from `notebooks/final_results.ipynb`, which only 
 committed files in `results/` (no GPU needed):
 
 ```bash
-pip install -e ".[report]" pandas matplotlib jupyter
+pip install -e ".[report]" jupyter
 jupyter nbconvert --to notebook --execute notebooks/final_results.ipynb
 ```
 
